@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates id="template" xml:space="preserve">
+    <t t-name="FleetRepairDashboard">
+        <div class="o_dashboards">
+            <div class="container-fluid o_repair_dashboard">
+                <t t-call="DashboardHeader" />
+                <t t-call="DashboardContent" />
+            </div>
+        </div>
+    </t>
+
+     <t t-name="DashboardHeader">
+        <div class="row o_dashboard_common" />
+    </t>
+
+    <t t-name="DashboardContent">
+        <link rel="stylesheet" href="/car_repair_industry/static/src/css/dashboard_backend.css" />
+        <div class="o_activity_DashboardContent">
+            <h4 class="mt16 dashboard_data_h2">Car Repair Details</h4>
+
+            <div class="col-md-12 mt64 row activity_content_main">
+                <div class="col-md-3" t-on-click="clickCarRepair">
+                    <a class="CarRepairList">
+                        <div class="activity_block">
+                            <div class="activity_block_left nth1">
+                                <i class="fa fa-cogs"></i>
+                            </div>
+                            <div class="activity_block_right">
+                                <span class="a_name" t-esc="fleet_repair_count" /><br/>
+                                <div class="a_name" data-activity_type="Car Repair requests">Car Repair</div>
+                            </div>
+                        </div>
+                    </a>
+                </div>
+                <div class="col-md-3" t-on-click= "clickAssignedtoTechnicians">
+                    <a class="AssignedtoTechnicians" data-activity_type="Assigned to Technicians" data-domain="[('state','=','in_progress')]">
+                        <div class="activity_block">
+                            <div class="activity_block_left nth2">
+                                <i class="fa fa-wrench"></i>
+                            </div>
+                            <div class="activity_block_right">
+                                <span class="a_name" t-esc="fleet_diagnos_d_count"/><br/>
+                                <div class="a_name" data-activity_type="Assigned to Technicians">Assigned to Technicians</div>
+                            </div>
+                        </div>
+                    </a>
+                </div>
+                <div class="col-md-3" t-on-click= "clickCarDiagnosis">
+                    <a class="CarDiagnosis">
+                        <div class="activity_block">
+                            <div class="activity_block_left nth3">
+                                <i class="fa fa-car"></i>
+                            </div>
+                            <div class="activity_block_right">
+                                <span class="a_name" t-esc="fleet_diagnos_count" /><br/>
+                                <div class="a_name" data-activity_type="Car Diagnosis">Car Diagnosis</div>
+                            </div>
+                        </div>
+                    </a>
+                </div>
+                <div class="col-md-3" t-on-click="clickCarRepair">
+                    <a class="CarRepairList" data-activity_type="Fleet Repair Done" data-domain="[('state','=','done')]">
+                        <div class="activity_block">
+                            <div class="activity_block_left nth4">
+                                <i class="fa fa-check-circle"></i>
+                            </div>
+                            <div class="activity_block_right">
+                                <span class="a_name" t-esc="fleet_repair_d_count" /><br/>
+                                <div class="a_name" data-activity_type="Fleet Repair Done">Done</div>
+                            </div>
+                        </div>
+                    </a>
+                </div>
+
+                <h4 class="mt64 mb32 dashboard_data_h2 col-12">Other Details</h4>
+                <div class="col-md-3" t-on-click="clickWorkOrders">
+                    <a class="WorkOrders">
+                        <div class="activity_block">
+                            <div class="activity_block_left nth5">
+                                <i class="fa fa-first-order"></i>
+                            </div>
+                            <div class="activity_block_right">
+                                <span class="a_name" t-esc="fleet_workorder_count" /><br/>
+                                <div class="a_name" data-activity_type="Work Orders">Work Orders</div>
+                            </div>
+                        </div>
+                    </a>
+                </div>
+                <div class="col-md-3" t-on-click="clickServiceType">
+                    <a class="a_name ServiceType">
+                        <div class="activity_block">
+                            <div class="activity_block_left nth6">
+                                <i class="fa fa-cog"></i>
+                            </div>
+                            <div class="activity_block_right">
+                                <span class="a_name" t-esc="fleet_service_type_count" /><br/>
+                                <div class="a_name" data-activity_type="Service Type">Service Type</div>
+                            </div>
+                        </div>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </t>
+</templates>

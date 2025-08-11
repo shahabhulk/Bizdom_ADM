@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<odoo>
+    <record id="account_move_line_labour_charge_list" model="ir.ui.view">
+        <field name="name">account.move.line.labour.charge.list</field>
+        <field name="model">labour.billing</field>
+        <field name="arch" type="xml">
+            <list>
+                <field name="department_id"/>
+                <field name="employee_id"/>
+<!--                <field name="name"/>-->
+                <field name="charge_amount"/> <!-- or labour_charges if you're using a custom field -->
+            </list>
+        </field>
+    </record>
+
+
+
+
+    <record id="action_labour_billing" model="ir.actions.act_window">
+        <field name="name">Labour Billing</field>
+        <field name="res_model">labour.billing</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
+
+    <menuitem id="menu_labour_billing" name="Labour Billing" parent="menu_bizdom_root" action="action_labour_billing"/>
+</odoo>

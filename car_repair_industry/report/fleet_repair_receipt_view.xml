@@ -1,0 +1,390 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+        <template id="fleet_repair_receipt_template_view">
+            <t t-call="web.html_container">
+                <div class="page">
+                    <!--                    <div style="margin-left:auto; width:30%; height:70px;">-->
+                    <!--                        -->
+                    <!--                    </div>-->
+                    <!-- <br/> -->
+                    <table style="width: 100%;border: 1px solid white;">
+                        <tr style="border-bottom: 1px solid black;">
+                            <td>
+                                <table style="width: 100%; border-collapse: collapse;border: 1px solid white;margin-top: -20px;">
+                                    <tr>
+                                        <td style=" text-align: left;border: none;border: 1px solid white;">
+                                            <span style="font-size:20px;">Job Card No</span>
+                                        </td>
+                                        <td style=" padding:5px;">
+                                            :
+                                            <span style="font-size:20px;" t-field="o.sequence"/>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td style="text-align: left;">
+                                            Service Advisor
+                                        </td>
+                                        <td style="padding:5px;">
+                                            :
+                                            <span t-field="o.user_id.name"/>
+                                        </td>
+                                    </tr>
+
+                                    <tr>
+                                        <td colspan="2" style="height: 10px;"></td>
+                                    </tr>
+                                    <tr>
+                                        <td style=" text-align: left;">Client
+                                        </td>
+                                        <td style=" padding:5px;">
+                                            :
+                                            <span t-if="o.client_id.name" t-field="o.client_id.name"/>
+
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td style=" text-align: left;">
+                                            Mobile
+                                        </td>
+                                        <td style="padding:5px;">
+                                            :
+                                            <span t-if="o.client_mobile" t-field="o.client_mobile"/>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td style="text-align: left;">
+                                            Mobile 2
+                                        </td>
+                                        <td style="padding:5px;">
+                                            :
+                                            <span t-if="o.client_phone" t-field="o.client_phone"/>
+                                        </td>
+
+                                    </tr>
+                                </table>
+                            </td>
+                            <td>
+
+                                <table style="width: 80%; border-collapse: collapse;margin-left:auto;border: 1px solid white;">
+                                    <tr>
+                                        <td style="font-weight: bold; text-align: left;text-indent: 20px;border: 1px solid white;">
+                                            JC Date
+                                        </td>
+                                        <td style="padding-right:10px;">
+                                            :
+                                            <t t-set="user_tz_date" t-value="context_timestamp(o.receipt_date)"/>
+                                            <span t-esc="user_tz_date.strftime('%d-%b-%y %I:%M %p') if user_tz_date else ''"
+                                                  style="font-weight: bold;"/>
+
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td style="font-weight: bold; text-align: left;text-indent: 20px;">
+                                            Promised Date
+                                        </td>
+                                        <td style="padding-right:10px;">
+                                            :
+                                            <t t-set="user_tz_date" t-value="context_timestamp(o.promised_date)"/>
+                                            <span t-esc="user_tz_date.strftime('%d-%b-%y %I:%M %p') if user_tz_date else ''"
+                                                  style="font-weight: bold;"/>
+
+
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td colspan="2" style="height: 10px;"></td>
+                                    </tr>
+                                    <tr>
+                                        <td style=" text-align: left; padding: 5px;text-indent: 20px;">REG No
+                                        </td>
+                                        <td style="padding-right:10px;">
+                                            :
+                                            <span t-if="o.license_plate" t-field="o.license_plate"/>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td style=" text-align: left; padding: 5px;text-indent: 20px;">MAKE
+                                        </td>
+                                        <td style="padding-right:10px;">
+                                            :
+                                            <span t-if="o.fleet_id.model_id.brand_id.name"
+                                                  t-field="o.fleet_id.model_id.brand_id.name"/>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td style=" text-align: left; padding: 5px;text-indent: 20px;">
+                                            MODEL
+                                        </td>
+
+                                        <td style="padding-right:10px;">
+                                            :
+                                            <span t-if="o.model_name" t-field="o.model_name"/>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td style=" text-align: left; padding: 5px;text-indent: 20px;">VIN
+                                        </td>
+                                        <td style="padding-right:10px;">
+                                            :
+                                            <t t-if="o.vin_sn">
+                                                <span t-field="o.vin_sn"/>
+                                            </t>
+                                        </td>
+
+                                    </tr>
+                                    <tr>
+                                        <td style="text-align: left; padding: 5px;text-indent: 20px;">KMS
+                                        </td>
+                                        <td style="padding-right:10px;">
+                                            :
+                                            <span t-if="o.kilometers_num" t-field="o.kilometers_num"/>
+                                        </td>
+                                    </tr>
+
+
+                                </table>
+                            </td>
+                        </tr>
+                    </table>
+
+
+                    <div style="height:50%;color-background:green;"/>
+
+                    <table style="width:70%; margin-top: 10px;text-align: center;margin-right: auto;border-collapse: collapse;border: 1px solid white;font-size:15px;">
+                        <t t-if="o.service_detail_line">
+                            <tr t-foreach="o.service_detail_line" t-as="line" t-foreach-index="line_index">
+                                <td style="padding:1px; text-align:left;">
+                                    <t t-esc="line_index + 1"/>.
+                                </td>
+                                <td style="padding:1px; text-align:left;">
+                                    <t t-esc="line.service_detail"/>
+                                </td>
+                                <td style="text-align:left;width:50%">
+                                    <span style="font-family: DejaVu Sans; font-size: 20px;">☐</span>
+                                </td>
+                            </tr>
+                            <t t-set="remaining_rows" t-value="10 - len(o.service_detail_line)"/>
+                            <t t-if="remaining_rows > 0">
+                                <tr t-foreach="range(remaining_rows)" t-as="i">
+                                    <td style="border: 1px solid white; height: 30px;"></td>
+                                    <td style="border: 1px solid white;"></td>
+                                </tr>
+                            </t>
+                        </t>
+                        <t t-if="not o.service_detail_line">
+                            <t t-set="row_count" t-value="10"/>
+                            <t t-foreach="range(row_count)" t-as="i">
+                                <tr>
+                                    <td style="border: 1px solid white;height: 30px;"></td>
+                                    <td style="border: 1px solid white;"></td>
+                                </tr>
+                            </t>
+
+                        </t>
+
+
+                    </table>
+
+                    <!--                    <t t-if="not o" t-set="o" t-value="doc"/>-->
+                    <!--                    <t t-if="not company">-->
+                    <!--                        <t t-if="company_id">-->
+                    <!--                            <t t-set="company" t-value="company_id"/>-->
+                    <!--                        </t>-->
+                    <!--                        <t t-elif="o and 'company_id' in o and o.company_id. sudo()">-->
+                    <!--                            <t t-set="company" t-value="o.company_id.sudo()"/>-->
+
+                    <!--                        </t>-->
+                    <!--                        <t t-else="else">-->
+                    <!--                            <t t-set="company" t-value="res_company"/>-->
+                    <!--                        </t>-->
+                    <!--                    </t>-->
+
+
+                    <div style="height:20%;"/>
+
+
+                    <table style="width:100%; border-collapse:collapse; border:1px solid black;margin-top:70px;font-size:15px;">
+                        <thead>
+                            <tr>
+                                <th style="border:1px solid black; padding:5px;">Items Name</th>
+                                <th style="border:1px solid black; padding:5px;">Item Code</th>
+                                <th style="border:1px solid black; padding:5px;">Qty</th>
+                                <th style="border:1px solid black; padding:5px;">Rate</th>
+                                <th style="border:1px solid black; padding:5px;">Total</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <t t-if="o.product_line_ids">
+                                <tr t-foreach="o.product_line_ids" t-as="line">
+                                    <td style="border-right:1px solid black; padding:5px; text-align:center;border-bottom: 1px solid white;border-left: 1px solid black;">
+                                        <t t-esc="line.product_id.name"/>
+                                    </td>
+                                    <td style="border-right:1px solid black; padding:5px; text-align:center;border-bottom: 1px solid white;border-left: 1px solid black;">
+                                        <t t-esc="line.item_code_display"/>
+                                    </td>
+                                    <td style="border-right:1px solid black; padding:5px; text-align:center;border-bottom: 1px solid white;border-left: 1px solid black;">
+                                        <t t-esc="line.quantity"/>
+                                    </td>
+                                    <td style="border-right:1px solid black; padding:5px; text-align:center;border-bottom: 1px solid white;border-left: 1px solid black;"></td>
+                                    <td style="border-right:1px solid black; padding:5px; text-align:center;border-bottom: 1px solid white;border-left: 1px solid black;">
+                                        <t t-esc="line.subtotal"/>
+                                    </td>
+                                </tr>
+                                <t t-set="remaining_rows" t-value="11- len(o.product_line_ids)"/>
+                                <t t-if="remaining_rows > 0">
+                                    <tr t-foreach="range(remaining_rows)" t-as="i">
+                                        <td style="border-bottom: 1px solid white;border-right: 1px solid black;border-left: 1px solid black; height: 30px;"></td>
+                                        <td style="border-bottom: 1px solid white;border-right: 1px solid black;border-left: 1px solid black;"></td>
+                                        <td style="border-bottom: 1px solid white;border-right: 1px solid black;border-left: 1px solid black;"></td>
+                                        <td style="border-bottom: 1px solid white;border-right: 1px solid black;border-left: 1px solid black;"></td>
+                                        <td style="border-bottom: 1px solid white;border-right: 1px solid black;border-left: 1px solid black;"></td>
+                                    </tr>
+                                </t>
+                                <tr>
+                                    <td style="border-bottom: 1px solid black;border-right: 1px solid black; height: 30px;"></td>
+                                    <td style="border-bottom: 1px solid black;border-right: 1px solid black;"></td>
+                                    <td style="border-bottom: 1px solid black;border-right: 1px solid black;"></td>
+                                    <td style="border-bottom: 1px solid black;border-right: 1px solid black;"></td>
+                                    <td style="border-bottom: 1px solid black;border-right: 1px solid black;"></td>
+                                </tr>
+
+
+                            </t>
+                            <t t-if="not o.product_line_ids">
+                                <t t-set="row_count" t-value="12"/>
+                                <t t-foreach="range(row_count)" t-as="i">
+                                    <tr>
+                                        <td style="border-bottom: 1px solid white;border-right: 1px solid black;border-left: 1px solid black; height: 30px;"></td>
+                                        <td style="border-bottom: 1px solid white;border-right: 1px solid black;border-left: 1px solid black;"></td>
+                                        <td style="border-bottom: 1px solid white;border-right: 1px solid black;border-left: 1px solid black;"></td>
+                                        <td style="border-bottom: 1px solid white;border-right: 1px solid black;border-left: 1px solid black;"></td>
+                                        <td style="border-bottom: 1px solid white;border-right: 1px solid black;border-left: 1px solid black;"></td>
+                                    </tr>
+                                </t>
+                                <tr>
+                                    <td style="border-bottom: 1px solid black;border-right: 1px solid black; height: 30px;"></td>
+                                    <td style="border-bottom: 1px solid black;border-right: 1px solid black;"></td>
+                                    <td style="border-bottom: 1px solid black;border-right: 1px solid black;"></td>
+                                    <td style="border-bottom: 1px solid black;border-right: 1px solid black;"></td>
+                                    <td style="border-bottom: 1px solid black;border-right: 1px solid black;"></td>
+                                </tr>
+                            </t>
+                        </tbody>
+                    </table>
+
+                    <table style="width:30%;border-collapse: collapse;border: 1px solid white;margin-top:10px;margin-left:auto;">
+                        <tr>
+                            <td style="border: 1px solid white;text-align:center;">
+                                Total Amount
+                            </td>
+                            <td style="border: 1px solid white; text-align:center;">
+                                :
+                            </td>
+                            <td style=" padding:5px;border: 1px solid white;">
+                                <span t-field="o.amount_total"/>
+                            </td>
+                        </tr>
+                    </table>
+
+
+                    <!--                    <div class="col-xs-12" style="width:100%; margin-top: 200px;">-->
+                    <!--                        <table style="width: 100%;border:white;">-->
+                    <!--                            <tr>-->
+                    <!--                                <td>-->
+                    <!--                                    <span style="border-top: 1px solid;">Signature of QC</span>-->
+                    <!--                                </td>-->
+                    <!--                            </tr>-->
+                    <!--                        </table>-->
+                    <!--                    </div>-->
+
+                </div>
+            </t>
+        </template>
+
+
+        <template id="machi_repa_rece_temp_id">
+            <t t-call="web.html_container">
+                <t t-foreach="docs" t-as="o">
+                    <t t-set="doc" t-value="o"/>
+                    <t t-call="car_repair_industry.custom_header_footer">
+                        <t t-set="res_company" t-value="res_company"/>
+                        <t t-call="car_repair_industry.fleet_repair_receipt_template_view"/>
+                    </t>
+                </t>
+            </t>
+        </template>
+
+
+        <template id="custom_header_footer">
+            <t t-if="not o" t-set="o" t-value="doc"/>
+            <t t-if="not company">
+                <t t-if="company_id">
+                    <t t-set="company" t-value="company_id"/>
+                </t>
+                <t t-elif="o and 'company_id' in o and o.company_id. sudo()">
+                    <t t-set="company" t-value="o.company_id.sudo()"/>
+
+                </t>
+                <t t-else="else">
+                    <t t-set="company" t-value="res_company"/>
+                </t>
+            </t>
+            <div class="header">
+                <img alt="img" t-if="res_company.logo" t-att-src="image_data_uri(res_company.logo)"
+                     style="width:90px;height:90px;margin-right:100px;"/>
+            </div>
+            <div class="article o_report_layout_clean">
+                <t t-out="0"/>
+            </div>
+            <div class="footer o_standard_footer" style="padding: 10px 0;height:0px;">
+                <div class="row" style="text-align: left;">
+                    <div class="col-4" style="margin-top:10%;">
+                        <span style="border-top: 1px solid;">Signature of QC</span>
+                    </div>
+                </div>
+            </div>
+        </template>
+
+        <!-- Inherit Sale Order Report -->
+        <template id="report_sale_order_inherit" inherit_id="sale.report_saleorder_document">
+            <xpath expr="//th[@name='th_description']" position="before">
+                <t t-if="len(doc.fleet_repair_id or []) != 0">
+                    <th name="th_model" class="text-left">Model #</th>
+                    <th name="th_license" class="text-left">License Plate</th>
+                </t>
+            </xpath>
+            <xpath expr="//td[@name='td_name']" position="before">
+                <t t-if="len(doc.fleet_repair_id or []) != 0">
+                    <td name="td_model">
+                        <span t-field="line.car_model"/>
+                    </td>
+                    <td name="td_license">
+                        <span t-field="line.license_plate"/>
+                    </td>
+                </t>
+            </xpath>
+        </template>
+
+        <!-- Inherit Account Invoice Reeport -->
+        <template id="report_account_invoice_inherit" inherit_id="account.report_invoice_document">
+            <xpath expr="//th[@name='th_description']" position="before">
+                <t t-if="o.create_form_fleet == True">
+                    <th name="th_model" class="text-left">Model #</th>
+                    <th name="th_license" class="text-left">License Plate</th>
+                </t>
+            </xpath>
+            <xpath expr="//td[@name='account_invoice_line_name']" position="before">
+                <t t-if="o.create_form_fleet == True">
+                    <td name="account_invoice_line_model">
+                        <span t-field="line.car_model"/>
+                    </td>
+                    <td name="account_invoice_line_license">
+                        <span t-field="line.license_plate"/>
+                    </td>
+                </t>
+            </xpath>
+        </template>
+
+    </data>
+</odoo>

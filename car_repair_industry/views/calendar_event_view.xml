@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+    <record id="calendar_event_form_views_inehrit" model="ir.ui.view">
+        <field name="name">calendar.event.form.views.inehrit</field>
+        <field name="model">calendar.event</field>
+        <field name="inherit_id" ref="calendar.view_calendar_event_form"/>
+        <field name="arch" type="xml">
+        	<xpath expr="//page[@name='page_invitations']" position="after">
+        		<page string="Appointment User" name="Appointment User">
+                    <group>
+                        <field name="partner_id" invisible="1"/>
+                        <field name="appoi_name"/>
+                        <field name="email"/>
+                        <field name="phone"/>
+                        <field name="time_slot" widget="float_time"/>
+                        <field name="weekday_get"/>
+                        <field name="booking_id"/>
+
+                    </group>
+                </page>
+        	</xpath>
+
+            <!-- <field name="start" position="replace">
+                <field name="start"/>
+             </field> -->
+        </field>
+    </record>
+
+    <record id="view_calendar_event_tree_views_inehrit" model="ir.ui.view">
+        <field name="name">calendar.event.list.views.inehrit</field>
+        <field name="model">calendar.event</field>
+        <field name="inherit_id" ref="calendar.view_calendar_event_tree"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='name']" position="after">
+                <field name="booking_id" />
+            </xpath>
+        </field>
+    </record>
+
+</odoo>
+
+
+<!-- 456 -->
+<!-- 1198 -->

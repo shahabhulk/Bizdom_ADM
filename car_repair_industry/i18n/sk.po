@@ -1,0 +1,2457 @@
+# Translation of Odoo Server.
+# This file contains the translation of the following modules:
+# 	* car_repair_industry
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: Odoo Server 17.0+e\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2024-07-30 12:18+0000\n"
+"PO-Revision-Date: 2024-07-31 16:45+0530\n"
+"Last-Translator: \n"
+"Language-Team: \n"
+"Language: sk\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=3; plural=(n==1 ? 0 : n>=2 && n<=4 ? 1 : 2);\n"
+"X-Generator: Poedit 3.4.3\n"
+
+#. module: car_repair_industry
+#: model:ir.model.fields,help:car_repair_industry.field_fleet_workorder__state
+msgid ""
+"* When a work order is created it is set in 'Draft' status.\n"
+"* When user sets work order in start mode that time it will be set in 'In Progress' "
+"status.\n"
+"* When work order is in running mode, during that time if user wants to stop or to make "
+"changes in order then can set in 'Pending' status.\n"
+"* When the user cancels the work order it will be set in 'Canceled' status.\n"
+"* When order is completely processed that time it is set in 'Finished' status."
+msgstr ""
+"* Keď sa vytvorí pracovný príkaz, nastaví sa do stavu „Koncept“.\n"
+"* Keď používateľ nastaví pracovný príkaz v režime spustenia, tento čas sa nastaví do "
+"stavu „Prebieha“.\n"
+"* Keď je pracovný príkaz v prevádzkovom režime, počas tohto času, ak chce používateľ "
+"zastaviť alebo vykonať zmeny v poradí, môže byť nastavený do stavu „Čaká“.\n"
+"* Keď používateľ zruší objednávku prác, bude nastavená do stavu „Zrušená“.\n"
+"* Po úplnom spracovaní objednávky sa tento čas nastaví do stavu „Dokončené“."
+
+#. module: car_repair_industry
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.fleet_diagnostic_request_template_view
+msgid "<b><span> NUMBER</span></b>"
+msgstr "<b><span> NUMBER</span></b>"
+
+#. module: car_repair_industry
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.fleet_diagnostic_result_template_view
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.fleet_repair_checklist_template_view
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.fleet_repair_receipt_template_view
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.fleet_workorder_template_view
+msgid "<b><span>CAR</span></b>"
+msgstr "<b><span>AUTO</span></b>"
+
+#. module: car_repair_industry
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.fleet_diagnostic_result_template_view
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.fleet_workorder_template_view
+msgid "<b><span>CODE</span></b>"
+msgstr "<b><span>KÓD</span></b>"
+
+#. module: car_repair_industry
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.fleet_diagnostic_request_template_view
+msgid "<b><span>Car</span></b>"
+msgstr "<b><span>Auto</span></b>"
+
+#. module: car_repair_industry
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.fleet_diagnostic_request_template_view
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.fleet_diagnostic_result_template_view
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.fleet_repair_checklist_template_view
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.fleet_repair_receipt_template_view
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.fleet_workorder_template_view
+msgid "<b><span>Client Address</span></b>"
+msgstr "<b><span>Adresa klienta</span></b>"
+
+#. module: car_repair_industry
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.fleet_diagnostic_request_template_view
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.fleet_diagnostic_result_template_view
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.fleet_repair_checklist_template_view
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.fleet_repair_receipt_template_view
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.fleet_workorder_template_view
+msgid "<b><span>Date of Receipt</span></b>"
+msgstr "<b><span>Dátum prijatia</span></b>"
+
+#. module: car_repair_industry
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.fleet_diagnostic_request_template_view
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.fleet_diagnostic_result_template_view
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.fleet_repair_checklist_template_view
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.fleet_repair_receipt_template_view
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.fleet_workorder_template_view
+msgid "<b><span>GUARANTEE</span></b>"
+msgstr "<b><span>ZÁRUKA</span></b>"
+
+#. module: car_repair_industry
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.fleet_diagnostic_result_template_view
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.fleet_repair_checklist_template_view
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.fleet_repair_receipt_template_view
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.fleet_workorder_template_view
+msgid "<b><span>MODEL NUMBER</span></b>"
+msgstr "<b><span>ČÍSLO MODELU</span></b>"
+
+#. module: car_repair_industry
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.fleet_diagnostic_result_template_view
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.fleet_workorder_template_view
+msgid "<b><span>QUANTITY</span></b>"
+msgstr "<b><span>QUANTITY</span></b>"
+
+#. module: car_repair_industry
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.fleet_diagnostic_request_template_view
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.fleet_diagnostic_result_template_view
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.fleet_repair_checklist_template_view
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.fleet_repair_receipt_template_view
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.fleet_workorder_template_view
+msgid "<b><span>SERIAL NUMBER</span></b>"
+msgstr "<b><span>SÉRIOVÉ ČÍSLO</span></b>"
+
+#. module: car_repair_industry
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.fleet_diagnostic_request_template_view
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.fleet_diagnostic_result_template_view
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.fleet_repair_checklist_template_view
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.fleet_repair_receipt_template_view
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.fleet_workorder_template_view
+msgid "<b><span>SERVICE TYPE</span></b>"
+msgstr "<b><span>TYP SLUŽBY</span></b>"
+
+#. module: car_repair_industry
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.fleet_diagnostic_result_template_view
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.fleet_workorder_template_view
+msgid "<b><span>SPARE PART</span></b>"
+msgstr "<b><span>NÁHRADNÝ DIEL</span></b>"
+
+#. module: car_repair_industry
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.fleet_repair_checklist_template_view
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.fleet_repair_receipt_template_view
+msgid "<b>Note:</b>"
+msgstr "<b>Poznámka:</b>"
+
+#. module: car_repair_industry
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.service_repair_form
+msgid "<option value=\"\">Select an option...</option>"
+msgstr "<option value=\"\">Vyberte možnosť...</option>"
+
+#. module: car_repair_industry
+#: model:mail.template,body_html:car_repair_industry.car_repair_service_done
+msgid ""
+"<p>Dear <t t-out=\"object.client_id.name\"></t>\n"
+"\t\t\t\t,</p>\n"
+"\t\t\t\t<p>\n"
+"\t\t\t\tWe have closed your car repair request now.\n"
+"\t\t\t\t</p><br>\n"
+"\t\t\t\t<a t-attf-href=\"/feedback/form/{{ object.id }}\" role=\"button\" class=\"btn "
+"btn-primary btn-md\">Please Give Your Feedback</a>\n"
+"\t\t\t\t<p>\n"
+"\t\t\t\tThanks for your Participation...!\n"
+"\t\t\t\t</p><br>\n"
+"\n"
+"\t\t\t\t<p>You can reply to this email if you have any questions.</p>\n"
+"\t\t\t\t<p>Please share your valuable feedback on our site.</p><br>\n"
+"\t\t\t\t<p>Thank you,</p>\n"
+"\n"
+"            "
+msgstr ""
+"<p>Vážený <t t-out=\"object.client_id.name\"></t>\n"
+"\t\t\t\t,</p>\n"
+"\t\t\t\t<p>\n"
+"\t\t\t\tVašu žiadosť o opravu auta sme teraz uzavreli.\n"
+"\t\t\t\t</p><br>\n"
+"\t\t\t\t<a t-attf-href=\"/feedback/form/{{ object.id }}\" role=\"button\" class=\"btn "
+"btn-primary btn-md\">Pošlite nám svoj názor</a>\n"
+"\t\t\t\t<p>\n"
+"\t\t\t\tĎakujeme za Vašu účasť...!\n"
+"\t\t\t\t</p><br>\n"
+"\n"
+"\t\t\t\t<p>Ak máte nejaké otázky, môžete odpovedať na tento e-mail.</p>\n"
+"\t\t\t\t<p>Podeľte sa o svoju cennú spätnú väzbu na našej stránke.</p><br>\n"
+"\t\t\t\t<p>Ďakujem,</p>"
+
+#. module: car_repair_industry
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.service_repair_form
+msgid ""
+"<select name=\"priority\" class=\"form-select col-lg-6\">\n"
+"                                            <option value=\"\">Select one</option>\n"
+"                                            <option value=\"0\">Low</option>\n"
+"                                            <option value=\"1\">Normal</option>\n"
+"                                            <option value=\"2\">High</option>\n"
+"                                        </select>"
+msgstr ""
+"<select name=\"priority\" class=\"form-select col-lg-6\">\n"
+"                                            <option value=\"\">Vyberte jednu</option>\n"
+"                                            <option value=\"0\">Nízka</option>\n"
+"                                            <option value=\"1\">Normálne</option>\n"
+"                                            <option value=\"2\">Vysoká</option>\n"
+"                                        </select>"
+
+#. module: car_repair_industry
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.appointment_form
+msgid "<span class=\"s_website_form_label_content\">Appointment Date</span>"
+msgstr "<span class=\"s_website_form_label_content\">Dátum stretnutia</span>"
+
+#. module: car_repair_industry
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.appointment_form
+msgid "<span class=\"s_website_form_label_content\">Appointment Description</span>"
+msgstr "<span class=\"s_website_form_label_content\">Popis stretnutia</span>"
+
+#. module: car_repair_industry
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.appointment_form
+msgid "<span class=\"s_website_form_label_content\">Appointment Subject</span>"
+msgstr "<span class=\"s_website_form_label_content\">Predmet stretnutia</span>"
+
+#. module: car_repair_industry
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.service_repair_form
+msgid "<span class=\"s_website_form_label_content\">Attach Files</span>"
+msgstr "<span class=\"s_website_form_label_content\">Priložiť súbory</span>"
+
+#. module: car_repair_industry
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.service_repair_form
+msgid "<span class=\"s_website_form_label_content\">Car Brand</span>"
+msgstr "<span class=\"s_website_form_label_content\">Značka auta</span>"
+
+#. module: car_repair_industry
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.service_repair_form
+msgid "<span class=\"s_website_form_label_content\">Car Manufacturing Year</span>"
+msgstr "<span class=\"s_website_form_label_content\">Rok výroby auta</span>"
+
+#. module: car_repair_industry
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.service_repair_form
+msgid "<span class=\"s_website_form_label_content\">Car Model</span>"
+msgstr "<span class=\"s_website_form_label_content\">Model auta</span>"
+
+#. module: car_repair_industry
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.appointment_form
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.service_repair_form
+msgid ""
+"<span class=\"s_website_form_label_content\">Email</span>\n"
+"                                            <span class=\"s_website_form_mark\"> *</span>"
+msgstr ""
+"<span class=\"s_website_form_label_content\">E-mail</span>\n"
+"                                            <span class=\"s_website_form_mark\"> *</span>"
+
+#. module: car_repair_industry
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.service_repair_form
+msgid "<span class=\"s_website_form_label_content\">List of Damage</span>"
+msgstr "<span class=\"s_website_form_label_content\">Zoznam poškodení</span>"
+
+#. module: car_repair_industry
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.appointment_form
+msgid ""
+"<span class=\"s_website_form_label_content\">Name</span>\n"
+"                                            <span class=\"s_website_form_mark\"> *</span>"
+msgstr ""
+"<span class=\"s_website_form_label_content\">Názov</span>\n"
+"                                            <span class=\"s_website_form_mark\"> *</span>"
+
+#. module: car_repair_industry
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.appointment_form
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.service_repair_form
+msgid "<span class=\"s_website_form_label_content\">Phone Number</span>"
+msgstr "<span class=\"s_website_form_label_content\">Telefónne číslo</span>"
+
+#. module: car_repair_industry
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.service_repair_form
+msgid "<span class=\"s_website_form_label_content\">Reason for Repair in Details</span>"
+msgstr "<span class=\"s_website_form_label_content\">Podrobnosti o dôvode opravy</span>"
+
+#. module: car_repair_industry
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.service_repair_form
+msgid ""
+"<span class=\"s_website_form_label_content\">Reason for Repair</span>\n"
+"                                            <span class=\"s_website_form_mark\"> *</span>"
+msgstr ""
+"<span class=\"s_website_form_label_content\">Dôvod opravy</span>\n"
+"                                            <span class=\"s_website_form_mark\"> *</span>"
+
+#. module: car_repair_industry
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.service_repair_form
+msgid ""
+"<span class=\"s_website_form_label_content\">Service</span>\n"
+"                                            <span class=\"s_website_form_mark\"> *</span>"
+msgstr ""
+"<span class=\"s_website_form_label_content\">Služba</span>\n"
+"                                            <span class=\"s_website_form_mark\"> *</span>"
+
+#. module: car_repair_industry
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.appointment_form
+msgid "<span class=\"s_website_form_label_content\">Time Slot</span>"
+msgstr "<span class=\"s_website_form_label_content\">Časový interval</span>"
+
+#. module: car_repair_industry
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.service_repair_form
+msgid ""
+"<span class=\"s_website_form_label_content\">Your Name</span>\n"
+"                                            <span class=\"s_website_form_mark\"> *</span>"
+msgstr ""
+"<span class=\"s_website_form_label_content\">Vaše meno</span>\n"
+"                                            <span class=\"s_website_form_mark\"> *</span>"
+
+#. module: car_repair_industry
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.service_repair_form
+msgid "<span class=\"s_website_form_label_content\">priority</span>"
+msgstr "<span class=\"s_website_form_label_content\">priorita</span>"
+
+#. module: car_repair_industry
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.fleet_repair_checklist_template_view
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.fleet_repair_receipt_template_view
+msgid "<span style=\"border-top: 1px solid;\">Signature of Reception</span>"
+msgstr "<span style=\"border-top: 1px solid;\">Podpis prijatia</span>"
+
+#. module: car_repair_industry
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.fleet_repair_checklist_template_view
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.fleet_repair_receipt_template_view
+msgid "<span style=\"border-top: 1px solid;float:right;\">Signature of Client</span>"
+msgstr "<span style=\"border-top: 1px solid;float:right;\">Podpis klienta</span>"
+
+#. module: car_repair_industry
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.fleet_workorder_template_view
+msgid ""
+"<span style=\"font-size: 20.0; font-weight: bold; margin-top: 20px;\">DIAGNOSTIC RESULT:"
+"</span>"
+msgstr ""
+"<span style=\"font-size: 20.0; font-weight: bold; margin-top: 20px;\">DIAGNOSTICKÝ "
+"VÝSLEDOK:</span>"
+
+#. module: car_repair_industry
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.fleet_diagnostic_result_template_view
+msgid "<span style=\"font-size: 20.0; font-weight: bold;\">DIAGNOSTIC RESULT:</span>"
+msgstr "<span style=\"font-size: 20.0; font-weight: bold;\">DIAGNOSTICKÝ VÝSLEDOK:</span>"
+
+#. module: car_repair_industry
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.fleet_diagnostic_request_template_view
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.fleet_repair_receipt_template_view
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.fleet_workorder_template_view
+msgid "<span style=\"font-size: 20.0; font-weight: bold;\">SERVICE DETAILS:</span>"
+msgstr "<span style=\"font-size: 20.0; font-weight: bold;\">PODROBNOSTI SLUŽBY:</span>"
+
+#. module: car_repair_industry
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.fleet_diagnostic_request_template_view
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.fleet_diagnostic_result_template_view
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.fleet_workorder_template_view
+msgid "<span style=\"font-weight: bold;\">Contact Number:</span>"
+msgstr "<span style=\"font-weight: bold;\">Číslo kontaktu:</span>"
+
+#. module: car_repair_industry
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.fleet_diagnostic_request_template_view
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.fleet_diagnostic_result_template_view
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.fleet_repair_checklist_template_view
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.fleet_repair_receipt_template_view
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.fleet_workorder_template_view
+msgid "<span style=\"font-weight: bold;\">Email:</span>"
+msgstr "<span style=\"font-weight: bold;\">E-mail:</span>"
+
+#. module: car_repair_industry
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.fleet_diagnostic_request_template_view
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.fleet_diagnostic_result_template_view
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.fleet_repair_checklist_template_view
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.fleet_repair_receipt_template_view
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.fleet_workorder_template_view
+msgid "<span style=\"font-weight: bold;\">Mobile:</span>"
+msgstr "<span style=\"font-weight: bold;\">Mobil:</span>"
+
+#. module: car_repair_industry
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.fleet_diagnostic_request_template_view
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.fleet_diagnostic_result_template_view
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.fleet_repair_checklist_template_view
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.fleet_repair_receipt_template_view
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.fleet_workorder_template_view
+msgid "<span style=\"font-weight: bold;\">Phone:</span>"
+msgstr "<span style=\"font-weight: bold;\">Telefón:</span>"
+
+#. module: car_repair_industry
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.fleet_repair_checklist_template_view
+msgid "<span style=\"font-weight: bold;\">REPAIRED CHECKLIST:</span>"
+msgstr "<span style=\"font-weight: bold;\">OPRAVENÝ KONTROLNÝ ZOZNAM:</span>"
+
+#. module: car_repair_industry
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.fleet_repair_label_template_view
+msgid "<span style=\"margin-left: 5px;\">Car</span>"
+msgstr "<span style=\"margin-left: 5px;\">Auto</span>"
+
+#. module: car_repair_industry
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.fleet_repair_label_template_view
+msgid "<span style=\"margin-left: 5px;\">Client</span>"
+msgstr "<span style=\"margin-left: 5px;\">Klient</span>"
+
+#. module: car_repair_industry
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.fleet_repair_label_template_view
+msgid "<span style=\"margin-left: 5px;\">Description</span>"
+msgstr "<span style=\"margin-left: 5px;\">Popis</span>"
+
+#. module: car_repair_industry
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.fleet_repair_label_template_view
+msgid "<span style=\"margin-left: 5px;\">N° Serial</span>"
+msgstr "<span style=\"margin-left: 5px;\">Č. seriálu</span>"
+
+#. module: car_repair_industry
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.fleet_repair_label_template_view
+msgid "<span style=\"margin-left: 5px;\">Service</span>"
+msgstr "<span style=\"margin-left: 5px;\">Služba</span>"
+
+#. module: car_repair_industry
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.fleet_repair_receipt_template_view
+msgid "<strong>Contact Name: </strong>"
+msgstr "<strong>Meno kontaktu: </strong>"
+
+#. module: car_repair_industry
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.fleet_diagnostic_request_template_view
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.fleet_diagnostic_result_template_view
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.fleet_repair_checklist_template_view
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.fleet_workorder_template_view
+msgid "<strong>Contact Name</strong>"
+msgstr "<strong>Meno kontaktu</strong>"
+
+#. module: car_repair_industry
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.fleet_diagnostic_request_template_view
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.fleet_diagnostic_result_template_view
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.fleet_repair_checklist_template_view
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.fleet_repair_receipt_template_view
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.fleet_workorder_template_view
+msgid "<strong>Tel: </strong>"
+msgstr "<strong>Tel: </strong>"
+
+#. module: car_repair_industry
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_diagnose__message_needaction
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_repair__message_needaction
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_workorder__message_needaction
+msgid "Action Needed"
+msgstr "Vyžaduje sa akcia"
+
+#. module: car_repair_industry
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_repair_checklist__active
+msgid "Active"
+msgstr "Aktívne"
+
+#. module: car_repair_industry
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_repair__activity_ids
+msgid "Activities"
+msgstr "Aktivity"
+
+#. module: car_repair_industry
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_repair__activity_exception_decoration
+msgid "Activity Exception Decoration"
+msgstr "Dekorácia s výnimkou aktivity"
+
+#. module: car_repair_industry
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_repair__activity_state
+msgid "Activity State"
+msgstr "Stav aktivity"
+
+#. module: car_repair_industry
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_repair__activity_type_icon
+msgid "Activity Type Icon"
+msgstr "Ikona typu aktivity"
+
+#. module: car_repair_industry
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.view_fleet_workorder_form
+msgid "Actual Repairing Date"
+msgstr "Skutočný dátum opravy"
+
+#. module: car_repair_industry
+#: model:ir.model,name:car_repair_industry.model_account_analytic_line
+msgid "Analytic Line"
+msgstr "Analytická linka"
+
+#. module: car_repair_industry
+#: model:ir.actions.act_window,name:car_repair_industry.action_appointment_slots
+#: model:ir.model,name:car_repair_industry.model_appointement_slots
+msgid "Appointement Slots"
+msgstr "Sloty na stretnutia"
+
+#. module: car_repair_industry
+#: model:ir.model.fields,field_description:car_repair_industry.field_calendar_event__apoi_description
+msgid "Appointment Description"
+msgstr "Popis stretnutia"
+
+#. module: car_repair_industry
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.calendar_event_form_views_inehrit
+msgid "Appointment User"
+msgstr "Používateľ schôdzky"
+
+#. module: car_repair_industry
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.view_fleet_diagnose_assign_to_tech_form
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.view_fleet_repair_assign_to_head_tech_form
+msgid "Assign"
+msgstr "Priradiť"
+
+#. module: car_repair_industry
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.view_fleet_repair_assign_to_head_tech_form
+msgid "Assign To Head-Technician"
+msgstr "Priradiť vedúcemu technikovi"
+
+#. module: car_repair_industry
+#: model:ir.actions.act_window,name:car_repair_industry.action_fleet_diagnose_assign_to_technician
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.view_fleet_diagnose_assign_to_tech_form
+msgid "Assign To Technician"
+msgstr "Priradiť technikovi"
+
+#. module: car_repair_industry
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.view_fleet_diagnose_form
+msgid "Assign to Technician"
+msgstr "Prideliť technikovi"
+
+#. module: car_repair_industry
+#: model:ir.actions.act_window,name:car_repair_industry.action_fleet_repair_assign_to_head_tech
+msgid "Assigned To Head-Technician"
+msgstr "Pridelené vedúcemu technikovi"
+
+#. module: car_repair_industry
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_repair__user_id
+msgid "Assigned to"
+msgstr "Priradený"
+
+#. module: car_repair_industry
+#. odoo-javascript
+#: code:addons/car_repair_industry/static/src/xml/fleet_repair_dashboard.xml:0
+#, python-format
+msgid "Assigned to Technicians"
+msgstr "Pridelené technikom"
+
+#. module: car_repair_industry
+#: model:ir.model,name:car_repair_industry.model_ir_attachment
+msgid "Attachment"
+msgstr "Príloha"
+
+#. module: car_repair_industry
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_diagnose__message_attachment_count
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_repair__message_attachment_count
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_workorder__message_attachment_count
+msgid "Attachment Count"
+msgstr "Počet príloh"
+
+#. module: car_repair_industry
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.appointment_form
+msgid "Available:<br/>"
+msgstr "Dostupné:<br/>"
+
+#. module: car_repair_industry
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.appointment_confirm
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.service_repair_form_submit
+msgid "Best regards,"
+msgstr "S Pozdravom,"
+
+#. module: car_repair_industry
+#: model:ir.ui.menu,name:car_repair_industry.menu_quotation
+msgid "Billing"
+msgstr "Fakturácia"
+
+#. module: car_repair_industry
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.appointment_form
+msgid "Book Your Appointment"
+msgstr "Book Your Appointment"
+
+#. module: car_repair_industry
+#: model:ir.model.fields,field_description:car_repair_industry.field_calendar_event__booking_id
+msgid "Booking ID"
+msgstr "ID rezervácie"
+
+#. module: car_repair_industry
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.appointment_confirm
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.service_repair_form_submit
+msgid "Booking Team"
+msgstr "Rezervačný tím"
+
+#. module: car_repair_industry
+#: model:ir.model.fields.selection,name:car_repair_industry.selection__fleet_diagnose__fuel_type__cng
+#: model:ir.model.fields.selection,name:car_repair_industry.selection__fleet_repair__fuel_type__cng
+#: model:ir.model.fields.selection,name:car_repair_industry.selection__fleet_repair_line__fuel_type__cng
+#: model:ir.model.fields.selection,name:car_repair_industry.selection__fleet_workorder__fuel_type__cng
+msgid "CNG"
+msgstr "CNG"
+
+#. module: car_repair_industry
+#: model:ir.model,name:car_repair_industry.model_calendar_event
+msgid "Calendar Event"
+msgstr "Udalosť kalendára"
+
+#. module: car_repair_industry
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.view_fleet_diagnose_assign_to_tech_form
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.view_fleet_repair_assign_to_head_tech_form
+msgid "Cancel"
+msgstr "Zrušiť"
+
+#. module: car_repair_industry
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.view_fleet_workorder_form
+msgid "Cancel Order"
+msgstr "Zrušiť objednávku"
+
+#. module: car_repair_industry
+#: model:ir.model.fields.selection,name:car_repair_industry.selection__fleet_repair__state__cancel
+#: model:ir.model.fields.selection,name:car_repair_industry.selection__fleet_repair_analysis__state__cancel
+#: model:ir.model.fields.selection,name:car_repair_industry.selection__fleet_workorder__state__cancel
+msgid "Cancelled"
+msgstr "Zrušené"
+
+#. module: car_repair_industry
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_diagnose__fleet_id
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_repair__fleet_id
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_repair_line__fleet_id
+msgid "Car"
+msgstr "Auto"
+
+#. module: car_repair_industry
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_repair__diagnose_id
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_repair_line__diagnose_id
+msgid "Car Diagnose"
+msgstr "Diagnostika auta"
+
+#. module: car_repair_industry
+#. odoo-javascript
+#. odoo-python
+#: code:addons/car_repair_industry/models/fleet_repair.py:0
+#: code:addons/car_repair_industry/models/fleet_workorder.py:0
+#: code:addons/car_repair_industry/static/src/xml/fleet_repair_dashboard.xml:0
+#: model:ir.actions.act_window,name:car_repair_industry.action_fleet_diagnose_tree_view
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_workorder__diagnose_id
+#: model:ir.model.fields,field_description:car_repair_industry.field_sale_order__diagnose_id
+#: model:ir.ui.menu,name:car_repair_industry.menu_fleet_diagnosis_submenu
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.view_fleet_diagnose_form
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.view_fleet_diagnose_tree
+#, python-format
+msgid "Car Diagnosis"
+msgstr "Diagnostika auta"
+
+#. module: car_repair_industry
+#: model:ir.actions.report,name:car_repair_industry.fleet_diagnostic_request_report_id
+msgid "Car Diagnostic Request"
+msgstr "Požiadavka na diagnostiku auta"
+
+#. module: car_repair_industry
+#: model:ir.actions.report,name:car_repair_industry.fleet_diagnostic_result_report_id
+msgid "Car Diagnostic Result"
+msgstr "Výsledok diagnostiky auta"
+
+#. module: car_repair_industry
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.view_fleet_diagnose_form
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.view_fleet_repair_form
+msgid "Car Info"
+msgstr "Informácie o aute"
+
+#. module: car_repair_industry
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_repair__fleet_repair_line
+msgid "Car Lines"
+msgstr "Automobilové linky"
+
+#. module: car_repair_industry
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_repair_line__list_of_damage
+msgid "Car Manufacturing Year"
+msgstr "Rok výroby auta"
+
+#. module: car_repair_industry
+#. odoo-javascript
+#. odoo-python
+#: code:addons/car_repair_industry/models/fleet_diagnose.py:0
+#: code:addons/car_repair_industry/models/fleet_workorder.py:0
+#: code:addons/car_repair_industry/static/src/xml/fleet_repair_dashboard.xml:0
+#: model:ir.actions.act_url,name:car_repair_industry.action_fleet_repair_dashboard
+#: model:ir.actions.act_window,name:car_repair_industry.action_fleet_repair_tree_view
+#: model:ir.model,name:car_repair_industry.model_fleet_repair
+#: model:ir.model.fields,field_description:car_repair_industry.field_account_analytic_line__repair_id
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_workorder__fleet_repair_id
+#: model:ir.model.fields,field_description:car_repair_industry.field_ir_attachment__car_repair_id
+#: model:ir.model.fields,field_description:car_repair_industry.field_product_document__car_repair_id
+#: model:ir.model.fields,field_description:car_repair_industry.field_sale_order__fleet_repair_id
+#: model:ir.module.category,name:car_repair_industry.module_category_fleet_repair
+#: model:ir.ui.menu,name:car_repair_industry.menu_fleet_repair_submenu
+#: model:ir.ui.menu,name:car_repair_industry.menu_main_car_repair
+#: model:ir.ui.menu,name:car_repair_industry.menu_sub_car_repair
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.view_fleet_repair_form
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.view_fleet_repair_tree
+#, python-format
+msgid "Car Repair"
+msgstr "Oprava auta"
+
+#. module: car_repair_industry
+#: model:mail.template,name:car_repair_industry.car_repair_service_done
+msgid "Car Repair - Send by Email"
+msgstr "Oprava auta - poslať e-mailom"
+
+#. module: car_repair_industry
+#: model:ir.actions.report,name:car_repair_industry.fleet_repair_checklist_id
+msgid "Car Repair Checklist"
+msgstr "Kontrolný zoznam opravy automobilov"
+
+#. module: car_repair_industry
+#: model:ir.actions.client,name:car_repair_industry.fleet_repair_dashboard
+msgid "Car Repair Dashboard"
+msgstr "Prístrojová doska na opravu auta"
+
+#. module: car_repair_industry
+#. odoo-javascript
+#: code:addons/car_repair_industry/static/src/xml/fleet_repair_dashboard.xml:0
+#, python-format
+msgid "Car Repair Details"
+msgstr "Podrobnosti o oprave auta"
+
+#. module: car_repair_industry
+#: model:ir.actions.report,name:car_repair_industry.fleet_repair_label_id
+msgid "Car Repair Label"
+msgstr "Štítok na opravu auta"
+
+#. module: car_repair_industry
+#: model:ir.actions.report,name:car_repair_industry.fleet_repair_receipt_id
+msgid "Car Repair Receipt"
+msgstr "Potvrdenie o oprave auta"
+
+#. module: car_repair_industry
+#: model:ir.actions.server,name:car_repair_industry.ir_actions_car_repair_dashboard
+msgid "Car Repair: Dashboard"
+msgstr "Oprava auta: Prístrojová doska"
+
+#. module: car_repair_industry
+#. odoo-python
+#: code:addons/car_repair_industry/models/fleet_diagnose.py:0
+#: code:addons/car_repair_industry/models/fleet_repair.py:0
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_repair__workorder_id
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_repair_line__workorder_id
+#, python-format
+msgid "Car Work Order"
+msgstr "Pracovná objednávka auta"
+
+#. module: car_repair_industry
+#: model:ir.actions.report,name:car_repair_industry.fleet_workorder_report_id
+msgid "Car Workorder"
+msgstr "Car Workorder"
+
+#. module: car_repair_industry
+#: model:ir.model.fields,field_description:car_repair_industry.field_account_analytic_line__diagnose_id
+msgid "Car diagnose"
+msgstr "Diagnostika auta"
+
+#. module: car_repair_industry
+#: model:ir.model.fields,field_description:car_repair_industry.field_account_analytic_line__workorder_id
+msgid "Car workorder"
+msgstr "Autopracovník"
+
+#. module: car_repair_industry
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_repair_line__fleet_repair_id
+msgid "Car."
+msgstr "Auto."
+
+#. module: car_repair_industry
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_diagnose__vin_sn
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_repair__vin_sn
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_repair_line__vin_sn
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_workorder__vin_sn
+msgid "Chassis Number"
+msgstr "Číslo podvozku"
+
+#. module: car_repair_industry
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_repair_checklist__name
+msgid "Checklist Name"
+msgstr "Názov kontrolného zoznamu"
+
+#. module: car_repair_industry
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.fleet_checklist_form
+msgid "Checklist name"
+msgstr "Názov kontrolného zoznamu"
+
+#. module: car_repair_industry
+#: model:ir.ui.menu,name:car_repair_industry.menu_fleet_checklist
+msgid "Checklists"
+msgstr "Kontrolné zoznamy"
+
+#. module: car_repair_industry
+#: model_terms:ir.actions.act_window,help:car_repair_industry.action_invoice_tree1
+msgid "Click to create a customer invoice."
+msgstr "Kliknutím vytvoríte zákaznícku faktúru."
+
+#. module: car_repair_industry
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_diagnose__client_id
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_repair__client_id
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_repair_analysis__client_id
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_workorder__client_id
+msgid "Client"
+msgstr "Zákazník"
+
+#. module: car_repair_industry
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.view_fleet_diagnose_form
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.view_fleet_repair_form
+msgid "Client Info"
+msgstr "Informácie o klientovi"
+
+#. module: car_repair_industry
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.feedback_form
+msgid "Comment"
+msgstr "Komentujte"
+
+#. module: car_repair_industry
+#: model:ir.model.fields.selection,name:car_repair_industry.selection__fleet_diagnose__state__done
+msgid "Complete"
+msgstr "Dokončiť"
+
+#. module: car_repair_industry
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_diagnose__contact_name
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_repair__contact_name
+msgid "Contact Name"
+msgstr "Kontaktné meno"
+
+#. module: car_repair_industry
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_diagnose__phone
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_repair__phone
+msgid "Contact Number"
+msgstr "Contact Number"
+
+#. module: car_repair_industry
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_workorder__count_dig
+msgid "Count diagnose"
+msgstr "Počítanie diagnózy"
+
+#. module: car_repair_industry
+#: model:website.menu,name:car_repair_industry.menu_appointment
+msgid "Create Appointment"
+msgstr "Vytvoriť stretnutie"
+
+#. module: car_repair_industry
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.view_fleet_repair_form
+msgid "Create Car Diagnosis"
+msgstr "Vytvorte diagnostiku auta"
+
+#. module: car_repair_industry
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.view_fleet_diagnose_form
+msgid "Create Quotation"
+msgstr "Vytvorte cenovú ponuku"
+
+#. module: car_repair_industry
+#: model_terms:ir.actions.act_window,help:car_repair_industry.action_quotations
+#: model_terms:ir.actions.act_window,help:car_repair_industry.action_saleorder
+msgid "Create a Quotation, the first step of a new sale."
+msgstr "Vytvorte cenovú ponuku, prvý krok nového predaja."
+
+#. module: car_repair_industry
+#: model_terms:ir.actions.act_window,help:car_repair_industry.checklist_action_view_tree
+msgid "Create a new checklist"
+msgstr "Vytvorte nový kontrolný zoznam"
+
+#. module: car_repair_industry
+#: model:ir.model.fields,field_description:car_repair_industry.field_appointement_slots__create_uid
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_diagnose__create_uid
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_diagnose_assignto_technician__create_uid
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_repair__create_uid
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_repair_analysis__create_uid
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_repair_assignto_headtech__create_uid
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_repair_checklist__create_uid
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_repair_line__create_uid
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_workorder__create_uid
+#: model:ir.model.fields,field_description:car_repair_industry.field_service_type__create_uid
+#: model:ir.model.fields,field_description:car_repair_industry.field_slots__create_uid
+#: model:ir.model.fields,field_description:car_repair_industry.field_spare_part_line__create_uid
+msgid "Created by"
+msgstr "Vytvoril"
+
+#. module: car_repair_industry
+#: model:ir.model.fields,field_description:car_repair_industry.field_appointement_slots__create_date
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_diagnose__create_date
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_diagnose_assignto_technician__create_date
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_repair__create_date
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_repair_analysis__create_date
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_repair_assignto_headtech__create_date
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_repair_checklist__create_date
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_repair_line__create_date
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_workorder__create_date
+#: model:ir.model.fields,field_description:car_repair_industry.field_service_type__create_date
+#: model:ir.model.fields,field_description:car_repair_industry.field_slots__create_date
+#: model:ir.model.fields,field_description:car_repair_industry.field_spare_part_line__create_date
+msgid "Created on"
+msgstr "Vytvorené na"
+
+#. module: car_repair_industry
+#: model:ir.actions.act_window,name:car_repair_industry.action_invoice_tree1
+msgid "Customer Invoices"
+msgstr "Zákaznícke faktúry"
+
+#. module: car_repair_industry
+#. odoo-javascript
+#: code:addons/car_repair_industry/static/src/js/slot_time.js:0
+#, python-format
+msgid "DENIED"
+msgstr "ZAMIETNUTÉ"
+
+#. module: car_repair_industry
+#: model:ir.ui.menu,name:car_repair_industry.car_repair_dashboard_menu
+msgid "Dashboard"
+msgstr "Dashboard"
+
+#. module: car_repair_industry
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_workorder__date
+msgid "Date"
+msgstr "Dátum"
+
+#. module: car_repair_industry
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_diagnose__receipt_date
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_repair__receipt_date
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_repair_analysis__receipt_date
+msgid "Date of Receipt"
+msgstr "Dátum prijatia"
+
+#. module: car_repair_industry
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.appointees_slots_form_view
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.appointees_slots_tree_view
+msgid "Date's"
+msgstr "Termíny"
+
+#. module: car_repair_industry
+#: model:ir.model.fields,field_description:car_repair_industry.field_appointement_slots__name
+msgid "Day's"
+msgstr "Dni"
+
+#. module: car_repair_industry
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.appointment_confirm
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.service_repair_form_submit
+msgid "Dear,"
+msgstr "Drahá,"
+
+#. module: car_repair_industry
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_repair_checklist__description
+#: model:ir.model.fields,field_description:car_repair_industry.field_spare_part_line__name
+msgid "Description"
+msgstr "Popis"
+
+#. module: car_repair_industry
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.service_repair_form
+msgid "Details"
+msgstr "Podrobnosti"
+
+#. module: car_repair_industry
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.view_fleet_diagnose_filter
+msgid "Diagnose"
+msgstr "Diagnostikujte"
+
+#. module: car_repair_industry
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.view_fleet_repair_form
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.view_fleet_workorder_form
+msgid "Diagnoses"
+msgstr "Diagnózy"
+
+#. module: car_repair_industry
+#: model:ir.model.fields.selection,name:car_repair_industry.selection__fleet_repair__state__diagnosis_complete
+#: model:ir.model.fields.selection,name:car_repair_industry.selection__fleet_repair_analysis__state__diagnosis_complete
+msgid "Diagnosis Complete"
+msgstr "Diagnóza dokončená"
+
+#. module: car_repair_industry
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_repair__dig_count
+msgid "Diagnosis Orders"
+msgstr "Príkazy na diagnostiku"
+
+#. module: car_repair_industry
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.view_repair_fleet_line_form
+msgid "Diagnosis Report"
+msgstr "Správa o diagnóze"
+
+#. module: car_repair_industry
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_repair_line__diagnostic_result
+msgid "Diagnostic Result"
+msgstr "Diagnostický výsledok"
+
+#. module: car_repair_industry
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.view_repair_fleet_line_form
+msgid "Diagnostic Results"
+msgstr "Diagnostické výsledky"
+
+#. module: car_repair_industry
+#: model:ir.model.fields.selection,name:car_repair_industry.selection__fleet_diagnose__fuel_type__diesel
+#: model:ir.model.fields.selection,name:car_repair_industry.selection__fleet_repair__fuel_type__diesel
+#: model:ir.model.fields.selection,name:car_repair_industry.selection__fleet_repair_line__fuel_type__diesel
+#: model:ir.model.fields.selection,name:car_repair_industry.selection__fleet_workorder__fuel_type__diesel
+msgid "Diesel"
+msgstr "Diesel"
+
+#. module: car_repair_industry
+#: model:res.groups,name:car_repair_industry.group_fleet_repair_directeur_commercial
+msgid "Director Commercial"
+msgstr "Obchodný riaditeľ"
+
+#. module: car_repair_industry
+#: model:ir.model.fields,field_description:car_repair_industry.field_appointement_slots__display_name
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_diagnose__display_name
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_diagnose_assignto_technician__display_name
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_repair__display_name
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_repair_analysis__display_name
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_repair_assignto_headtech__display_name
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_repair_checklist__display_name
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_repair_line__display_name
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_workorder__display_name
+#: model:ir.model.fields,field_description:car_repair_industry.field_service_type__display_name
+#: model:ir.model.fields,field_description:car_repair_industry.field_slots__display_name
+#: model:ir.model.fields,field_description:car_repair_industry.field_spare_part_line__display_name
+msgid "Display Name"
+msgstr "Zobraziť meno"
+
+#. module: car_repair_industry
+#. odoo-javascript
+#: code:addons/car_repair_industry/static/src/xml/fleet_repair_dashboard.xml:0
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_repair_checklist__done
+#: model:ir.model.fields.selection,name:car_repair_industry.selection__fleet_repair__state__done
+#: model:ir.model.fields.selection,name:car_repair_industry.selection__fleet_repair_analysis__state__done
+#: model:ir.model.fields.selection,name:car_repair_industry.selection__fleet_repair_line__state__done
+#, python-format
+msgid "Done"
+msgstr "hotový"
+
+#. module: car_repair_industry
+#: model:ir.model.fields.selection,name:car_repair_industry.selection__fleet_diagnose__state__draft
+#: model:ir.model.fields.selection,name:car_repair_industry.selection__fleet_repair_line__state__draft
+#: model:ir.model.fields.selection,name:car_repair_industry.selection__fleet_workorder__state__draft
+msgid "Draft"
+msgstr "Návrh"
+
+#. module: car_repair_industry
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.view_fleet_workorder_form
+msgid "Duration"
+msgstr "Trvanie"
+
+#. module: car_repair_industry
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.view_fleet_diagnose_form
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.view_fleet_repair_form
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.view_fleet_workorder_form
+msgid "Duration (Hours)"
+msgstr "Trvanie (hodiny)"
+
+#. module: car_repair_industry
+#: model:ir.model.fields.selection,name:car_repair_industry.selection__fleet_diagnose__fuel_type__electric
+#: model:ir.model.fields.selection,name:car_repair_industry.selection__fleet_repair__fuel_type__electric
+#: model:ir.model.fields.selection,name:car_repair_industry.selection__fleet_repair_line__fuel_type__electric
+#: model:ir.model.fields.selection,name:car_repair_industry.selection__fleet_workorder__fuel_type__electric
+msgid "Electric"
+msgstr "Elektrické"
+
+#. module: car_repair_industry
+#: model:ir.model.fields,field_description:car_repair_industry.field_calendar_event__email
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_diagnose__client_email
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_repair__client_email
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_workorder__client_email
+msgid "Email"
+msgstr "Email"
+
+#. module: car_repair_industry
+#: model:ir.model,name:car_repair_industry.model_mail_compose_message
+msgid "Email composition wizard"
+msgstr "Sprievodca zostavením e-mailu"
+
+#. module: car_repair_industry
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_workorder__date_finished
+msgid "End Date"
+msgstr "Dátum ukončenia"
+
+#. module: car_repair_industry
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.view_repair_fleet_line_form
+msgid "Enter Results"
+msgstr "Zadajte výsledky"
+
+#. module: car_repair_industry
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_diagnose__est_ser_hour
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_repair_line__est_ser_hour
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_workorder__est_ser_hour
+msgid "Estimated Sevice Hours"
+msgstr "Odhadovaný prevádzkový čas"
+
+#. module: car_repair_industry
+#: model:ir.model,name:car_repair_industry.model_fleet_repair_checklist
+msgid "FLEET REPAIR Checklist"
+msgstr "Kontrolný zoznam OPRAVY VOZOVÉHO PARKU"
+
+#. module: car_repair_industry
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_diagnose__description
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_workorder__description
+msgid "Fault Description"
+msgstr "Popis poruchy"
+
+#. module: car_repair_industry
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_repair__feedback_description
+msgid "Feedback"
+msgstr "Spätná väzba"
+
+#. module: car_repair_industry
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.view_fleet_workorder_form
+msgid "Finish Order"
+msgstr "Dokončiť objednávku"
+
+#. module: car_repair_industry
+#: model:ir.model.fields.selection,name:car_repair_industry.selection__fleet_workorder__state__done
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.view_fleet_workorder_form
+msgid "Finished"
+msgstr "Dokončené"
+
+#. module: car_repair_industry
+#: model:ir.model.fields,field_description:car_repair_industry.field_account_bank_statement_line__create_form_fleet
+#: model:ir.model.fields,field_description:car_repair_industry.field_account_move__create_form_fleet
+#: model:ir.model.fields,field_description:car_repair_industry.field_account_payment__create_form_fleet
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_workorder__fleet_id
+#: model:ir.model.fields,field_description:car_repair_industry.field_spare_part_line__fleet_id
+msgid "Fleet"
+msgstr "flotila"
+
+#. module: car_repair_industry
+#. odoo-python
+#: code:addons/car_repair_industry/models/custom_sale.py:0
+#, python-format
+msgid "Fleet Repair"
+msgstr "Oprava vozového parku"
+
+#. module: car_repair_industry
+#. odoo-python
+#: code:addons/car_repair_industry/models/custom_sale.py:0
+#, python-format
+msgid "Fleet Work Order"
+msgstr "Pracovný poriadok flotily"
+
+#. module: car_repair_industry
+#: model:ir.model,name:car_repair_industry.model_fleet_workorder
+msgid "Fleet WorkOrder"
+msgstr "Fleet WorkOrder"
+
+#. module: car_repair_industry
+#: model:ir.model,name:car_repair_industry.model_fleet_diagnose
+#: model:ir.model,name:car_repair_industry.model_spare_part_line
+msgid "Fleet diagnose"
+msgstr "Diagnóza flotily"
+
+#. module: car_repair_industry
+#: model:ir.model,name:car_repair_industry.model_fleet_repair_assignto_headtech
+msgid "Fleet diagnose assignto Head Technician"
+msgstr "Diagnóza vozového parku pridelená hlavnému technikovi"
+
+#. module: car_repair_industry
+#: model:ir.model,name:car_repair_industry.model_fleet_diagnose_assignto_technician
+msgid "Fleet diagnose assignto technician"
+msgstr "Diagnostika vozového parku pridelená technikovi"
+
+#. module: car_repair_industry
+#: model:ir.model,name:car_repair_industry.model_fleet_repair_analysis
+msgid "Fleet repair analysis"
+msgstr "Analýza opráv vozového parku"
+
+#. module: car_repair_industry
+#: model:ir.model,name:car_repair_industry.model_fleet_repair_line
+msgid "Fleet repair line"
+msgstr "Linka na opravu vozového parku"
+
+#. module: car_repair_industry
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_diagnose__message_follower_ids
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_repair__message_follower_ids
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_workorder__message_follower_ids
+msgid "Followers"
+msgstr "Followers"
+
+#. module: car_repair_industry
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_diagnose__message_partner_ids
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_repair__message_partner_ids
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_workorder__message_partner_ids
+msgid "Followers (Partners)"
+msgstr "Nasledovatelia (partneri)"
+
+#. module: car_repair_industry
+#: model:ir.model.fields,help:car_repair_industry.field_fleet_repair__activity_type_icon
+msgid "Font awesome icon e.g. fa-tasks"
+msgstr "Písmo úžasné ikona napr. fa-úlohy"
+
+#. module: car_repair_industry
+#: model:ir.model.fields.selection,name:car_repair_industry.selection__fleet_repair__guarantee_type__free
+#: model:ir.model.fields.selection,name:car_repair_industry.selection__fleet_repair_line__guarantee_type__free
+msgid "Free"
+msgstr "zadarmo"
+
+#. module: car_repair_industry
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_diagnose__fuel_type
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_repair__fuel_type
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_repair_line__fuel_type
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_workorder__fuel_type
+msgid "Fuel Type"
+msgstr "Typ paliva"
+
+#. module: car_repair_industry
+#: model:ir.model.fields,help:car_repair_industry.field_fleet_diagnose__fuel_type
+#: model:ir.model.fields,help:car_repair_industry.field_fleet_repair__fuel_type
+#: model:ir.model.fields,help:car_repair_industry.field_fleet_repair_line__fuel_type
+#: model:ir.model.fields,help:car_repair_industry.field_fleet_workorder__fuel_type
+msgid "Fuel Used by the vehicle"
+msgstr "Palivo spotrebované vozidlom"
+
+#. module: car_repair_industry
+#: model:ir.model.fields.selection,name:car_repair_industry.selection__fleet_diagnose__fuel_type__full_hybrid
+#: model:ir.model.fields.selection,name:car_repair_industry.selection__fleet_repair__fuel_type__full_hybrid
+#: model:ir.model.fields.selection,name:car_repair_industry.selection__fleet_repair_line__fuel_type__full_hybrid
+#: model:ir.model.fields.selection,name:car_repair_industry.selection__fleet_workorder__fuel_type__full_hybrid
+msgid "Full Hybrid"
+msgstr "Plne hybridný"
+
+#. module: car_repair_industry
+#: model:ir.model.fields.selection,name:car_repair_industry.selection__fleet_diagnose__fuel_type__gasoline
+#: model:ir.model.fields.selection,name:car_repair_industry.selection__fleet_repair__fuel_type__gasoline
+#: model:ir.model.fields.selection,name:car_repair_industry.selection__fleet_repair_line__fuel_type__gasoline
+#: model:ir.model.fields.selection,name:car_repair_industry.selection__fleet_workorder__fuel_type__gasoline
+msgid "Gasoline"
+msgstr "Benzín"
+
+#. module: car_repair_industry
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.view_fleet_diagnose_form
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.view_fleet_repair_form
+msgid "General"
+msgstr "generál"
+
+#. module: car_repair_industry
+#: model:ir.model.fields,help:car_repair_industry.field_fleet_diagnose__state
+#: model:ir.model.fields,help:car_repair_industry.field_fleet_repair_line__state
+msgid "Gives the status of the fleet Diagnosis."
+msgstr "Udáva stav diagnostiky vozového parku."
+
+#. module: car_repair_industry
+#: model:ir.model.fields,help:car_repair_industry.field_fleet_repair__state
+#: model:ir.model.fields,help:car_repair_industry.field_fleet_repair_analysis__state
+msgid "Gives the status of the fleet repairing."
+msgstr "Udáva stav opravy vozového parku."
+
+#. module: car_repair_industry
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.appointment_form
+msgid "Green"
+msgstr "zelená"
+
+#. module: car_repair_industry
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_repair__guarantee_type
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_repair_line__guarantee_type
+msgid "Guarantee Type"
+msgstr "Typ záruky"
+
+#. module: car_repair_industry
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_diagnose__has_message
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_repair__has_message
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_workorder__has_message
+msgid "Has Message"
+msgstr "Má správu"
+
+#. module: car_repair_industry
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_repair_assignto_headtech__user_id
+#: model:res.groups,name:car_repair_industry.group_fleet_repair_head_technician
+msgid "Head Technician"
+msgstr "Hlavný technik"
+
+#. module: car_repair_industry
+#: model:ir.module.category,description:car_repair_industry.module_category_fleet_repair
+msgid "Helps you manage your Car Repairing."
+msgstr "Pomôže vám spravovať opravu vášho auta."
+
+#. module: car_repair_industry
+#: model:ir.model.fields.selection,name:car_repair_industry.selection__fleet_diagnose__priority__2
+#: model:ir.model.fields.selection,name:car_repair_industry.selection__fleet_repair__priority__2
+#: model:ir.model.fields.selection,name:car_repair_industry.selection__fleet_repair__rating__2
+#: model:ir.model.fields.selection,name:car_repair_industry.selection__fleet_workorder__priority__2
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.feedback_form
+msgid "High"
+msgstr "Vysoká"
+
+#. module: car_repair_industry
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_workorder__hours_worked
+msgid "Hours Worked"
+msgstr "Odpracované hodiny"
+
+#. module: car_repair_industry
+#: model:ir.model.fields.selection,name:car_repair_industry.selection__fleet_diagnose__fuel_type__hybrid
+#: model:ir.model.fields.selection,name:car_repair_industry.selection__fleet_repair__fuel_type__hybrid
+#: model:ir.model.fields.selection,name:car_repair_industry.selection__fleet_repair_line__fuel_type__hybrid
+#: model:ir.model.fields.selection,name:car_repair_industry.selection__fleet_workorder__fuel_type__hybrid
+msgid "Hybrid"
+msgstr "Hybrid"
+
+#. module: car_repair_industry
+#: model:ir.model.fields.selection,name:car_repair_industry.selection__fleet_diagnose__fuel_type__hydrogen
+#: model:ir.model.fields.selection,name:car_repair_industry.selection__fleet_repair__fuel_type__hydrogen
+#: model:ir.model.fields.selection,name:car_repair_industry.selection__fleet_repair_line__fuel_type__hydrogen
+#: model:ir.model.fields.selection,name:car_repair_industry.selection__fleet_workorder__fuel_type__hydrogen
+msgid "Hydrogen"
+msgstr "Vodík"
+
+#. module: car_repair_industry
+#: model:ir.model.fields,field_description:car_repair_industry.field_appointement_slots__id
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_diagnose__id
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_diagnose_assignto_technician__id
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_repair__id
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_repair_analysis__id
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_repair_assignto_headtech__id
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_repair_checklist__id
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_repair_line__id
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_workorder__id
+#: model:ir.model.fields,field_description:car_repair_industry.field_service_type__id
+#: model:ir.model.fields,field_description:car_repair_industry.field_slots__id
+#: model:ir.model.fields,field_description:car_repair_industry.field_spare_part_line__id
+msgid "ID"
+msgstr "ID"
+
+#. module: car_repair_industry
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_repair__activity_exception_icon
+msgid "Icon"
+msgstr "Ikona"
+
+#. module: car_repair_industry
+#: model:ir.model.fields,help:car_repair_industry.field_fleet_repair__activity_exception_icon
+msgid "Icon to indicate an exception activity."
+msgstr "Ikona na označenie aktivity výnimky."
+
+#. module: car_repair_industry
+#: model:ir.model.fields,help:car_repair_industry.field_fleet_diagnose__message_needaction
+#: model:ir.model.fields,help:car_repair_industry.field_fleet_repair__message_needaction
+#: model:ir.model.fields,help:car_repair_industry.field_fleet_workorder__message_needaction
+msgid "If checked, new messages require your attention."
+msgstr "Ak je začiarknuté, nové správy vyžadujú vašu pozornosť."
+
+#. module: car_repair_industry
+#: model:ir.model.fields,help:car_repair_industry.field_fleet_diagnose__message_has_error
+#: model:ir.model.fields,help:car_repair_industry.field_fleet_diagnose__message_has_sms_error
+#: model:ir.model.fields,help:car_repair_industry.field_fleet_repair__message_has_error
+#: model:ir.model.fields,help:car_repair_industry.field_fleet_repair__message_has_sms_error
+#: model:ir.model.fields,help:car_repair_industry.field_fleet_workorder__message_has_error
+#: model:ir.model.fields,help:car_repair_industry.field_fleet_workorder__message_has_sms_error
+msgid "If checked, some messages have a delivery error."
+msgstr "Ak je začiarknuté, niektoré správy majú chybu doručenia."
+
+#. module: car_repair_industry
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_repair__images_ids
+msgid "Images"
+msgstr "snímky"
+
+#. module: car_repair_industry
+#: model:ir.model.fields.selection,name:car_repair_industry.selection__fleet_repair__state__diagnosis
+#: model:ir.model.fields.selection,name:car_repair_industry.selection__fleet_repair_analysis__state__diagnosis
+#: model:ir.model.fields.selection,name:car_repair_industry.selection__fleet_repair_line__state__diagnosis
+msgid "In Diagnosis"
+msgstr "V diagnostike"
+
+#. module: car_repair_industry
+#: model:ir.model.fields.selection,name:car_repair_industry.selection__fleet_diagnose__state__in_progress
+#: model:ir.model.fields.selection,name:car_repair_industry.selection__fleet_workorder__state__startworking
+msgid "In Progress"
+msgstr "Prebieha"
+
+#. module: car_repair_industry
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.view_fleet_workorder_form
+msgid "Information"
+msgstr "Informácie"
+
+#. module: car_repair_industry
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_repair__planned_hours
+msgid "Initially Planned Hours"
+msgstr "Pôvodne plánované hodiny"
+
+#. module: car_repair_industry
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_diagnose__inv_count
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_repair__inv_count
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_workorder__count_fleet_repair
+msgid "Invoice"
+msgstr "Faktúra"
+
+#. module: car_repair_industry
+#. odoo-python
+#: code:addons/car_repair_industry/models/fleet_diagnose.py:0
+#, python-format
+msgid "Invoice "
+msgstr "Faktúra"
+
+#. module: car_repair_industry
+#: model:ir.model.fields.selection,name:car_repair_industry.selection__fleet_repair__state__invoiced
+#: model:ir.model.fields.selection,name:car_repair_industry.selection__fleet_repair_analysis__state__invoiced
+msgid "Invoiced"
+msgstr "Fakturované"
+
+#. module: car_repair_industry
+#: model:ir.ui.menu,name:car_repair_industry.menu_sale_order_sub1
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.view_fleet_diagnose_form
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.view_fleet_repair_form
+msgid "Invoices"
+msgstr "faktúry"
+
+#. module: car_repair_industry
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_diagnose__message_is_follower
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_repair__message_is_follower
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_workorder__message_is_follower
+msgid "Is Follower"
+msgstr "Je nasledovník"
+
+#. module: car_repair_industry
+#: model:ir.model,name:car_repair_industry.model_account_move
+msgid "Journal Entry"
+msgstr "Zápis v denníku"
+
+#. module: car_repair_industry
+#: model:ir.model,name:car_repair_industry.model_account_move_line
+msgid "Journal Item"
+msgstr "Položka denníka"
+
+#. module: car_repair_industry
+#: model:ir.model.fields.selection,name:car_repair_industry.selection__fleet_diagnose__fuel_type__lpg
+#: model:ir.model.fields.selection,name:car_repair_industry.selection__fleet_repair__fuel_type__lpg
+#: model:ir.model.fields.selection,name:car_repair_industry.selection__fleet_repair_line__fuel_type__lpg
+#: model:ir.model.fields.selection,name:car_repair_industry.selection__fleet_workorder__fuel_type__lpg
+msgid "LPG"
+msgstr "LPG"
+
+#. module: car_repair_industry
+#: model:ir.model.fields,field_description:car_repair_industry.field_appointement_slots__write_uid
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_diagnose__write_uid
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_diagnose_assignto_technician__write_uid
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_repair__write_uid
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_repair_analysis__write_uid
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_repair_assignto_headtech__write_uid
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_repair_checklist__write_uid
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_repair_line__write_uid
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_workorder__write_uid
+#: model:ir.model.fields,field_description:car_repair_industry.field_service_type__write_uid
+#: model:ir.model.fields,field_description:car_repair_industry.field_slots__write_uid
+#: model:ir.model.fields,field_description:car_repair_industry.field_spare_part_line__write_uid
+msgid "Last Updated by"
+msgstr "Naposledy aktualizované používateľom"
+
+#. module: car_repair_industry
+#: model:ir.model.fields,field_description:car_repair_industry.field_appointement_slots__write_date
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_diagnose__write_date
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_diagnose_assignto_technician__write_date
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_repair__write_date
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_repair_analysis__write_date
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_repair_assignto_headtech__write_date
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_repair_checklist__write_date
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_repair_line__write_date
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_workorder__write_date
+#: model:ir.model.fields,field_description:car_repair_industry.field_service_type__write_date
+#: model:ir.model.fields,field_description:car_repair_industry.field_slots__write_date
+#: model:ir.model.fields,field_description:car_repair_industry.field_spare_part_line__write_date
+msgid "Last Updated on"
+msgstr "Naposledy aktualizované dňa"
+
+#. module: car_repair_industry
+#: model:ir.model.fields,field_description:car_repair_industry.field_account_move_line__license_plate
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_diagnose__license_plate
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_repair__license_plate
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_repair_line__license_plate
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_workorder__license_plate
+#: model:ir.model.fields,field_description:car_repair_industry.field_sale_order_line__license_plate
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.report_account_invoice_inherit
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.report_sale_order_inherit
+msgid "License Plate"
+msgstr "Poznávacia značka"
+
+#. module: car_repair_industry
+#: model:ir.model.fields,help:car_repair_industry.field_fleet_diagnose__license_plate
+#: model:ir.model.fields,help:car_repair_industry.field_fleet_repair__license_plate
+#: model:ir.model.fields,help:car_repair_industry.field_fleet_repair_line__license_plate
+#: model:ir.model.fields,help:car_repair_industry.field_fleet_workorder__license_plate
+msgid "License plate number of the vehicle (ie: plate number for a car)"
+msgstr "ŠPZ vozidla (tj: ŠPZ auta)"
+
+#. module: car_repair_industry
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.view_repair_fleet_line_form
+msgid "List of Damage"
+msgstr "Zoznam škôd"
+
+#. module: car_repair_industry
+#: model:ir.model.fields.selection,name:car_repair_industry.selection__fleet_diagnose__priority__0
+#: model:ir.model.fields.selection,name:car_repair_industry.selection__fleet_repair__priority__0
+#: model:ir.model.fields.selection,name:car_repair_industry.selection__fleet_repair__rating__0
+#: model:ir.model.fields.selection,name:car_repair_industry.selection__fleet_workorder__priority__0
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.feedback_form
+msgid "Low"
+msgstr "Nízka"
+
+#. module: car_repair_industry
+#: model:ir.ui.menu,name:car_repair_industry.menu_slots
+msgid "Meeting Slots"
+msgstr "Sloty na stretnutia"
+
+#. module: car_repair_industry
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_diagnose__message_has_error
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_repair__message_has_error
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_workorder__message_has_error
+msgid "Message Delivery error"
+msgstr "Chyba doručenia správy"
+
+#. module: car_repair_industry
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_diagnose__message_ids
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_repair__message_ids
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_workorder__message_ids
+msgid "Messages"
+msgstr "Správy"
+
+#. module: car_repair_industry
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_diagnose__client_mobile
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_repair__client_mobile
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_workorder__client_mobile
+msgid "Mobile"
+msgstr "Mobilné"
+
+#. module: car_repair_industry
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_diagnose__model_id
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_repair__model_id
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_repair_line__model_id
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_workorder__model_id
+msgid "Model"
+msgstr "Model"
+
+#. module: car_repair_industry
+#: model:ir.model.fields,field_description:car_repair_industry.field_account_move_line__car_model
+#: model:ir.model.fields,field_description:car_repair_industry.field_sale_order_line__car_model
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.report_account_invoice_inherit
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.report_sale_order_inherit
+msgid "Model #"
+msgstr "Model #"
+
+#. module: car_repair_industry
+#: model:ir.model.fields,help:car_repair_industry.field_fleet_diagnose__model_id
+#: model:ir.model.fields,help:car_repair_industry.field_fleet_repair__model_id
+#: model:ir.model.fields,help:car_repair_industry.field_fleet_repair_line__model_id
+#: model:ir.model.fields,help:car_repair_industry.field_fleet_workorder__model_id
+msgid "Model of the vehicle"
+msgstr "Model vozidla"
+
+#. module: car_repair_industry
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_repair__my_activity_date_deadline
+msgid "My Activity Deadline"
+msgstr "Termín mojej aktivity"
+
+#. module: car_repair_industry
+#: model:ir.model.fields,field_description:car_repair_industry.field_calendar_event__partner_id
+#: model:ir.model.fields,field_description:car_repair_industry.field_service_type__name
+msgid "Name"
+msgstr "názov"
+
+#. module: car_repair_industry
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_diagnose__service_type
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_repair__service_type
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_repair_line__service_type
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_workorder__service_type
+msgid "Nature of Service"
+msgstr "Povaha služby"
+
+#. module: car_repair_industry
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_repair__activity_calendar_event_id
+msgid "Next Activity Calendar Event"
+msgstr "Ďalšia udalosť kalendára aktivít"
+
+#. module: car_repair_industry
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_repair__activity_date_deadline
+msgid "Next Activity Deadline"
+msgstr "Termín ďalšej aktivity"
+
+#. module: car_repair_industry
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_repair__activity_summary
+msgid "Next Activity Summary"
+msgstr "Ďalší súhrn aktivít"
+
+#. module: car_repair_industry
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_repair__activity_type_id
+msgid "Next Activity Type"
+msgstr "Ďalší typ aktivity"
+
+#. module: car_repair_industry
+#: model:ir.model.fields.selection,name:car_repair_industry.selection__fleet_repair__guarantee__no
+#: model:ir.model.fields.selection,name:car_repair_industry.selection__fleet_repair_line__guarantee__no
+msgid "No"
+msgstr "Nie"
+
+#. module: car_repair_industry
+#: model:ir.model.fields.selection,name:car_repair_industry.selection__fleet_diagnose__priority__1
+#: model:ir.model.fields.selection,name:car_repair_industry.selection__fleet_repair__priority__1
+#: model:ir.model.fields.selection,name:car_repair_industry.selection__fleet_repair__rating__1
+#: model:ir.model.fields.selection,name:car_repair_industry.selection__fleet_workorder__priority__1
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.feedback_form
+msgid "Normal"
+msgstr "Normálne"
+
+#. module: car_repair_industry
+#: model_terms:ir.actions.act_window,help:car_repair_industry.action_quotations
+#: model_terms:ir.actions.act_window,help:car_repair_industry.action_saleorder
+msgid ""
+"Note that once a Quotation becomes a Sale Order, it will be moved\n"
+"                from the Quotations list to the Sales Order list."
+msgstr ""
+"Všimnite si, že keď sa z ponuky stane objednávka na predaj, bude presunutá\n"
+"                zo zoznamu Cenové ponuky do zoznamu Objednávka odberateľa."
+
+#. module: car_repair_industry
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_repair__description
+msgid "Notes"
+msgstr "Poznámky"
+
+#. module: car_repair_industry
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_diagnose__message_needaction_counter
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_repair__message_needaction_counter
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_workorder__message_needaction_counter
+msgid "Number of Actions"
+msgstr "Počet akcií"
+
+#. module: car_repair_industry
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_workorder__cycle
+msgid "Number of Cycles"
+msgstr "Počet cyklov"
+
+#. module: car_repair_industry
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_workorder__hour
+msgid "Number of Hours"
+msgstr "Počet hodín"
+
+#. module: car_repair_industry
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_diagnose__message_has_error_counter
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_repair__message_has_error_counter
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_workorder__message_has_error_counter
+msgid "Number of errors"
+msgstr "Počet chýb"
+
+#. module: car_repair_industry
+#: model:ir.model.fields,help:car_repair_industry.field_fleet_diagnose__message_needaction_counter
+#: model:ir.model.fields,help:car_repair_industry.field_fleet_repair__message_needaction_counter
+#: model:ir.model.fields,help:car_repair_industry.field_fleet_workorder__message_needaction_counter
+msgid "Number of messages requiring action"
+msgstr "Počet správ vyžadujúcich akciu"
+
+#. module: car_repair_industry
+#: model:ir.model.fields,help:car_repair_industry.field_fleet_diagnose__message_has_error_counter
+#: model:ir.model.fields,help:car_repair_industry.field_fleet_repair__message_has_error_counter
+#: model:ir.model.fields,help:car_repair_industry.field_fleet_workorder__message_has_error_counter
+msgid "Number of messages with delivery error"
+msgstr "Počet správ s chybou doručenia"
+
+#. module: car_repair_industry
+#: model_terms:ir.actions.act_window,help:car_repair_industry.action_invoice_tree1
+msgid ""
+"Odoo's electronic invoicing allows to ease and fasten the\n"
+"                collection of customer payments. Your customer receives the\n"
+"                invoice by email and he can pay online and/or import it\n"
+"                in his own system."
+msgstr ""
+"Elektronická fakturácia Odoo umožňuje zjednodušiť a upevniť\n"
+"                inkaso zákazníckych platieb. Váš zákazník dostane\n"
+"                faktúru e-mailom a môže ju zaplatiť online a/alebo importovať\n"
+"                v jeho vlastnom systéme."
+
+#. module: car_repair_industry
+#. odoo-javascript
+#: code:addons/car_repair_industry/static/src/xml/fleet_repair_dashboard.xml:0
+#, python-format
+msgid "Other Details"
+msgstr "Ostatné detaily"
+
+#. module: car_repair_industry
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.appointment_confirm
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.service_repair_form_submit
+msgid "Our team will Contact you shortly."
+msgstr "Náš tím vás bude čoskoro kontaktovať."
+
+#. module: car_repair_industry
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_repair__parent_id
+msgid "Parent Repair"
+msgstr "Parent RepairRodičovská oprava"
+
+#. module: car_repair_industry
+#: model:ir.model.fields,help:car_repair_industry.field_calendar_event__partner_id
+msgid "Partner-related data of the user"
+msgstr "Údaje používateľa súvisiace s partnerom"
+
+#. module: car_repair_industry
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.view_fleet_workorder_form
+msgid "Pause Work Order"
+msgstr "Pozastaviť pracovný príkaz"
+
+#. module: car_repair_industry
+#: model:ir.model.fields.selection,name:car_repair_industry.selection__fleet_workorder__state__pause
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.view_fleet_workorder_form
+msgid "Pending"
+msgstr "Čaká na spracovanie"
+
+#. module: car_repair_industry
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.service_repair_form
+msgid "Personal Details"
+msgstr "Osobné údaje"
+
+#. module: car_repair_industry
+#: model:ir.model.fields.selection,name:car_repair_industry.selection__fleet_repair_line__fuel_type__petrol
+msgid "Petrol"
+msgstr "Benzín"
+
+#. module: car_repair_industry
+#: model:ir.model.fields,field_description:car_repair_industry.field_calendar_event__phone
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_diagnose__client_phone
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_repair__client_phone
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_workorder__phone
+msgid "Phone"
+msgstr "Telefón"
+
+#. module: car_repair_industry
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_workorder__client_phone
+msgid "Phone."
+msgstr "Telefón."
+
+#. module: car_repair_industry
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.view_fleet_workorder_form
+msgid "Planned Date"
+msgstr "Plánovaný dátum"
+
+#. module: car_repair_industry
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_workorder__date_planned_end
+msgid "Planned End Date"
+msgstr "Plánovaný dátum ukončenia"
+
+#. module: car_repair_industry
+#: model:ir.model.constraint,message:car_repair_industry.constraint_appointement_slots_unique_appointment_date
+msgid "Please Add Unique Appointement Slots Date."
+msgstr "Pridajte dátum jedinečných termínov."
+
+#. module: car_repair_industry
+#. odoo-javascript
+#: code:addons/car_repair_industry/static/src/js/slot_time.js:0
+#, python-format
+msgid "Please Select Slot First"
+msgstr "Najprv vyberte slot"
+
+#. module: car_repair_industry
+#: model:ir.model.fields.selection,name:car_repair_industry.selection__fleet_diagnose__fuel_type__plug_in_hybrid_diesel
+#: model:ir.model.fields.selection,name:car_repair_industry.selection__fleet_repair__fuel_type__plug_in_hybrid_diesel
+#: model:ir.model.fields.selection,name:car_repair_industry.selection__fleet_repair_line__fuel_type__plug_in_hybrid_diesel
+#: model:ir.model.fields.selection,name:car_repair_industry.selection__fleet_workorder__fuel_type__plug_in_hybrid_diesel
+msgid "Plug-in Hybrid Diesel"
+msgstr "Plug-in hybridný diesel"
+
+#. module: car_repair_industry
+#: model:ir.model.fields.selection,name:car_repair_industry.selection__fleet_diagnose__fuel_type__plug_in_hybrid_gasoline
+#: model:ir.model.fields.selection,name:car_repair_industry.selection__fleet_repair__fuel_type__plug_in_hybrid_gasoline
+#: model:ir.model.fields.selection,name:car_repair_industry.selection__fleet_repair_line__fuel_type__plug_in_hybrid_gasoline
+#: model:ir.model.fields.selection,name:car_repair_industry.selection__fleet_workorder__fuel_type__plug_in_hybrid_gasoline
+msgid "Plug-in Hybrid Gasoline"
+msgstr "Plug-in hybridný benzín"
+
+#. module: car_repair_industry
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.view_fleet_repair_form
+msgid "Print Label"
+msgstr "Vytlačiť štítok"
+
+#. module: car_repair_industry
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.view_fleet_repair_form
+msgid "Print Receipt"
+msgstr "Vytlačiť potvrdenie"
+
+#. module: car_repair_industry
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_diagnose__priority
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_repair__priority
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_workorder__priority
+msgid "Priority"
+msgstr "Priorita"
+
+#. module: car_repair_industry
+#: model:ir.model.fields,field_description:car_repair_industry.field_spare_part_line__product_id
+msgid "Product"
+msgstr "Produkt"
+
+#. module: car_repair_industry
+#: model:ir.model.fields,field_description:car_repair_industry.field_spare_part_line__default_code
+msgid "Product Code"
+msgstr "Kód produktu"
+
+#. module: car_repair_industry
+#: model:ir.model.fields,field_description:car_repair_industry.field_spare_part_line__quantity
+msgid "Quantity"
+msgstr "Množstvo"
+
+#. module: car_repair_industry
+#: model:ir.model.fields.selection,name:car_repair_industry.selection__fleet_repair__state__saleorder
+#: model:ir.model.fields.selection,name:car_repair_industry.selection__fleet_repair_analysis__state__saleorder
+msgid "Quotation Approved"
+msgstr "Cenová ponuka bola schválená"
+
+#. module: car_repair_industry
+#: model:ir.model.fields.selection,name:car_repair_industry.selection__fleet_repair__state__quote
+#: model:ir.model.fields.selection,name:car_repair_industry.selection__fleet_repair_analysis__state__quote
+msgid "Quotation Sent"
+msgstr "Cenová ponuka bola odoslaná"
+
+#. module: car_repair_industry
+#: model:ir.actions.act_window,name:car_repair_industry.action_quotations
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_diagnose__quotation_count
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_repair__quotation_count
+#: model:ir.ui.menu,name:car_repair_industry.menu_quotation_sub
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.view_fleet_diagnose_form
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.view_fleet_repair_form
+msgid "Quotations"
+msgstr "Citácie"
+
+#. module: car_repair_industry
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_repair__rating
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.feedback_form
+msgid "Rating"
+msgstr "Hodnotenie"
+
+#. module: car_repair_industry
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_diagnose__rating_ids
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_repair__rating_ids
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_workorder__rating_ids
+msgid "Ratings"
+msgstr "hodnotenia"
+
+#. module: car_repair_industry
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.fleet_diagnostic_request_template_view
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.fleet_diagnostic_result_template_view
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.fleet_repair_checklist_template_view
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.fleet_repair_receipt_template_view
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.fleet_workorder_template_view
+msgid "Receipt"
+msgstr "Potvrdenie"
+
+#. module: car_repair_industry
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.fleet_repair_label_template_view
+msgid "Receipt Date:"
+msgstr "Dátum prijatia:"
+
+#. module: car_repair_industry
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_diagnose__service_rec_no
+msgid "Receipt No"
+msgstr "Receipt No"
+
+#. module: car_repair_industry
+#: model:ir.model.fields.selection,name:car_repair_industry.selection__fleet_repair__state__draft
+#: model:ir.model.fields.selection,name:car_repair_industry.selection__fleet_repair_analysis__state__draft
+msgid "Received"
+msgstr "Prijaté"
+
+#. module: car_repair_industry
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.appointment_form
+msgid "Red"
+msgstr "Červená"
+
+#. module: car_repair_industry
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_repair__repair_checklist_ids
+msgid "Repair Checklist"
+msgstr "Kontrolný zoznam opravy"
+
+#. module: car_repair_industry
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.custom_view_order_form
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.view_fleet_diagnose_form
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.view_fleet_workorder_form
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.view_repair_order_filter
+msgid "Repair Order"
+msgstr "Objednávka opravy"
+
+#. module: car_repair_industry
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_diagnose__fleet_repair_count
+#: model:ir.model.fields,field_description:car_repair_industry.field_sale_order__count_fleet_repair
+msgid "Repair Orders"
+msgstr "Objednávky na opravu"
+
+#. module: car_repair_industry
+#: model:ir.model.fields,field_description:car_repair_industry.field_sale_order__workorder_id
+msgid "Repair Work Order"
+msgstr "Príkaz na opravu"
+
+#. module: car_repair_industry
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.appointment_form
+msgid "Reserved:<br/>"
+msgstr "Rezervované:<br/>"
+
+#. module: car_repair_industry
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_repair__activity_user_id
+msgid "Responsible User"
+msgstr "Zodpovedný používateľ"
+
+#. module: car_repair_industry
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.view_fleet_workorder_form
+msgid "Resume"
+msgstr "Pokračovať"
+
+#. module: car_repair_industry
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.view_fleet_workorder_form
+msgid "Resume Work Order"
+msgstr "Obnoviť pracovný príkaz"
+
+#. module: car_repair_industry
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.view_fleet_repair_form
+msgid "Review and Ratings"
+msgstr "Recenzie a hodnotenia"
+
+#. module: car_repair_industry
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_diagnose__message_has_sms_error
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_repair__message_has_sms_error
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_workorder__message_has_sms_error
+msgid "SMS Delivery error"
+msgstr "Chyba doručenia SMS"
+
+#. module: car_repair_industry
+#. odoo-python
+#: code:addons/car_repair_industry/models/fleet_diagnose.py:0
+#: code:addons/car_repair_industry/models/fleet_repair.py:0
+#: code:addons/car_repair_industry/models/fleet_workorder.py:0
+#, python-format
+msgid "Sale"
+msgstr "zľava"
+
+#. module: car_repair_industry
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_diagnose__saleorder_count
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_repair__saleorder_count
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_workorder__saleorder_count
+msgid "Sale Order"
+msgstr "Predajná objednávka"
+
+#. module: car_repair_industry
+#: model:ir.model,name:car_repair_industry.model_sale_advance_payment_inv
+msgid "Sales Advance Payment Invoice"
+msgstr "Predajná zálohová faktúra"
+
+#. module: car_repair_industry
+#: model:ir.actions.act_window,name:car_repair_industry.action_saleorder
+#: model:ir.model,name:car_repair_industry.model_sale_order
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_diagnose__sale_order_id
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_repair__sale_order_id
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_workorder__sale_order_id
+#: model:ir.ui.menu,name:car_repair_industry.menu_sale_order_sub
+msgid "Sales Order"
+msgstr "Predajné objednávky"
+
+#. module: car_repair_industry
+#: model:ir.model,name:car_repair_industry.model_sale_order_line
+msgid "Sales Order Line"
+msgstr "Linka objednávky predaja"
+
+#. module: car_repair_industry
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.view_fleet_diagnose_form
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.view_fleet_repair_form
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.view_fleet_workorder_form
+msgid "Sales Orders"
+msgstr "Predajné objednávky"
+
+#. module: car_repair_industry
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_workorder__date_planned
+msgid "Scheduled Date"
+msgstr "Plánovaný dátum"
+
+#. module: car_repair_industry
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.view_fleet_diagnose_filter
+msgid "Search Car Diagnoses"
+msgstr "Vyhľadajte diagnostiku áut"
+
+#. module: car_repair_industry
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.view_repair_order_filter
+msgid "Search Repair Order"
+msgstr "Vyhľadajte objednávku opravy"
+
+#. module: car_repair_industry
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.view_fleet_workorder_filter
+msgid "Search fleet WorkOrder"
+msgstr "Vyhľadajte vo flotile WorkOrder"
+
+#. module: car_repair_industry
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_repair__sequence
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_repair_analysis__sequence
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_workorder__sequence
+msgid "Sequence"
+msgstr "Sekvencia"
+
+#. module: car_repair_industry
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_repair__service_detail
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_repair_line__service_detail
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.view_repair_fleet_line_form
+msgid "Service Details"
+msgstr "Podrobnosti o službe"
+
+#. module: car_repair_industry
+#: model:res.groups,name:car_repair_industry.group_fleet_repair_service_manager
+msgid "Service Manager"
+msgstr "Vedúci služby"
+
+#. module: car_repair_industry
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.view_fleet_diagnose_form
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.view_fleet_repair_form
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.view_fleet_workorder_form
+msgid "Service Name"
+msgstr "Názov služby"
+
+#. module: car_repair_industry
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_diagnose__service_product_id
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_repair_line__service_product_id
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_workorder__service_product_id
+msgid "Service Product"
+msgstr "Servisný produkt"
+
+#. module: car_repair_industry
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_diagnose__service_product_price
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_repair_line__service_product_price
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_workorder__service_product_price
+msgid "Service Product Price"
+msgstr "Cena produktu služby"
+
+#. module: car_repair_industry
+#: model:ir.actions.act_window,name:car_repair_industry.checklist_action_view_tree
+msgid "Service Repair :- Checklist"
+msgstr "Servisné opravy: - Kontrolný zoznam"
+
+#. module: car_repair_industry
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.view_fleet_repair_form
+msgid "Service Repair Checklist"
+msgstr "Kontrolný zoznam servisných opráv"
+
+#. module: car_repair_industry
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.fleet_checklist_form
+msgid "Service Repair: checklist"
+msgstr "Servisná oprava: kontrolný zoznam"
+
+#. module: car_repair_industry
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.fleet_checklist_list
+msgid "Service Repair: checklists"
+msgstr "Servisné opravy: kontrolné zoznamy"
+
+#. module: car_repair_industry
+#. odoo-javascript
+#: code:addons/car_repair_industry/static/src/xml/fleet_repair_dashboard.xml:0
+#: model:ir.actions.act_window,name:car_repair_industry.action_service_type
+#: model:ir.model,name:car_repair_industry.model_service_type
+#: model:ir.model.fields,field_description:car_repair_industry.field_account_analytic_line__service_type
+#: model:ir.ui.menu,name:car_repair_industry.menu_service_type
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.service_type_tree_view
+#, python-format
+msgid "Service Type"
+msgstr "Typ služby"
+
+#. module: car_repair_industry
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.service_type_form_view
+msgid "Service Types"
+msgstr "Typy služieb"
+
+#. module: car_repair_industry
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.appointment_form
+msgid "Service/ Repair/ Maintainance"
+msgstr "Servis/ Oprava/ Údržba"
+
+#. module: car_repair_industry
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.service_repair_form
+msgid "Service/ Repair/ Maintainance Form"
+msgstr "Formulár pre servis/opravu/údržbu"
+
+#. module: car_repair_industry
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.view_fleet_workorder_form
+msgid "Set Draft"
+msgstr "Nastaviť koncept"
+
+#. module: car_repair_industry
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.view_fleet_workorder_form
+msgid "Set to Draft"
+msgstr "Nastaviť na Koncept"
+
+#. module: car_repair_industry
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.appointees_slots_form_view
+msgid "Slot Avaialbility"
+msgstr "Dostupnosť slotu"
+
+#. module: car_repair_industry
+#: model:ir.model.fields,field_description:car_repair_industry.field_appointement_slots__appointment_date
+msgid "Slot Date"
+msgstr "Dátum slotu"
+
+#. module: car_repair_industry
+#: model:ir.model.fields,field_description:car_repair_industry.field_slots__slot_time
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.appointees_slots_form_view
+msgid "Slot Time"
+msgstr "Slot Time"
+
+#. module: car_repair_industry
+#: model:ir.model,name:car_repair_industry.model_slots
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.appointment_form
+msgid "Slots"
+msgstr "Sloty"
+
+#. module: car_repair_industry
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_diagnose__fleet_repair_id
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_repair_line__source_line_id
+msgid "Source"
+msgstr "Zdroj"
+
+#. module: car_repair_industry
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_workorder__spare_part_ids
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.view_repair_fleet_line_form
+msgid "Spare Parts"
+msgstr "Náhradné diely"
+
+#. module: car_repair_industry
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.view_repair_fleet_line_form
+msgid "Spare Parts / Add Service"
+msgstr "Náhradné diely / Pridať službu"
+
+#. module: car_repair_industry
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_diagnose__spare_part_ids
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_repair_line__spare_part_ids
+msgid "Spare Parts Needed"
+msgstr "Potrebné náhradné diely"
+
+#. module: car_repair_industry
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.view_fleet_workorder_form
+msgid "Start"
+msgstr "Štart"
+
+#. module: car_repair_industry
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_workorder__date_start
+msgid "Start Date"
+msgstr "Dátum začiatku"
+
+#. module: car_repair_industry
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.view_fleet_workorder_form
+msgid "Start Working"
+msgstr "Start Working"
+
+#. module: car_repair_industry
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_diagnose__state
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_repair__state
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_repair_analysis__state
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_repair_line__state
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_workorder__state
+msgid "Status"
+msgstr "Postavenie"
+
+#. module: car_repair_industry
+#: model:ir.model.fields,help:car_repair_industry.field_fleet_repair__activity_state
+msgid ""
+"Status based on activities\n"
+"Overdue: Due date is already passed\n"
+"Today: Activity date is today\n"
+"Planned: Future activities."
+msgstr ""
+"Stav na základe aktivít\n"
+"Po splatnosti: Termín splatnosti už uplynul\n"
+"Dnes: Dátum aktivity je dnes\n"
+"Plánované: Budúce aktivity."
+
+#. module: car_repair_industry
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_repair__child_ids
+msgid "Sub-Repair"
+msgstr "Čiastková oprava"
+
+#. module: car_repair_industry
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_repair__subtask_planned_hours
+msgid "Sub-tasks Planned Hours"
+msgstr "Čiastkové úlohy Plánované hodiny"
+
+#. module: car_repair_industry
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_diagnose__name
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_repair__name
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.view_fleet_diagnose_tree
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.view_fleet_repair_tree
+msgid "Subject"
+msgstr "Predmet"
+
+#. module: car_repair_industry
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.appointment_form
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.feedback_form
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.service_repair_form
+msgid "Submit"
+msgstr "Predložiť"
+
+#. module: car_repair_industry
+#: model:ir.model.fields,help:car_repair_industry.field_fleet_repair__subtask_planned_hours
+msgid ""
+"Sum of the hours allocated for all the sub-tasks (and their own sub-tasks) linked to "
+"this task. Usually less than or equal to the allocated hours of this task."
+msgstr ""
+"Súčet hodín pridelených pre všetky čiastkové úlohy (a ich vlastné čiastkové úlohy) "
+"spojené s touto úlohou. Zvyčajne menej alebo rovné prideleným hodinám tejto úlohy."
+
+#. module: car_repair_industry
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_diagnose__user_id
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_diagnose_assignto_technician__user_id
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_workorder__user_id
+#: model:res.groups,name:car_repair_industry.group_fleet_repair_technician
+msgid "Technician"
+msgstr "Technik"
+
+#. module: car_repair_industry
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.appointment_confirm
+msgid "Thank You!"
+msgstr "Ďakujem!"
+
+#. module: car_repair_industry
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.review_submit
+msgid "Thank you.!"
+msgstr "Ďakujem.!"
+
+#. module: car_repair_industry
+#: model_terms:ir.actions.act_window,help:car_repair_industry.action_invoice_tree1
+msgid ""
+"The discussions with your customer are automatically displayed at\n"
+"                the bottom of each invoice."
+msgstr ""
+"Diskusie s vaším zákazníkom sa automaticky zobrazia na\n"
+"                spodnej časti každej faktúry."
+
+#. module: car_repair_industry
+#: model:ir.model.fields,field_description:car_repair_industry.field_slots__time
+msgid "Time"
+msgstr "Čas"
+
+#. module: car_repair_industry
+#: model:ir.model.fields,field_description:car_repair_industry.field_calendar_event__time_slot
+msgid "Time Slot"
+msgstr "Časový úsek"
+
+#. module: car_repair_industry
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_diagnose__timesheet_ids
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_repair__timesheet_ids
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_workorder__timesheet_ids
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.view_fleet_diagnose_form
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.view_fleet_repair_form
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.view_fleet_workorder_form
+msgid "Timesheet"
+msgstr "Časový rozvrh"
+
+#. module: car_repair_industry
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.view_fleet_diagnose_form
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.view_fleet_repair_form
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.view_fleet_workorder_form
+msgid "Total"
+msgstr "Celkom"
+
+#. module: car_repair_industry
+#: model:ir.model.fields,help:car_repair_industry.field_fleet_repair__activity_exception_decoration
+msgid "Type of the exception activity on record."
+msgstr "Typ zaznamenanej aktivity výnimky."
+
+#. module: car_repair_industry
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_repair__guarantee
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_repair_line__guarantee
+msgid "Under Guarantee?"
+msgstr "V záruke?"
+
+#. module: car_repair_industry
+#: model:ir.model.fields,help:car_repair_industry.field_fleet_diagnose__vin_sn
+#: model:ir.model.fields,help:car_repair_industry.field_fleet_repair__vin_sn
+#: model:ir.model.fields,help:car_repair_industry.field_fleet_repair_line__vin_sn
+#: model:ir.model.fields,help:car_repair_industry.field_fleet_workorder__vin_sn
+msgid "Unique number written on the vehicle motor (VIN/SN number)"
+msgstr "Jedinečné číslo napísané na motore vozidla (VIN/SN číslo)"
+
+#. module: car_repair_industry
+#: model:ir.model.fields,field_description:car_repair_industry.field_spare_part_line__price_unit
+msgid "Unit Price"
+msgstr "Jednotková cena"
+
+#. module: car_repair_industry
+#: model:ir.model.fields,field_description:car_repair_industry.field_spare_part_line__uom_id
+msgid "Unit of Measure"
+msgstr "Merná jednotka"
+
+#. module: car_repair_industry
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.appointment_form
+msgid "View Time Slot"
+msgstr "Zobraziť časový úsek"
+
+#. module: car_repair_industry
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.custom_view_order_form
+msgid "View Work Order"
+msgstr "Zobraziť pracovný príkaz"
+
+#. module: car_repair_industry
+#: model:ir.model,name:car_repair_industry.model_website
+msgid "Website"
+msgstr "webové stránky"
+
+#. module: car_repair_industry
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_diagnose__website_message_ids
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_repair__website_message_ids
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_workorder__website_message_ids
+msgid "Website Messages"
+msgstr "Webové správy"
+
+#. module: car_repair_industry
+#: model:ir.model.fields,help:car_repair_industry.field_fleet_diagnose__website_message_ids
+#: model:ir.model.fields,help:car_repair_industry.field_fleet_repair__website_message_ids
+#: model:ir.model.fields,help:car_repair_industry.field_fleet_workorder__website_message_ids
+msgid "Website communication history"
+msgstr "História komunikácie na webe"
+
+#. module: car_repair_industry
+#: model:ir.model.fields.selection,name:car_repair_industry.selection__fleet_repair__state__work_completed
+#: model:ir.model.fields.selection,name:car_repair_industry.selection__fleet_repair_analysis__state__work_completed
+msgid "Work Completed"
+msgstr "Práca dokončená"
+
+#. module: car_repair_industry
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_workorder__name
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.custom_view_order_form
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.view_fleet_diagnose_form
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.view_fleet_repair_form
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.view_fleet_workorder_tree
+msgid "Work Order"
+msgstr "Work Order"
+
+#. module: car_repair_industry
+#. odoo-javascript
+#: code:addons/car_repair_industry/static/src/xml/fleet_repair_dashboard.xml:0
+#: model:ir.actions.act_window,name:car_repair_industry.action_fleet_workorder_tree_view
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_diagnose__workorder_count
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_repair__workorder_count
+#: model:ir.model.fields,field_description:car_repair_industry.field_sale_order__workorder_count
+#: model:ir.ui.menu,name:car_repair_industry.menu_fleet_workorder_submenu
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.view_fleet_workorder_form
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.view_fleet_workorder_tree
+#, python-format
+msgid "Work Orders"
+msgstr "Pracovné príkazy"
+
+#. module: car_repair_industry
+#: model:ir.model.fields.selection,name:car_repair_industry.selection__fleet_repair__state__workorder
+#: model:ir.model.fields.selection,name:car_repair_industry.selection__fleet_repair_analysis__state__workorder
+msgid "Work in Progress"
+msgstr "Prebiehajúca práca"
+
+#. module: car_repair_industry
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.view_fleet_workorder_filter
+msgid "WorkOrder"
+msgstr "Zákazka"
+
+#. module: car_repair_industry
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_workorder__delay
+msgid "Working Hours"
+msgstr "Pracovný čas"
+
+#. module: car_repair_industry
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_diagnose__is_workorder_created
+#: model:ir.model.fields,field_description:car_repair_industry.field_sale_order__is_workorder_created
+msgid "Workorder Created"
+msgstr "Pracovný poriadok vytvorený"
+
+#. module: car_repair_industry
+#: model:ir.model.fields.selection,name:car_repair_industry.selection__fleet_repair__guarantee__yes
+#: model:ir.model.fields.selection,name:car_repair_industry.selection__fleet_repair_line__guarantee__yes
+msgid "Yes"
+msgstr "Áno"
+
+#. module: car_repair_industry
+#. odoo-python
+#: code:addons/car_repair_industry/models/fleet_repair_checklist.py:0
+#, python-format
+msgid ""
+"You Are Trying To Delete a Record That Is Still Referenced!\n"
+"Instead Delete The Record Use Archive"
+msgstr ""
+"Pokúšate sa vymazať záznam, na ktorý sa stále odkazuje!\n"
+"Namiesto toho odstráňte archív používania záznamov"
+
+#. module: car_repair_industry
+#. odoo-python
+#: code:addons/car_repair_industry/models/fleet_repair.py:0
+#, python-format
+msgid "You cannot print report without Car details"
+msgstr "Bez podrobností o aute nemôžete vytlačiť správu"
+
+#. module: car_repair_industry
+#: model_terms:ir.actions.act_window,help:car_repair_industry.checklist_action_view_tree
+msgid "You must define a checklist."
+msgstr "Musíte definovať kontrolný zoznam."
+
+#. module: car_repair_industry
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.appointment_confirm
+msgid "Your Appointment has been booked."
+msgstr "Váš termín bol rezervovaný."
+
+#. module: car_repair_industry
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.service_repair_form_submit
+msgid "Your Request for"
+msgstr "Vaša žiadosť o"
+
+#. module: car_repair_industry
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.service_repair_form_submit
+msgid "Your Request has been sent."
+msgstr "Vaša žiadosť bola odoslaná."
+
+#. module: car_repair_industry
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.review_submit
+msgid "Your Review is Submitted"
+msgstr "Vaša recenzia je odoslaná"
+
+#. module: car_repair_industry
+#: model_terms:ir.actions.act_window,help:car_repair_industry.action_quotations
+#: model_terms:ir.actions.act_window,help:car_repair_industry.action_saleorder
+msgid ""
+"Your next actions should flow efficiently: confirm the Quotation\n"
+"                to a Sale Order, then create the Invoice and collect the Payment."
+msgstr ""
+"Vaše ďalšie kroky by mali prebiehať efektívne: potvrďte cenovú ponuku\n"
+"                k Objednávke na predaj, potom vytvorte Faktúru a inkasujte Platbu."
+
+#. module: car_repair_industry
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_repair_line__car_year
+msgid "car Manufacturing Year"
+msgstr "Rok výroby auta"
+
+#. module: car_repair_industry
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_diagnose__confirm_sale_order
+msgid "confirm sale order"
+msgstr "potvrdiť objednávku predaja"
+
+#. module: car_repair_industry
+#: model:ir.model.fields,field_description:car_repair_industry.field_spare_part_line__diagnose_id
+msgid "fleet Diagnose"
+msgstr "Diagnostika vozového parku"
+
+#. module: car_repair_industry
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.view_fleet_workorder_form
+msgid "fleet Info"
+msgstr "Informácie o flotile"
+
+#. module: car_repair_industry
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_diagnose__fleet_repair_line
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_workorder__fleet_repair_line
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.view_repair_fleet_line_form
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.view_repair_fleet_line_tree
+msgid "fleet Lines"
+msgstr "flotilové linky"
+
+#. module: car_repair_industry
+#: model:ir.model.fields,field_description:car_repair_industry.field_spare_part_line__workorder_id
+msgid "fleet Workorder"
+msgstr "fleet Workorder"
+
+#. module: car_repair_industry
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_diagnose__is_invoiced
+msgid "invoice Created"
+msgstr "faktúra vytvorená"
+
+#. module: car_repair_industry
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.service_repair_form_submit
+msgid "is Submitted"
+msgstr "je predložené"
+
+#. module: car_repair_industry
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_repair__confirm_sale_order
+#: model:ir.model.fields,field_description:car_repair_industry.field_fleet_workorder__confirm_sale_order
+msgid "is confirm"
+msgstr "je potvrdiť"
+
+#. module: car_repair_industry
+#: model:ir.model.fields,field_description:car_repair_industry.field_calendar_event__appoi_name
+msgid "name"
+msgstr "názov"
+
+#. module: car_repair_industry
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.view_fleet_diagnose_assign_to_tech_form
+#: model_terms:ir.ui.view,arch_db:car_repair_industry.view_fleet_repair_assign_to_head_tech_form
+msgid "or"
+msgstr "alebo"
+
+#. module: car_repair_industry
+#: model:ir.model.fields.selection,name:car_repair_industry.selection__fleet_repair__guarantee_type__paid
+#: model:ir.model.fields.selection,name:car_repair_industry.selection__fleet_repair_line__guarantee_type__paid
+msgid "paid"
+msgstr "zaplatené"
+
+#. module: car_repair_industry
+#: model:ir.model.fields,field_description:car_repair_industry.field_slots__is_slot_available
+msgid "slot availability"
+msgstr "dostupnosť slotu"
+
+#. module: car_repair_industry
+#: model:ir.model.fields,field_description:car_repair_industry.field_appointement_slots__time
+msgid "time"
+msgstr "čas"
+
+#. module: car_repair_industry
+#: model:ir.model.fields,field_description:car_repair_industry.field_calendar_event__weekday_get
+msgid "weekday"
+msgstr "pracovný deň"
+
+#. module: car_repair_industry
+#: model:mail.template,subject:car_repair_industry.car_repair_service_done
+msgid "{{object.name}} (Ref {{object.sequence or 'n/a' }})"
+msgstr "{{object.name}} (Ref {{object.sequence or 'n/a' }})"

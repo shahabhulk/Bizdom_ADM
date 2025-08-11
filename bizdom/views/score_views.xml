@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+
+    <record id="view_bizdom_score_tree" model="ir.ui.view">
+        <field name="name">bizdom.score.tree</field>
+        <field name="model">bizdom.score</field>
+        <field name="arch" type="xml">
+            <list>
+                <field name="score_name"/>
+                <field name="pillar_id"/>
+                <field name="favorite"/>
+                <field name="total_score_value"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_bizdom_score_form" model="ir.ui.view">
+        <field name="name">bizdom.score.form</field>
+        <field name="model">bizdom.score</field>
+        <field name="arch" type="xml">
+            <form>
+                <sheet>
+                    <group>
+                        <group>
+                            <field name="score_name"/>
+                            <field name="pillar_id"/>
+                            <field name="type"/>
+                        </group>
+                        <group>
+                            <group>
+                                <field name="max_score_percentage" widget="percentage"
+                                       invisible="type!='percentage'"/>
+                                <field name="min_score_percentage" widget="percentage"
+                                       invisible="type!='percentage'"/>
+
+                                <field name="max_score_number"
+                                       invisible="type=='percentage'"/>
+                                <field name="min_score_number"
+                                       invisible="type=='percentage'"/>
+                                <!--                            </t>-->
+                                <field name="favorite" widget="boolean_toggle"/>
+                                <!--                            <t t-if="record.type.raw_value == 'percentage'">-->
+                                <!--                                <span>%</span>-->
+
+                            </group>
+
+                            <!--                            <field name="from_date"/>-->
+                            <!--                            <field name="to_date"/>-->
+                        </group>
+                    </group>
+                    <notebook>
+                        <page name="scores" string="Departments">
+                            <field name="score_line_ids" widget="one2many_list">
+                                <list editable="bottom">
+                                    <field name="department_id"/>
+                                    <field name="score_value"/>
+                                </list>
+                            </field>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_bizdom_score_graph" model="ir.ui.view">
+        <field name="name">bizdom.score.graph</field>
+        <field name="model">bizdom.score</field>
+        <field name="arch" type="xml">
+            <graph>
+                <field name="score_name"/>
+                <field name="total_score_value" type="measure"/>
+            </graph>
+        </field>
+    </record>
+
+    <!-- Action and menuitem example -->
+    <record id="action_bizdom_score" model="ir.actions.act_window">
+        <field name="name">Scores</field>
+        <field name="res_model">bizdom.score</field>
+        <field name="view_mode">list,form,graph</field>
+    </record>
+
+    <menuitem id="menu_bizdom_score" name="Scores" parent="menu_bizdom_root" action="action_bizdom_score"/>
+
+</odoo>

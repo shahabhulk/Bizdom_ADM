@@ -1,51 +1,79 @@
-import jwt
-from datetime import datetime, timedelta
 from odoo import http
 from odoo.http import request
-from odoo.exceptions import AccessError
+import logging
+import json
+import jwt
+import datetime
 
-SECRET_KEY = 'your_secret_key_here'
+_logger = logging.getLogger(__name__)
 
-class JWTAuthController(http.Controller):
+SECRET_KEY="Your-secret-key"
 
-    @http.route('/api/login', type='json', auth="none", csrf=False, methods=['POST'])
-    def jwt_login(self, **kwargs):
-        db = kwargs.get('db')
-        login = kwargs.get('login')
-        password = kwargs.get('password')
+class CustomAuthController(http.Controller):
 
-        print(db,login,password)
+    @http.route('/api/login', type='http', auth='none', methods=['POST'], csrf=False)
+    def custom_login(self, **kwargs):
+        db = "bizapp_april23"
 
-
-        if not db or not login or not password:
-            return {"error": "Missing login credentials"}
-
-        if not http.db_filter([db]):
-            raise AccessError("Database not found.")
-
-        credentials = {'login': login, 'password': password, 'type': 'password'}
         try:
-            auth_info = request.session.authenticate(db, credentials)
+            body = json.loads(request.httprequest.data.decode('utf-8'))
+            username = body.get("username")
+            password = body.get("password")
+
+            if not username or not password:
+                return http.Response(
+                    json.dumps({
+                        "statusCode": 400,
+                        "message": "Missing login or password"
+                    }),
+                    content_type='application/json',
+                    status=400
+                )
+
+            credentials = {
+                'login': username,
+                'password': password,
+                'type': 'password'
+            }
+
+            uid = request.session.authenticate(db, credentials)
+            if uid:
+                # Generate JWT token
+                payload={
+                    'uid': uid,
+                    'login': username,
+                    'exp': datetime.datetime.utcnow() + datetime.timedelta(days=1)
+                }
+                token = jwt.encode(payload, SECRET_KEY, algorithm='HS256')
+                return http.Response(
+                    json.dumps({
+                        "statusCode": 200,
+                        "message": "Login successful",
+                        "uid": uid,
+                        "token": token
+            
+                    }),
+                    content_type='application/json',
+                    status=200
+                )
+            else:
+                return http.Response(
+                    json.dumps({
+                        "statusCode": 401,
+                        "message": "Invalid credentials"
+                    }),
+                    content_type='application/json',
+                    status=401
+                )
+
         except Exception as e:
-            return {"error": f"Login failed: {str(e)}"}
-
-        if not auth_info or not auth_info.get('uid'):
-            return {"error": "Invalid login or password"}
-
-
-        payload = {
-            'user_id': auth_info['uid'],
-            'db': db,
-            'login': login,
-            'exp': datetime.utcnow() + timedelta(hours=1),
-        }
-        print(payload)
-
-
-        token = jwt.encode(payload, SECRET_KEY, algorithm='HS256')
-
-        return {
-            'token': token,
-            'uid': auth_info['uid'],
-            'user_context': request.session.context
-        }
+            _logger.exception("Authentication error")
+            return http.Response(
+                json.dumps({
+                    "statusCode": 500,
+                    "message": "Internal Server Error",
+                    "error": str(e)
+                }),
+                content_type='application/json',
+                status=500
+            )

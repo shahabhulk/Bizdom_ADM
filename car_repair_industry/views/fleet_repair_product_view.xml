@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<odoo>
+
+    <record id="product_product_form_inherit_item_code" model="ir.ui.view">
+        <field name="name">product.product.form.inherit.item_code</field>
+        <field name="model">product.product</field>
+        <field name="inherit_id" ref="product.product_normal_form_view"/>
+        <field name="arch" type="xml">
+            <xpath expr="//div[@class='d-flex']" position="after">
+                <div style="font-size: 20px; margin-top: 10px;">
+                    <group>
+                        <group>
+                            <field name="item_code"/>
+                        </group>
+                    </group>
+                </div>
+            </xpath>
+        </field>
+    </record>
+
+
+    <record id="view_product_template_form_inherit_item_code" model="ir.ui.view">
+        <field name="name">product.template.form.inherit.item_code</field>
+        <field name="model">product.template</field>
+        <field name="inherit_id" ref="product.product_template_only_form_view"/>
+        <field name="arch" type="xml">
+            <xpath expr="//div[@class='d-flex']" position="after">
+                <div style="font-size: 20px; margin-top: 10px;">
+                    <group>
+                        <group>
+                            <field name="item_code"/>
+                        </group>
+                    </group>
+                </div>
+            </xpath>
+        </field>
+    </record>
+
+
+    <record model="ir.actions.act_window" id="action_menu_items">
+        <field name="name">Items</field>
+        <field name="type">ir.actions.act_window</field>
+        <field name="res_model">product.template</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
+
+    <menuitem name="Items"
+              action="action_menu_items"
+              id="menu_item"
+              parent="car_repair_industry.menu_main_car_repair"
+              sequence="77"/>
+</odoo>

@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<odoo>
+
+<!--    <record id="view_productivity_model_search" model="ir.ui.view">-->
+<!--        <field name="name">productivity.model.search</field>-->
+<!--        <field name="model">bizdom.productivity</field>-->
+<!--        <field name="arch" type="xml">-->
+<!--            <search>-->
+<!--                <field name="entry_date" string="Entry Date"/>-->
+<!--            </search>-->
+<!--        </field>-->
+<!--    </record>-->
+
+    <record id="view_productivity_model_search" model="ir.ui.view">
+        <field name="name">productivity.model.search</field>
+        <field name="model">bizdom.productivity</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="entry_date"/>
+                <filter string="Last 3 Months" name="last_3_months"
+                        domain="[('entry_date','>=', (context_today().replace(day=1) - relativedelta(months=2)).strftime('%Y-%m-%d'))]"/>
+            </search>
+        </field>
+    </record>
+
+
+    <record id="view_form_productivity_model" model="ir.ui.view">
+        <field name="name">productivity.model.form</field>
+        <field name="model">bizdom.productivity</field>
+        <field name="arch" type="xml">
+            <form string="Productivity">
+                <sheet>
+                    <group>
+                        <group>
+                            <field name="score_name"/>
+                            <field name="department_id"/>
+                            <field name="score_value"/>
+                            <field name="entry_date"/>
+                        </group>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_tree_productivity_model" model="ir.ui.view">
+        <field name="name">productivity.model.tree</field>
+        <field name="model">bizdom.productivity</field>
+        <field name="arch" type="xml">
+            <list string="Productivity">
+                <field name="sequence_productivity"/>
+                <field name="score_name"/>
+                <field name="entry_date"/>
+                <field name="department_id"/>
+                <field name="score_value"/>
+            </list>
+        </field>
+    </record>
+
+
+    <record id="view_bizdom_productivity_graph" model="ir.ui.view">
+        <field name="name">bizdom.productivity.graph</field>
+        <field name="model">bizdom.productivity</field>
+        <field name="arch" type="xml">
+            <graph>
+                <field name="score_name"/>
+                <field name="sequence_productivity"/>
+            </graph>
+        </field>
+    </record>
+
+
+    <record id="action_productivity_model" model="ir.actions.act_window">
+        <field name="name">Productivity</field>
+        <field name="res_model">bizdom.productivity</field>
+        <field name="view_mode">list,form,graph</field>
+        <field name="view_id" ref="view_tree_productivity_model"/>
+    </record>
+
+
+    <menuitem id="menu_productivity"
+              name="Productivity"
+              parent="menu_operation"
+              action="action_productivity_model"
+              sequence="10"/>
+
+</odoo>

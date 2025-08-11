@@ -1,0 +1,7 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_bizdom_pillar,bizdom.pillar,model_bizdom_pillar,base.group_user,1,1,1,1
+access_bizdom_score,bizdom.score,model_bizdom_score,base.group_user,1,1,1,1
+access_bizdom_score_line,bizdom.score.line,model_bizdom_score_line,base.group_user,1,1,1,1
+access_bizdom_signal,bizdom.signal,model_bizdom_signal,base.group_user,1,1,1,1
+access_labour_billing,labour.billing,model_labour_billing,,1,1,1,1
+

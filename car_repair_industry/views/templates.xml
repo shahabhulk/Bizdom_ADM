@@ -1,0 +1,383 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+	<template id="appointment_form" name="Appointment Form">
+		<t t-call="website.layout">
+			<div id="wrap">
+                <div class="container">
+                    <div class="ml2 mt2">
+                        <br/>
+                        <h4>Book Your Appointment</h4>
+                    </div>
+                    <a  href="/service-repair" role="button" class="btn btn-primary btn-md a-submit s_website_form_send float-end">Service/ Repair/ Maintainance</a>
+                </div>
+                <div class="container apoi_form mt-2 mb-3">
+                    <form t-attf-action="/appointment/confirm" id="appointment_form" class="appoint-submit" method="post">
+                        <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                        <div class="row">
+                            <div class="s_website_form_rows col-8 s_col_no_bgcolor">
+                            	<div class="row mb-0 py-2 col-12 s_website_form_field s_website_form_custom s_website_form_required" data-type="char" data-name="Field">
+                                    <div class="s_col_no_resize col-6 s_col_no_bgcolor">
+                                        <label class="col-form-label col-6 s_website_form_label" style="width: 200px" for="name">
+                                            <span class="s_website_form_label_content">Name</span>
+                                            <span class="s_website_form_mark"> *</span>
+                                        </label>
+                                            <input id="name" type="text" class="form-control s_website_form_input" t-att-value="user_id.partner_id.name" name="name" required="" data-fill-with="name"/>
+                                    </div>
+                                </div>
+                                <div class="row mb-0 py-2 col-12 s_website_form_field s_website_form_required" data-type="email" data-name="Field">
+                                    <div class="s_col_no_resize col-6 s_col_no_bgcolor">
+                                        <label class="col-form-label col-6 s_website_form_label" style="width: 200px" for="email_from">
+                                            <span class="s_website_form_label_content">Email</span>
+                                            <span class="s_website_form_mark"> *</span>
+                                        </label>
+                                        <t t-if="user_id.partner_id.email">
+                                            <input id="email" type="email" t-att-value="user_id.partner_id.email" class="form-control s_website_form_input" name="email_from" required="" data-fill-with="email"/>
+                                        </t>
+                                        <t t-else="">
+                                            <input id="email" type="email" t-att-value="user_id.partner_id.email" class="form-control s_website_form_input" name="email_from" required="" data-fill-with="email"/>
+                                        </t>
+                                    </div>
+                                </div>
+                                <div class="row mb-0 py-2 col-12 s_website_form_field s_website_form_custom" data-type="char" data-name="Field">
+                                    <div class="s_col_no_resize col-6 s_col_no_bgcolor">
+                                        <label class="col-form-label col-6 s_website_form_label" style="width: 200px" for="phone">
+                                            <span class="s_website_form_label_content">Phone Number</span>
+                                        </label>
+                                        <input id="phone" type="tel" class="form-control s_website_form_input" t-att-value="user_id.partner_id.phone" name="phone" data-fill-with="phone"/>
+                                    </div>
+                                </div>
+                                <div class="row mb-0 py-2 col-12 s_website_form_field s_website_form_custom" data-type="char" data-name="Field">
+                                    <div class="s_col_no_resize col-6 s_col_no_bgcolor">
+                                        <label class="col-form-label col-6 s_website_form_label" style="width: 200px" for="subject">
+                                            <span class="s_website_form_label_content">Appointment Subject</span>
+                                        </label>
+                                        <input id="subject" type="char" class="form-control s_website_form_input" value="" name="subject" data-fill-with="subject" required="" />
+                                    </div>
+                                </div>
+                                <div class="row mb-0 py-2 col-12 s_website_form_field s_website_form_custom" data-type="char" data-name="Field">
+                                    <div class="s_col_no_resize col-6 s_col_no_bgcolor">
+                                        <label class="col-form-label s_website_form_label" style="width: 200px" for="appoint_date">
+                                            <span class="s_website_form_label_content">Appointment Date</span>
+                                        </label>
+                                        <div class="d-flex">
+                                        	<input id="appoint_date" type="date" class="form-control s_website_form_input w-50" name="appoint_date" data-fill-with="appoint_date" required="" /><a role="button" type="submit" class="btn btn-primary btn-block date-select" style="color:#fff;margin-left: 12px;">View Time Slot</a>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="row mb-0 py-2 col-12 s_website_form_field s_website_form_custom" data-type="char" data-name="Field">
+                                    <div class="s_col_no_resize col-6 s_col_no_bgcolor">
+                                        <label class="col-form-label col-6 s_website_form_label" style="width: 200px" for="time_slot">
+                                            <span class="s_website_form_label_content">Time Slot</span>
+                                        </label>
+                                        <input id="time_slot" type="char" class="form-control s_website_form_input time-slot" value="" name="time_slot" data-fill-with="time_slot" readonly="1" required="" />
+                                    </div>
+                                </div>
+                                <div class="row mb-0 py-2 col-12 s_website_form_field s_website_form_custom" data-type="char" data-name="Field">
+                                    <div class="s_col_no_resize col-6 s_col_no_bgcolor">
+                                        <label class="col-form-label col-6 s_website_form_label" style="width: 200px" for="description">
+                                            <span class="s_website_form_label_content">Appointment Description</span>
+                                        </label>
+                                        <textarea id="description" type="char" class="form-control s_website_form_input" value="" name="description" data-fill-with="description" required="" />
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-4 d-none slot">
+                                <t t-set="slots" t-value="request.env['appointement.slots'].sudo().search([])"/>
+                                <t t-foreach="slots" t-as="slot_time">
+                                <input name="dayname" type="HIDDEN" />
+                                    <div class="slot_day" t-att-weekday_id="slot_time.name">
+                                        <h4><span t-esc="slot_time.appointment_date" />  Slots</h4>
+                                        <!-- table -->
+                                        <table class="table table-hover o_my_status_table mb-0 slot-line">
+                                            <thead>
+                                                <tr class="active">
+                                                    <th>Available:<br/><p class="green">Green</p></th>
+                                                    <th>Reserved:<br/><p class="red">Red</p></th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                <t t-foreach="slot_time.time" t-as="s">
+                                                    <tr style="cursor: pointer;" t-att-weekday_id="slot_time.name">
+                                                        <t t-if="not s.is_slot_available">
+                                                            <td t-attf-class="slot_time_select green" t-att-slot_time="s.time" t-on-click="_onClickSlotSelect">
+                                                                <span t-esc="s.time" t-options="{'widget': 'float_time'}"/>
+                                                            </td>
+                                                        </t>
+                                                            <td t-if="s.is_slot_available" t-attf-class="slot_time_select red" t-att-slot_time="s.time" t-on-click="_onClickSlotSelect">
+                                                                <span t-esc="s.time" t-options="{'widget': 'float_time'}"/>
+                                                            </td>
+                                                    </tr>
+                                                </t>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                    <!-- table end -->
+                                </t>
+                                <input type="hidden" name="date_slot"/>
+                            </div>
+
+                        </div>
+                        <div class="mb-0 py-2 col-12 s_website_form_submit" data-name="Submit Button">
+                            <div style="width: 200px;" class="s_website_form_label"/>
+                            <button href="#" type="submit" role="button" class="btn btn-primary btn-md a-submit s_website_form_send">Submit</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+		</t>
+	</template>
+
+	<template id="appointment_confirm" name="Appointment Confirm">
+        <t t-call="website.layout">
+            <div id="wrap">
+                <div class="container">
+                    <div class="ml2 mt2 text-center">
+                        <br/>
+                        <span style="font-size: 3rem;color: #00a09d;"><i class="fa fa-thumbs-up" ></i></span><br/>
+                        <h2>Thank You!</h2>
+                    </div><br/>
+                    <div class="thanks_page text-center"><h4>Dear, <span t-esc="appoi_name" />,</h4></div>
+                    <div class="text-center">
+                        <h5>Your Appointment has been booked.</h5>
+                        <p> Our team will Contact you shortly.</p>
+
+                        <p>Best regards,</p>
+                        <p>Booking Team</p>
+                    </div>
+                </div>
+            </div>
+        </t>
+    </template>
+    <template id="service_repair_form" name="Service/ Repair/ Maintainance">
+        <t t-call="website.layout">
+            <div id="wrap">
+                <div class="container">
+                    <div class="ml2 mt2">
+                        <br/>
+                        <h4>Service/ Repair/ Maintainance Form</h4>
+                    </div>
+                </div>
+                <div class="container mt-2 mb-3">
+                    <form t-attf-action="/service/repair/form/submit" enctype="multipart/form-data" id="service_repair_form" class="appoint-submit" method="post">
+                        <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                        <div class="row">
+                            <div class="s_website_form_rows col-8 s_col_no_bgcolor">
+                                <h6>Personal Details</h6>
+                                <div class="row mb-0 py-2 col-12 s_website_form_field s_website_form_custom s_website_form_required" data-type="char" data-name="Field">
+                                    <div class="s_col_no_resize col-6 s_col_no_bgcolor">
+                                        <label class="col-form-label col-6 s_website_form_label" style="width: 200px" for="name">
+                                            <span class="s_website_form_label_content">Your Name</span>
+                                            <span class="s_website_form_mark"> *</span>
+                                        </label>
+                                            <input id="name" type="text" class="form-control s_website_form_input" t-att-value="user_id.partner_id.name" name="name" required="" data-fill-with="name"/>
+                                    </div>
+                                    <div class="s_col_no_resize col-6 s_col_no_bgcolor">
+                                        <label class="col-form-label col-6 s_website_form_label" style="width: 200px" for="email_from">
+                                            <span class="s_website_form_label_content">Email</span>
+                                            <span class="s_website_form_mark"> *</span>
+                                        </label>
+                                        <t t-if="user_id.partner_id.email">
+                                            <input id="email" type="email" t-att-value="user_id.partner_id.email" class="form-control s_website_form_input" name="email_from" required="" data-fill-with="email"/>
+                                        </t>
+                                        <t t-else="">
+                                            <input id="email" type="email" t-att-value="user_id.partner_id.email" class="form-control s_website_form_input" name="email_from" required="" data-fill-with="email"/>
+                                        </t>
+                                    </div>
+                                </div>
+
+                                <div class="row mb-0 py-2 col-12 s_website_form_field s_website_form_custom s_website_form_required" data-type="char" data-name="Field">
+                                    <div class="s_col_no_resize col-6 s_col_no_bgcolor">
+                                        <label class="col-form-label col-6 s_website_form_label" style="width: 200px" for="phone">
+                                            <span class="s_website_form_label_content">Phone Number</span>
+                                        </label>
+                                        <input id="phone" type="tel" class="form-control s_website_form_input" t-att-value="user_id.partner_id.phone" name="phone" data-fill-with="phone"/>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="s_website_form_rows col-8 s_col_no_bgcolor">
+                                <h6>Details</h6>
+                                <div class="row mb-0 py-2 col-12 s_website_form_field s_website_form_custom s_website_form_required" data-type="char" data-name="Field">
+                                    <div class="s_col_no_resize col-6 s_col_no_bgcolor">
+                                        <label class="col-form-label col-6 s_website_form_label" style="width: 200px" for="reason_of_repair">
+                                            <span class="s_website_form_label_content">Reason for Repair</span>
+                                            <span class="s_website_form_mark"> *</span>
+                                        </label>
+                                            <input id="reason_of_repair" type="text" class="form-control s_website_form_input" name="reason_of_repair" required="" />
+                                    </div>
+                                    <div class="s_col_no_resize col-6 s_col_no_bgcolor">
+                                        <label class="col-form-label col-6 s_website_form_label" style="width: 200px" for="service">
+                                            <span class="s_website_form_label_content">Service</span>
+                                            <span class="s_website_form_mark"> *</span>
+                                        </label>
+                                        <t t-set="service_type" t-value="website.get_service_type_list()" />
+                                        <select name="service" class="form-control form-select service-select" required="required" selected="selected">
+                                            <option value="">Select an option...</option>
+                                            <t t-foreach="service_type or []" t-as="service">
+                                                <option t-att-value="service.id">
+                                                    <t t-esc="service.name" />
+                                                </option>
+                                            </t>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div class="row mb-0 py-2 col-12 s_website_form_field s_website_form_custom s_website_form_required" data-type="char" data-name="Field">
+                                    <div class="s_col_no_resize col-6 s_col_no_bgcolor">
+                                        <label class="col-form-label col-6 s_website_form_label" style="width: 200px" for="car_brand">
+                                            <span class="s_website_form_label_content">Car Brand</span>
+                                        </label>
+                                        <t t-set="car_brand" t-value="website.get_car_brand_list()" />
+                                        <select name="car_brand" class="form-control form-select car_brand-select" required="required" selected="selected">
+                                            <option value="">Select an option...</option>
+                                            <t t-foreach="car_brand or []" t-as="brand">
+                                                <option t-att-value="brand.id">
+                                                    <t t-esc="brand.name" />
+                                                </option>
+                                            </t>
+                                        </select>
+                                    </div>
+                                    <div class="s_col_no_resize col-6 s_col_no_bgcolor">
+                                        <label class="col-form-label col-6 s_website_form_label" style="width: 200px" for="car_model">
+                                            <span class="s_website_form_label_content">Car Model</span>
+                                        </label>
+                                        <t t-set="car_model" t-value="website.get_car_model_list()" />
+                                        <select name="car_model" class="form-control form-select car_model-select" required="required" selected="selected">
+                                            <option value="">Select an option...</option>
+                                            <t t-foreach="car_model or []" t-as="model">
+                                                <option t-att-value="model.id">
+                                                    <t t-esc="model.name" />
+                                                </option>
+                                            </t>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div class="row mb-0 py-2 col-12 s_website_form_field s_website_form_custom s_website_form_required" data-type="char" data-name="Field">
+                                    <div class="s_col_no_resize col-6 s_col_no_bgcolor">
+                                        <label class="col-form-label col-6 s_website_form_label" style="width: 200px" for="car_manuf_year">
+                                            <span class="s_website_form_label_content">Car Manufacturing Year</span>
+                                        </label>
+                                        <input id="car_manuf_year" type="char" class="form-control s_website_form_input" name="car_manuf_year" />
+                                    </div>
+                                    <div class="s_col_no_resize col-6 s_col_no_bgcolor">
+                                        <label class="col-form-label col-6 s_website_form_label" style="width: 200px" for="priority_select">
+                                            <span class="s_website_form_label_content">priority</span>
+                                        </label>
+                                        <select name="priority" class="form-select col-lg-6">
+                                            <option value="">Select one</option>
+                                            <option value="0">Low</option>
+                                            <option value="1">Normal</option>
+                                            <option value="2">High</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div class="row mb-0 py-2 col-12 s_website_form_field s_website_form_custom" data-type="char" data-name="Field">
+                                    <div class="s_col_no_resize col-6 s_col_no_bgcolor">
+                                        <label class="col-form-label col-6 s_website_form_label" style="width: 200px" for="reason_for_repair_detail">
+                                            <span class="s_website_form_label_content">Reason for Repair in Details</span>
+                                        </label>
+                                        <textarea id="reason_for_repair_detail" type="char" class="form-control s_website_form_input" value="" name="reason_for_repair_detail" required="" />
+                                    </div>
+                                    <div class="s_col_no_resize col-6 s_col_no_bgcolor">
+                                        <label class="col-form-label col-6 s_website_form_label" style="width: 200px" for="list_of_damage">
+                                            <span class="s_website_form_label_content">List of Damage</span>
+                                        </label>
+                                        <textarea id="list_of_damage" type="char" class="form-control s_website_form_input" value="" name="list_of_damage" required="" />
+                                    </div>
+                                </div>
+
+                                <div class="s_col_no_resize col-6 s_col_no_bgcolor">
+                                    <label class="col-form-label col-6 s_website_form_label" style="width: 200px" for="file">
+                                        <span class="s_website_form_label_content">Attach Files</span>
+                                    </label>
+                                    <input name="file" type="file" value="Choose images" multiple="multiple" accept="image/*" />
+                                </div>
+                            </div>
+                        </div>
+                        <div class="mb-0 py-2 col-12 s_website_form_submit" data-name="Submit Button">
+                            <div style="width: 200px;" class="s_website_form_label"/>
+                            <button href="#" type="submit" role="button" class="btn btn-primary btn-md a-submit s_website_form_send">Submit</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </t>
+    </template>
+
+    <template id="service_repair_form_submit" name="Service/ Repair/ Form Submit">
+        <t t-call="website.layout">
+            <div id="wrap">
+                <div class="container">
+                    <div class="ml2 mt2 text-center">
+                        <br/>
+                        <span style="font-size: 3rem;color: #00a09d;"><i class="fa fa-thumbs-up" ></i></span><br/>
+                        <h3>Your Request for <span t-esc="name"/> is Submitted</h3>
+                    </div><br/>
+                    <t t-set="client_name" t-value="request.env['res.partner'].sudo().search([('id','=', client_id)],limit=1)"/>
+                    <div class="thanks_page text-center"><h4>Dear, <span t-esc="client_name.name" />,</h4></div>
+                    <div class="text-center">
+                        <h5>Your Request has been sent.</h5>
+                        <p> Our team will Contact you shortly.</p>
+
+                        <p>Best regards,</p>
+                        <p>Booking Team</p>
+                    </div>
+                </div>
+            </div>
+        </t>
+    </template>
+
+    <template id="feedback_form" name="Feedback Form">
+        <t t-call="website.layout">
+            <div id="wrap">
+                <div class="container mt-2 mb-3">
+                    <form t-attf-action="/feedback/form/submit" enctype="multipart/form-data" id="customer_rating" method="post">
+                        <input type="hidden" name="fleet_repair" t-att-value="fleet_repair_id" />
+                        <div class="form-group row form-field o_website_form_required_custom">
+                        <label class="col-lg-3 col-md-4 col-form-label" for="customer_rating">Rating</label>
+                            <div class="col-lg-7 col-md-8">
+                                <label class="radio-inline">
+                                    <input type="radio" value="0" name="customer_rating" />
+                                    Low
+                                </label>
+                                <label class="radio-inline">
+                                    <input type="radio" value="1" name="customer_rating" />
+                                    Normal
+                                </label>
+                                <label class="radio-inline">
+                                    <input type="radio" value="2" name="customer_rating" />
+                                    High
+                                </label>
+                            </div>
+                        </div>
+                        <div class="form-group row form-field o_website_form_required_custom">
+                            <label class="col-lg-3 col-md-4 col-form-label" for="feedback_description">Comment</label>
+                            <div class="col-lg-7 col-md-8">
+                                <input type="text" class="form-control o_website_form_input" name="feedback_description" required="True"/>
+                            </div>
+                        </div>
+                        <div class="mb-0 py-2 col-12 s_website_form_submit" data-name="Submit Button">
+                            <div style="width: 200px;" class="s_website_form_label"/>
+                            <button href="#" type="submit" role="button" class="btn btn-primary btn-md a-submit s_website_form_send">Submit</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </t>
+    </template>
+    <template id="review_submit" name="Review Submit">
+        <t t-call="website.layout">
+            <div id="wrap">
+                <div class="container">
+                    <div class="ml2 mt2 text-center">
+                        <br/>
+                        <span style="font-size: 3rem;color: #00a09d;"><i class="fa fa-thumbs-up" ></i></span><br/>
+                        <h3>Your Review is Submitted</h3>
+                        <p>Thank you.!</p>
+                    </div>
+                </div>
+            </div>
+        </t>
+    </template>
+</odoo>

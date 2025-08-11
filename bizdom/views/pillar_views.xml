@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+
+    <!-- Form View -->
+    <record id="view_bizdom_pillar_form" model="ir.ui.view">
+        <field name="name">bizdom.pillar.form</field>
+        <field name="model">bizdom.pillar</field>
+        <field name="arch" type="xml">
+            <form string="Pillar">
+                <sheet>
+                    <group>
+                        <group>
+                            <field name="name"/>
+                            <field name="company_id"/>
+                            <!--                            <field name="score_name_id"/>-->
+                        </group>
+                        <!--                        <group>-->
+                        <!--                            <field name="from_date"/>-->
+                        <!--                            <field name="to_date"/>-->
+                        <!--                        </group>-->
+                    </group>
+                    <notebook>
+                        <!--                        <page name="departments" string="Departments">-->
+                        <!--                            <field name="department_biz_ids" widget="one2many_list">-->
+                        <!--                                <list editable="bottom">-->
+                        <!--                                    <field name="department_id"/>-->
+                        <!--                                    <field name="score_value"/>-->
+                        <!--                                </list>-->
+                        <!--                            </field>-->
+                        <!--                        </page>-->
+                        <page name="Scores" string="Scores">
+                            <field name="score_name_ids" widget="one2many"  readonly="0">
+                                <list>
+                                    <field name="score_name" string="Score Name"/>
+                                    <field name="total_score_value"/>
+                                </list>
+                            </field>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+
+    <!-- Tree View -->
+    <record id="view_bizdom_pillar_tree" model="ir.ui.view">
+        <field name="name">bizdom.pillar.tree</field>
+        <field name="model">bizdom.pillar</field>
+        <field name="arch" type="xml">
+            <list string="Pillars">
+                <field name="name"/>
+                <field name="company_id"/>
+            </list>
+        </field>
+    </record>
+
+
+    <!-- Action -->
+    <record id="action_bizdom_pillar" model="ir.actions.act_window">
+        <field name="name">Pillars</field>
+        <field name="res_model">bizdom.pillar</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
+    <menuitem id="menu_bizdom_pillar" name="Pillars" parent="bizdom.menu_bizdom_root" action="action_bizdom_pillar"/>
+
+</odoo>
+
+
+

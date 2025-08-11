@@ -1,0 +1,53 @@
+<odoo>
+  <data>
+    <record id="appointees_slots_tree_view" model="ir.ui.view">
+            <field name="name">appointement.sots.list.view</field>
+            <field name="model">appointement.slots</field>
+            <field name="arch" type="xml">
+                <list string="Date's">
+                    <field name="appointment_date"/>
+                    <field name="name"/>
+                </list>
+            </field>
+        </record>
+
+        <record id="appointees_slots_form_view" model="ir.ui.view">
+            <field name="name">appointement.slots.form.view</field>
+            <field name="model">appointement.slots</field>
+            <field name="arch" type="xml">
+                <form string="Date's">
+                    <sheet>
+                    	<group>
+	                        <field name="appointment_date" />
+                            <field name="name"/>
+	                    </group>
+                        <notebook>
+                            <page string="Slot Time" name="Slot Time">
+                                <field name="time" class="slot-display">
+                                	<list editable="bottom">
+                                        <field name="time" widget="float_time" />
+                                        <field name="slot_time" invisible="1" />
+                                        <field name="is_slot_available" string="Slot Avaialbility" invisible="1"/>
+                                    </list>
+                                </field>
+                            </page>
+                        </notebook>
+                    </sheet>
+                </form>
+            </field>
+        </record>
+
+        <record model="ir.actions.act_window" id="action_appointment_slots">
+            <field name="name">Appointement Slots</field>
+            <field name="type">ir.actions.act_window</field>
+            <field name="res_model">appointement.slots</field>
+            <field name="view_mode">list,form</field>
+        </record>
+
+        <menuitem name="Meeting Slots" 
+        		action="action_appointment_slots" 
+        		id="menu_slots" 
+        		parent="car_repair_industry.menu_main_car_repair"
+                sequence="78"/>
+  </data>
+</odoo>

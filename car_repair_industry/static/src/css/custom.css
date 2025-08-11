@@ -1,0 +1,11 @@
+.green {
+	color: #1e9d1e;
+}
+.red {
+	color: #FF0000;
+	pointer-events: none;
+}
+.slot_day {
+	height: 40rem;
+    overflow: auto;
+}

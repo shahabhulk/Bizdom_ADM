@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="0">
+        <record id="menu_appointment" model="website.menu">
+            <field name="name">Create Appointment</field>
+            <field name="url">/appointment-book</field>
+            <field name="parent_id" ref="website.main_menu"/>
+            <field name="sequence" type="int">20</field>
+        </record>
+
+        <record id="seq_apt_booking" model="ir.sequence">
+            <field name="name">Appointment Booking</field>
+            <field name="code">calendar.event</field>
+            <field name="prefix">BID</field>
+            <field name="padding">5</field>
+            <field name="company_id" eval="False"/>
+        </record>
+
+        <record id="ir_cron_update_repair_statuses" model="ir.cron">
+            <field name="name">Auto Update Repair Status</field>
+            <field name="model_id" ref="car_repair_industry.model_fleet_repair"/>
+            <field name="state">code</field>
+            <field name="code">model._cron_update_delivery_colors</field>
+            <field name="interval_number">1</field>
+            <field name="interval_type">days</field>
+            <field name="active" eval="True"/>
+        </record>
+    </data>
+</odoo>

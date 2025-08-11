@@ -1,0 +1,393 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+        <!--fleet Repair Form View-->
+        <record id="view_fleet_repair_form" model="ir.ui.view">
+            <field name="name">fleet.repair.form</field>
+            <field name="model">fleet.repair</field>
+            <field name="arch" type="xml">
+                <form string="Car Repair">
+                    <header>
+                        <button name="action_create_quotation_fleet" type="object" string="Create Quotation"
+                                class="btn-primary"/>
+                        <button name="action_create_invoice_fleet" type="object" string="Create Invoice"
+                                class="btn-primary"/>
+                        <!--                        <button name="%(sale.action_orders)d" type="action" string="Quotation" class="oe_stat_button"-->
+                        <!--                                icon="fa-file-text-o">-->
+                        <!--                            <field name="sale_order_id" widget="statinfo"/>-->
+                        <!--                        </button>-->
+                        <!--                        <button name="action_create_fleet_diagnosis" string="Create Car Diagnosis"-->
+                        <!--                                invisible="state != 'draft'" type="object" class="oe_highlight" style="float:left;"-->
+                        <!--                                groups="car_repair_industry.group_fleet_repair_service_manager,car_repair_industry.group_fleet_repair_directeur_commercial,car_repair_industry.group_fleet_repair_head_technician"/>-->
+                        <button name="action_print_receipt" string="Print Receipt" invisible="state != 'draft'"
+                                type="object" style="float:left;"/>
+                        <button name="action_print_label" string="Print Label" invisible="state != 'draft'"
+                                type="object" style="float:left;"/>
+                        <field name="state" widget="statusbar"
+                               statusbar_visible="draft,diagnosis,quote,saleorder,workorder,done"
+                               options="{'clickable': '1'}"/>
+                    </header>
+                    <sheet string="Car Repair">
+
+
+                        <div class="oe_button_box" name="button_box">
+                            <button type="object"
+                                    name="button_view_workorder"
+                                    class="oe_stat_button"
+                                    icon="fa-wrench"
+                                    invisible="workorder_count == 0" groups="base.group_user">
+                                <field name="workorder_count" widget="statinfo" string="Work Order"/>
+                            </button>
+
+
+                            <!--                            <button type="object"-->
+                            <!--                                    name="button_view_diagnosis"-->
+                            <!--                                    class="oe_stat_button"-->
+                            <!--                                    icon="fa-pencil-square"-->
+                            <!--                                    invisible="dig_count == 0" groups="base.group_user">-->
+                            <!--                                <field name="dig_count" widget="statinfo" string="Diagnoses"/>-->
+                            <!--                            </button>-->
+
+                            <button type="object"
+                                    name="button_view_quotation_fleet"
+                                    class="oe_stat_button"
+                                    icon="fa-usd"
+                                    invisible="quotation_count == 0" groups="base.group_user">
+                                <field name="quotation_count" widget="statinfo" string="Quotations"/>
+                            </button>
+
+
+                            <button type="object"
+                                    name="button_view_invoice_fleet"
+                                    class="oe_stat_button"
+                                    icon="fa-pencil-square-o"
+                                    string="Invoices"
+                                    invisible="inv_count == 0" groups="base.group_user">
+                                <field name="inv_count" widget="statinfo" string="Invoices"/>
+                            </button>
+
+
+                            <button type="object"
+                                    name="button_view_saleorder"
+                                    class="oe_stat_button"
+                                    icon="fa-usd"
+                                    invisible="saleorder_count == 0" groups="base.group_user">
+                                <field name="saleorder_count" widget="statinfo" string="Sales Orders"/>
+                            </button>
+
+
+                            <!--                            <button type="object"-->
+                            <!--                                    name="button_view_invoice_fleet"-->
+                            <!--                                    class="oe_stat_button"-->
+                            <!--                                    icon="fa-pencil-square-o"-->
+                            <!--                                    invisible="inv_count == 0" groups="base.group_user">-->
+                            <!--                                <field name="inv_count" widget="statinfo" string="Invoices"/>-->
+                            <!--                            </button>-->
+                        </div>
+
+                        <div class="oe_title oe_left">
+                            <h1>
+                                <field name="job_card_display"/>
+                            </h1>
+                        </div>
+                        <group>
+                            <group>
+                                <!--                                <field name="name" readonly="state != 'draft'"/>-->
+                                <field name="user_id" readonly="state != 'draft'"/>
+                                <field name="confirm_sale_order" invisible="True"/>
+                            </group>
+                            <group>
+                                <field name="priority" widget="priority" readonly="state != 'draft'"/>
+                                <field name="receipt_date" readonly="state != 'draft'"/>
+                                <field name="promised_date"/>
+                                <field name="images_ids" widget='many2many_binary'/>
+                                <field name="sale_order_id" invisible="True"/>
+                                <field name="workorder_id" invisible="True"/>
+                                <field name="diagnose_id" readonly="True" invisible="True"/>
+                            </group>
+                        </group>
+                        <notebook>
+                            <page string="General">
+                                <group string="Client Info">
+                                    <group>
+                                        <field name="client_id" context="{'show_address': 1}"
+                                               options='{"always_reload": True}' readonly="state != 'draft'"
+                                               string="Client"/>
+                                        <field name="contact_name" string="Driver"/>
+                                    </group>
+                                    <group>
+                                        <field string="Mobile 1" name="client_mobile" readonly="state != 'draft'"/>
+                                        <field string="Mobile 2" name="client_phone" readonly="state != 'draft'"/>
+                                        <field name="client_email" widget="email" readonly="state != 'draft'"/>
+                                    </group>
+                                </group>
+                                <separator string="Car Info"/>
+                                <group>
+                                    <group>
+                                        <field name="fleet_id"/>
+                                        <field name="license_plate"/>
+                                    </group>
+                                    <group>
+                                        <field name="model_name"/>
+                                        <field name="vin_sn"/>
+                                        <field name="kilometers_num"/>
+                                    </group>
+                                </group>
+
+                                <!--                                <separator string="Car Info"/>-->
+                                <!--                                <field name="fleet_repair_line" readonly="state != 'draft'" widget="one2many_list"/>-->
+                                <separator string="Service Details"/>
+                                <field name="service_detail_line" readonly="state != 'draft'" widget="one2many_list">
+                                    <list editable="bottom">
+                                        <field name="service_detail"/>
+                                        <field name="service_type"/>
+                                    </list>
+                                </field>
+                                <separator string="Items"/>
+                                <field name="product_line_ids" readonly="state != 'draft'" widget="one2many_list">
+                                    <list editable="bottom">
+                                        <field name="product_id" options="{'no_quick_create': True}"/>
+                                        <field name="item_code_display"/>
+                                        <field name="quantity"/>
+                                        <field name="uom_id"/>
+                                        <field name="unit_price" widget="monetary"
+                                               options="{'currency_field': 'currency_id'}"/>
+                                        <field name="subtotal" widget="monetary"
+                                               options="{'currency_field': 'currency_id'}"/>
+                                        <field name="currency_id" column_invisible="1"/>
+                                    </list>
+                                </field>
+                                <div class="mt-2 d-flex justify-content-end">
+                                    <table class="table table-sm mb-0 w-auto">
+                                        <tr>
+                                            <td class="text-end">
+                                                <strong>Total</strong>
+                                            </td>
+                                            <td class="text-end pe-3">
+                                                <field name="currency_id" invisible="1"/>
+                                                <field name="amount_total" readonly="1"/>
+                                            </td>
+                                        </tr>
+                                    </table>
+                                </div>
+                            </page>
+                            <page name="checklist" string="Service Repair Checklist">
+                                <group>
+                                    <field name="repair_checklist_ids" colspan="2" nolabel="1"
+                                           options="{'no_create': True}">
+                                    </field>
+                                </group>
+                            </page>
+                            <page name="review_and_rating" string="Review and Ratings">
+                                <group>
+                                    <field name="feedback_description"/>
+                                    <field name="rating" widget="priority"/>
+                                </group>
+                            </page>
+                            <page string="Timesheet">
+                                <field name="timesheet_ids" widget="one2many_list">
+                                    <list string="Timesheet" editable="bottom">
+                                        <field name="repair_id" column_invisible="1"/>
+                                        <field name="date"/>
+                                        <field name="project_id" string="Service Name"/>
+                                        <field name="name"/>
+                                        <field name="service_type" required="1"/>
+                                        <field name="unit_amount" string="Duration (Hours)" widget="timesheet_uom"
+                                               sum="Total"/>
+                                        <field name="company_id" column_invisible="1"/>
+                                        <field name="currency_id" column_invisible="1"/>
+                                        <field name="account_id" required="False" column_invisible="1"/>
+                                    </list>
+                                </field>
+                            </page>
+                        </notebook>
+                    </sheet>
+                    <chatter/>
+                </form>
+            </field>
+        </record>
+
+        <!--fleet Repair Tree View-->
+
+        <record id="view_fleet_repair_tree" model="ir.ui.view">
+            <field name="name">fleet.repair.list</field>
+            <field name="model">fleet.repair</field>
+            <field name="priority">4</field>
+            <field name="arch" type="xml">
+                <list decoration-success= "delivery_status_color == 'green'"
+                      decoration-warning= "delivery_status_color == 'yellow'"
+                      decoration-danger="delivery_status_color == 'red'" string="Car Repair">
+                    <field name="sequence" string="Number"/>
+                    <field name="client_id"/>
+                    <field name="client_mobile"/>
+                    <field name="receipt_date"/>
+                    <field name="user_id"/>
+                    <field name="currency_id" column_invisible="1"/>
+                    <field name="amount_total" string="Parts Total" readonly="1"/>
+                    <field name="state" widget="badge" decoration-success="state == 'done'"/>
+                    <field name="promised_date" widget="remaining_days" invisible="state == 'done'"/>
+                </list>
+            </field>
+        </record>
+
+
+        <record id="view_repair_order_filter" model="ir.ui.view">
+            <field name="name">fleet.repair.list.select</field>
+            <field name="model">fleet.repair</field>
+            <field name="arch" type="xml">
+                <search string="Search Repair Order">
+                    <field name="sequence"/>
+                    <field name="name" string="Repair Order"/>
+                    <field name="client_id" operator="child_of"/>
+                    <field name="user_id"/>
+                    <field name="fleet_id"/>
+                    <separator/>
+                </search>
+            </field>
+        </record>
+
+        <!--Action-->
+        <record model="ir.actions.act_window" id="action_fleet_repair_tree_view">
+            <field name="name">Car Repair</field>
+            <field name="res_model">fleet.repair</field>
+
+            <field name="view_mode">list,form</field>
+            <field name="search_view_id" ref="view_repair_order_filter"/>
+            <field name="view_id" ref="view_fleet_repair_tree"/>
+        </record>
+
+        <!--Menuitems-->
+        <menuitem id="menu_main_car_repair" name="Car Repair" sequence="50"/>
+        <menuitem name="Car Repair" parent="menu_main_car_repair" id="menu_sub_car_repair" sequence="3"/>
+
+        <menuitem name="Car Repair" parent="menu_sub_car_repair" id="menu_fleet_repair_submenu" sequence="3"
+                  action="action_fleet_repair_tree_view"/>
+
+
+        <!-- service type -->
+        <record id="service_type_form_view" model="ir.ui.view">
+            <field name="name">service.type.form.view</field>
+            <field name="model">service.type</field>
+            <field name="arch" type="xml">
+                <form>
+                    <sheet string="Service Types">
+                        <group>
+                            <group>
+                                <field name="name"/>
+                            </group>
+                        </group>
+                    </sheet>
+                </form>
+            </field>
+        </record>
+
+        <record id="service_type_tree_view" model="ir.ui.view">
+            <field name="name">service.type.list.view</field>
+            <field name="model">service.type</field>
+            <field name="arch" type="xml">
+                <list string="Service Type">
+                    <field name="name"/>
+                </list>
+            </field>
+        </record>
+
+        <record id="action_service_type" model="ir.actions.act_window">
+            <field name="name">Service Type</field>
+            <field name="type">ir.actions.act_window</field>
+            <field name="res_model">service.type</field>
+            <field name="view_mode">list,form</field>
+        </record>
+
+        <menuitem name="Service Type" parent="menu_sub_car_repair" id="menu_service_type" sequence="11"
+                  action="action_service_type"/>
+        <!-- fleet Lines-->
+
+        <record id="view_repair_fleet_line_form" model="ir.ui.view">
+            <field name="name">fleet.repair.line.form</field>
+            <field name="model">fleet.repair.line</field>
+            <field name="arch" type="xml">
+                <form string="fleet Lines">
+                    <header>
+                        <button name="action_add_fleet_diagnosis_result" string="Enter Results" type="object"
+                                class="oe_highlight" style="float:left;"
+                                invisible="(diagnose_id == False) or (state in ['done', 'draft'])"
+                                groups="car_repair_industry.group_fleet_repair_head_technician,car_repair_industry.group_fleet_repair_directeur_commercial,car_repair_industry.group_fleet_repair_service_manager"/>
+                        <field name="state" widget="statusbar" statusbar_visible="draft,diagnosis,done"/>
+                    </header>
+                    <sheet>
+                        <group class="col-xs-12">
+                            <group class="col-xs-6">
+                                <field name="fleet_id"/>
+                                <field name="license_plate"/>
+                                <field name="vin_sn"/>
+                            </group>
+                            <group class="col-xs-6">
+                                <field name="model_id"/>
+                                <field name="fuel_type"/>
+                                <field name="car_year"/>
+                                <field name="diagnose_id" invisible="True"/>
+                                <field name="workorder_id" invisible="True"/>
+                            </group>
+                        </group>
+                        <notebook>
+                            <page string="Service Details">
+                                <group>
+                                    <group>
+                                        <field name="guarantee" widget="radio" readonly="state != 'draft'"/>
+                                        <field name="guarantee_type" widget="radio" invisible="guarantee == 'no'"
+                                               readonly="state != 'draft'"/>
+                                    </group>
+                                    <group>
+                                        <field name="service_type" readonly="state != 'draft'"/>
+                                    </group>
+                                </group>
+                                <separator string="Service Details"/>
+                                <field name="service_detail" readonly="state != 'draft'"/>
+                                <separator string="List of Damage"/>
+                                <field name="list_of_damage" readonly="state != 'draft'"/>
+                            </page>
+                            <page string="Diagnosis Report">
+                                <group>
+
+                                    <group invisible="guarantee_type == 'free'">
+                                        <field name="est_ser_hour" readonly="workorder_id != False"/>
+                                    </group>
+                                </group>
+                                <separator string="Spare Parts / Add Service"/>
+                                <field name="spare_part_ids" readonly="workorder_id != False">
+                                    <list string="Spare Parts" editable="bottom">
+                                        <field name="product_id" domain="[('type', 'in', ['service','consu'])]"/>
+                                        <field name="default_code"/>
+                                        <field name="quantity"/>
+                                        <field name="price_unit"/>
+                                    </list>
+                                </field>
+                                <separator string="Diagnostic Results"/>
+                                <field name="diagnostic_result" readonly="workorder_id != False"/>
+                            </page>
+                        </notebook>
+                    </sheet>
+                </form>
+            </field>
+        </record>
+
+        <record id="view_repair_fleet_line_tree" model="ir.ui.view">
+            <field name="name">repair.fleet.line.list</field>
+            <field name="model">fleet.repair.line</field>
+            <field name="priority">4</field>
+            <field name="arch" type="xml">
+                <list string="fleet Lines">
+                    <field name="fleet_id"/>
+                    <field name="license_plate"/>
+                    <field name="model_id"/>
+                    <field name="vin_sn"/>
+                    <field name="fuel_type"/>
+                    <field name="car_year"/>
+                    <field name="guarantee" widget="radio"/>
+                    <field name="service_type"/>
+                </list>
+            </field>
+        </record>
+
+    </data>
+</odoo>
