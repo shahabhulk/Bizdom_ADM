@@ -6,26 +6,64 @@ import json
 class DepartmentAPI(http.Controller):
 
     # API to create a new pillar under a company_id
-
-    @http.route('/api/pillar/<int:company_id>', type='json', auth='user', methods=['POST'], csrf=False)
+    @http.route('/api/pillar/<int:company_id>', type='http', auth='user', methods=['POST'], csrf=False)
     def create_pillar(self, company_id, **kwargs):
-        name = kwargs.get('name')
+        try:
+            # Parse JSON body
+            body = json.loads(request.httprequest.data.decode('utf-8'))
+            name = body.get("name")
 
-        if not name:
-            return {'error': 'Name is required'}
+            # Validate pillar name
+            if not name:
+                return http.Response(
+                    json.dumps({
+                        "statusCode": 400,
+                        "message": "Missing 'name' field in request body"
+                    }),
+                    content_type='application/json',
+                    status=400
+                )
 
-        company = request.env['res.company'].sudo().browse(company_id)
-        if not company.exists():
-            return {'error': 'Company not found'}
-        pillar = request.env['bizdom.pillar'].sudo().create({
-            'name': name,
-            'company_id': company.id,
-        })
+            # Check if company exists
+            company = request.env['res.company'].sudo().browse(company_id)
+            if not company.exists():
+                return http.Response(
+                    json.dumps({
+                        "statusCode": 404,
+                        "message": "Company not found"
+                    }),
+                    content_type='application/json',
+                    status=404
+                )
 
-        return {
-            'message': 'Pillar created successfully',
-            'name': pillar.name,
-        }
+            # Create pillar
+            pillar = request.env['bizdom.pillar'].sudo().create({
+                'name': name,
+                'company_id': company.id,
+            })
+
+            # Success response
+            return http.Response(
+                json.dumps({
+                    "statusCode": 200,
+                    "message": "Pillar created successfully",
+                    "company_id": company.id,
+                    "pillar_name": pillar.name
+                }),
+                content_type='application/json',
+                status=200
+            )
+
+        except Exception as e:
+            return http.Response(
+                json.dumps({
+                    "statusCode": 500,
+                    "message": "Internal Server Error",
+                    "error": str(e)
+                }),
+                content_type='application/json',
+                status=500
+            )
 
     # API to get all pillars of a company
     @http.route('/api/pillars/<int:company_id>', type='http', auth='user', methods=['GET'], csrf=False)
@@ -71,7 +109,7 @@ class DepartmentAPI(http.Controller):
         if not pillar.exists():
             return {'error': 'Pilar not found'}
         return {
-            'id': pillar.id,
+            'pillar_id': pillar.id,
             'name': pillar.name,
             'company_id': pillar.company_id.id
         }
@@ -105,7 +143,7 @@ class DepartmentAPI(http.Controller):
         pillar = request.env['bizdom.pillar'].sudo().browse(pillar_id)
         if not pillar.exists():
             return {'error': 'Pillar not found'}
-        # Delete the pillar 
+        # Delete the pillar
         pillar.unlink()
         return {'message': 'Pillar deleted successfully'}
 

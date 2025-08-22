@@ -5,15 +5,18 @@
         <field name="model">labour.billing</field>
         <field name="arch" type="xml">
             <list>
+                <field name="invoice_number"/>
+                <field name="date"/>
+                <field name="service_description"/>
                 <field name="department_id"/>
                 <field name="employee_id"/>
-<!--                <field name="name"/>-->
-                <field name="charge_amount"/> <!-- or labour_charges if you're using a custom field -->
+                <field name="charge_amount"/>
+                <!--                <field name="invoice_line_id"/>-->
+                <!--                <field name="name"/>-->
+                <!-- or labour_charges if you're using a custom field -->
             </list>
         </field>
     </record>
-
-
 
 
     <record id="action_labour_billing" model="ir.actions.act_window">
