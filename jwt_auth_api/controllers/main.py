@@ -13,7 +13,6 @@ class CustomAuthController(http.Controller):
 
     @http.route('/api/login', type='http', auth='none', methods=['POST'], csrf=False)
     def custom_login(self, **kwargs):
-        db = "bizapp_april23"
 
         try:
             body = json.loads(request.httprequest.data.decode('utf-8'))
@@ -25,6 +24,22 @@ class CustomAuthController(http.Controller):
                     json.dumps({
                         "statusCode": 400,
                         "message": "Missing login or password"
+                    }),
+
+                )
+
+            # Dynamic DB selection based on host
+
+            host =request.httprequest.host
+            if "laptop-uijcccph:8070" in host:
+                db = "bizapp_april23"
+            elif "13.233.223.127" in host:
+                db = "bitnami_odoo"
+            else:
+                return http.Response(
+                    json.dumps({
+                        "statusCode": 400,
+                        "message": f"Unknown host: {host}, cannot select DB"
                     }),
                     content_type='application/json',
                     status=400

@@ -12,14 +12,17 @@ class BizdomScore(models.Model):
     company_id = fields.Many2one('res.company', string='Company', index=True, default=lambda self: self.env.company)
     # department_id = fields.Many2one('hr.department', string="Department", required=True)
     # score_value = fields.Float(string="Score Value", compute='_compute_score_value', store=False)
-    from_date = fields.Date(default=lambda self: date.today().replace(day=1), string='From Date')
-    to_date = fields.Date(default=lambda self: date.today(), string='To Date')
+    start_date = fields.Date(string="Start Date")
+    end_date = fields.Date(string="End Date")
+    # from_date = fields.Date(default=lambda self: date.today().replace(day=1), string='From Date')
+    # to_date = fields.Date(default=lambda self: date.today(), string='To Date')
     pillar_id = fields.Many2one('bizdom.pillar', string='Pillar Name')
     total_score_value = fields.Float(string='Total Score', compute="_compute_total_score_value", store=True)
     max_score_percentage = fields.Float(string="Max Score")
     min_score_percentage = fields.Float(string="Min Score")
     max_score_number = fields.Float(string="Max Score")
     min_score_number = fields.Float(string="Min Score")
+    model_ref_id = fields.Many2one('ir.model', string="Information Model")
     favorite = fields.Boolean(string='Favorite', default=False)
 
     type = fields.Selection([
@@ -62,12 +65,29 @@ class BizdomScore(models.Model):
                 if favorites >= 3:
                     raise ValidationError("You can only choose up to 3 favorite scores per pillar.")
 
-    @api.depends('score_line_ids.score_value')
+    # @api.depends('score_line_ids.score_value')
+    # def _compute_total_score_value(self):
+    #     for rec in self:
+    #         total = 0.0
+    #         for line in rec.score_line_ids:
+    #             total += line.score_value
+    #         rec.total_score_value = total
+
+    @api.depends('start_date', 'end_date', 'model_ref_id')
     def _compute_total_score_value(self):
         for rec in self:
             total = 0.0
-            for line in rec.score_line_ids:
-                total += line.score_value
+            if rec.model_ref_id:
+                model_name = rec.model_ref_id.model  # get technical model name
+                Model = self.env[model_name]
+                records = Model.search([
+                    ('date', '>=', rec.start_date),
+                    ('date', '<=', rec.end_date),
+                ])
+                # Example: If model is labour.billing
+                if model_name == 'labour.billing':
+                    total = sum(records.mapped('charge_amount'))
+                # For other models, add custom aggregation rules here
             rec.total_score_value = total
 
     # @api.constrains('pillar_id')

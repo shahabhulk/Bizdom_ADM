@@ -6,7 +6,7 @@
     'category': 'Customization',
     'depends': ['base','hr','mail','hr_timesheet','account','jwt_auth_api'],
     'data': [
-        'security\ir.model.access.csv',
+        'security/ir.model.access.csv',
         'data/data.xml',
         'security/security.xml',
         'views/bizdom_menu.xml',

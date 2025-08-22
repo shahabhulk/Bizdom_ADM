@@ -9,7 +9,7 @@
                 <field name="score_name"/>
                 <field name="pillar_id"/>
                 <field name="favorite"/>
-                <field name="total_score_value"/>
+                <field name="total_score_value" string="Score Value"/>
             </list>
         </field>
     </record>
@@ -25,6 +25,9 @@
                             <field name="score_name"/>
                             <field name="pillar_id"/>
                             <field name="type"/>
+                            <field name="start_date" string="Start Date"/>
+                            <field name="end_date" string="End Date"/>
+                            <field name="model_ref_id" string="Model"/>
                         </group>
                         <group>
                             <group>
@@ -42,10 +45,11 @@
                                 <!--                            <t t-if="record.type.raw_value == 'percentage'">-->
                                 <!--                                <span>%</span>-->
 
+
+                                <field name="total_score_value" string="Score Value"/>
+
                             </group>
 
-                            <!--                            <field name="from_date"/>-->
-                            <!--                            <field name="to_date"/>-->
                         </group>
                     </group>
                     <notebook>
