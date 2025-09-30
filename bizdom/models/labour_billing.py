@@ -4,7 +4,8 @@ from odoo import api, models, fields
 class LabourBilling(models.Model):
     _name = "labour.billing"
 
-    employee_id = fields.Many2one('hr.employee', string="Employee")
+    employee_id = fields.Many2one('hr.employee')
+    employee_name=fields.Char(related="employee_id.resource_id.name",string="Employee")
     department_id = fields.Many2one(related='employee_id.department_id', store=True)
     charge_amount = fields.Float(string="Labour Charge")
     date = fields.Date(string="Date")
@@ -12,3 +13,7 @@ class LabourBilling(models.Model):
     invoice_id = fields.Many2one(related="invoice_line_id.move_id", string="Invoice", store=True)
     invoice_number = fields.Char(related="invoice_line_id.move_id.name", string="Invoice Number", store=True)
     service_description = fields.Char(related="invoice_line_id.name", string="Service Description", store=True)
+    car_number=fields.Char(related="invoice_line_id.move_id.license_plate",store=True)
+
+
+

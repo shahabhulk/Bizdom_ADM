@@ -7,9 +7,10 @@
             <list>
                 <field name="invoice_number"/>
                 <field name="date"/>
+                <field name="car_number"/>
                 <field name="service_description"/>
                 <field name="department_id"/>
-                <field name="employee_id"/>
+                <field name="employee_name"/>
                 <field name="charge_amount"/>
                 <!--                <field name="invoice_line_id"/>-->
                 <!--                <field name="name"/>-->

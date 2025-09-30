@@ -27,7 +27,7 @@
                             <field name="type"/>
                             <field name="start_date" string="Start Date"/>
                             <field name="end_date" string="End Date"/>
-                            <field name="model_ref_id" string="Model"/>
+                            <!--                            <field name="model_ref_id" string="Model"/>-->
                         </group>
                         <group>
                             <group>
@@ -46,18 +46,20 @@
                                 <!--                                <span>%</span>-->
 
 
-                                <field name="total_score_value" string="Score Value"/>
-
+                                <field name="total_score_value" invisible="type=='percentage'" string="Score Value"/>
+                                <field name="total_score_value_percentage" widget="percentage"
+                                       invisible="type!='percentage'" string="Score Value"/>
                             </group>
-
                         </group>
                     </group>
                     <notebook>
                         <page name="scores" string="Departments">
                             <field name="score_line_ids" widget="one2many_list">
-                                <list editable="bottom">
-                                    <field name="department_id"/>
-                                    <field name="score_value"/>
+                                <list editable="bottom" class="equal-columns">
+                                    <field name="department_id" width="25px" />
+                                    <field name="max_dep_score"  width="25px"/>
+                                    <field name="min_dep_score"  width="25px"/>
+                                    <field name="score_value"  width="25px" />
                                 </list>
                             </field>
                         </page>
