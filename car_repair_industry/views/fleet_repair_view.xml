@@ -95,6 +95,7 @@
                                 <!--                                <field name="name" readonly="state != 'draft'"/>-->
                                 <field name="user_id" readonly="state != 'draft'"/>
                                 <field name="confirm_sale_order" invisible="True"/>
+
                             </group>
                             <group>
                                 <field name="priority" widget="priority" readonly="state != 'draft'"/>
@@ -116,8 +117,8 @@
                                         <field name="contact_name" string="Driver"/>
                                     </group>
                                     <group>
-                                        <field string="Mobile 1" name="client_mobile" readonly="state != 'draft'"/>
-                                        <field string="Mobile 2" name="client_phone" readonly="state != 'draft'"/>
+                                        <field string="Mobile 1" name="client_phone" readonly="state != 'draft'"/>
+                                        <field string="Mobile 2" name="client_mobile" readonly="state != 'draft'"/>
                                         <field name="client_email" widget="email" readonly="state != 'draft'"/>
                                     </group>
                                 </group>
@@ -181,7 +182,7 @@
                             <page name="review_and_rating" string="Review and Ratings">
                                 <group>
                                     <field name="feedback_description"/>
-                                    <field name="rating" widget="priority"/>
+                                    <field name="csat_rating" widget="priority"/>
                                 </group>
                             </page>
                             <page string="Timesheet">
@@ -214,8 +215,8 @@
             <field name="model">fleet.repair</field>
             <field name="priority">4</field>
             <field name="arch" type="xml">
-                <list decoration-success= "delivery_status_color == 'green'"
-                      decoration-warning= "delivery_status_color == 'yellow'"
+                <list decoration-success="delivery_status_color == 'green'"
+                      decoration-warning="delivery_status_color == 'yellow'"
                       decoration-danger="delivery_status_color == 'red'" string="Car Repair">
                     <field name="sequence" string="Number"/>
                     <field name="client_id"/>
@@ -226,6 +227,7 @@
                     <field name="amount_total" string="Parts Total" readonly="1"/>
                     <field name="state" widget="badge" decoration-success="state == 'done'"/>
                     <field name="promised_date" widget="remaining_days" invisible="state == 'done'"/>
+                    <field name="csat_rating" widget="priority"/>
                 </list>
             </field>
         </record>

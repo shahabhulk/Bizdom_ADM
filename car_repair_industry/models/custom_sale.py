@@ -4,6 +4,7 @@
 from odoo import fields, models, api, _
 from datetime import date, time, datetime
 from odoo.tools import float_is_zero, float_compare, DEFAULT_SERVER_DATETIME_FORMAT
+from zeep.exceptions import ValidationError
 
 
 class SaleOrder(models.Model):
@@ -252,74 +253,36 @@ class AccountInvoiceLine(models.Model):
 
     license_plate = fields.Char(string="License Plate")
     car_model = fields.Char(string="Model #")
-    department_id = fields.Many2one('hr.department', string='Department')
-    employee_id = fields.Many2one('hr.employee', string='Employee')
-    name = fields.Char(string='Description')
-    # item_code = fields.Char(string="Item Code")
+    department_id = fields.Many2one('hr.department', string="Department")
+    # employee_id = fields.Many2one('hr.employee', string='Employee')
+    employee_id = fields.Many2one(
+        "hr.employee",
+        string="Employee",
+        # ✅ Pass default department
+    )
 
-    # labour_charges = fields.Monetary(
-    #     string='Labour Charge',
-    #     currency_field='currency_id',
-    #     store=True
-    # )
+    name = fields.Char(string='Description')
 
     item_code = fields.Char(
         string="Item Code",
         related='product_id.item_code',
         store=True,
-        readonly=False  # Optional: make editable if needed
+        readonly=False  #
     )
 
     @api.onchange('department_id')
     def _onchange_department_id(self):
+        if self.employee_id and self.employee_id.department_id != self.department_id:
+            self.employee_id = False
+
+    @api.onchange('employee_id')
+    def _onchange_employee_id(self):
         for line in self:
-            if line.department_id:
-                return {
-                    'domain': {
-                        'employee_id': [('department_id', '=', line.department_id.id)]
-                    }
+            if line.employee_id and not line.department_id:
+                warning = {
+                    'title': _("Department Required"),
+                    'message': _("Please select a Department first before choosing an Employee.")
                 }
-            else:
-                return {
-                    'domain': {
-                        'employee_id': []
-                    }
-                }
+                line.employee_id = False
+                return {'warning': warning}
 
-
-    @api.model
-    def create(self, vals):
-        line = super().create(vals)
-        line._sync_labour_billing()
-        return line
-
-    def write(self, vals):
-        res = super().write(vals)
-        self._sync_labour_billing()
-        return res
-
-    def _sync_labour_billing(self):
-        for line in self:
-            if line.employee_id and line.price_subtotal > 0:
-                existing = self.env['labour.billing'].search([('invoice_line_id', '=', line.id)], limit=1)
-                if existing:
-                    existing.write({
-                        'charge_amount': line.price_subtotal,
-                        'employee_id': line.employee_id.id,
-                        'date': line.move_id.invoice_date or fields.Date.today(),
-                    })
-                else:
-                    self.env['labour.billing'].create({
-                        'employee_id': line.employee_id.id,
-                        'charge_amount': line.price_subtotal,
-                        'date': line.move_id.invoice_date or fields.Date.today(),
-                        'invoice_line_id': line.id
-                    })
-
-    #
-    # @api.onchange('labour_charges')
-    # def _onchange_labour(self):
-    #     for line in self:
-    #         line._compute_totals()
-    #         if line.move_id:
-    #             line.move_id._compute_amount()

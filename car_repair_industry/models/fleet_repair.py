@@ -33,10 +33,12 @@ class FleetRepair(models.Model):
     name = fields.Char(string='Subject')
     sequence = fields.Char(string='Sequence', readonly=True, copy=False)
     client_id = fields.Many2one('res.partner', string='Client', required=True, tracking=True)
-    client_phone = fields.Char(string='Phone')
-    client_mobile = fields.Char(string='Mobile')
+    client_phone = fields.Char(related='client_id.phone', store=True, readonly=False, string='Phone',
+                               inverse='_inverse_client_phone')
+    client_mobile = fields.Char(related='client_id.mobile', store=True, readonly=False, string='Mobile',
+                                inverse='_inverse_client_phone')
     client_email = fields.Char(string='Email')
-    receipt_date = fields.Datetime(string='JC Date',default=fields.Datetime.now)
+    receipt_date = fields.Datetime(string='JC Date', default=fields.Datetime.now)
     contact_name = fields.Char(string='Contact Name')
     phone = fields.Char(string='Contact Number')
     fleet_id = fields.Many2one('fleet.vehicle', 'Car')
@@ -125,7 +127,19 @@ class FleetRepair(models.Model):
         readonly=True
     )
 
-    promised_date = fields.Datetime(string="Promised Delivery Date",default=fields.Datetime.now, required=True)
+    promised_date = fields.Datetime(string="Promised Delivery Date", default=fields.Datetime.now, required=True)
+    csat_rating = fields.Selection(
+        [
+            ("0", "No comments"),
+            ("1", "Very Unsatisfied"),
+            ("2", "Unsatisfied"),
+            ("3", "Neutral"),
+            ("4", "Satisfied"),
+            ("5", "Very Satisfied"),
+        ],
+        string="Customer Satisfaction",
+        default="0",
+    )
 
     # This field will control the decoration color
     delivery_status_color = fields.Selection([
@@ -133,6 +147,12 @@ class FleetRepair(models.Model):
         ('yellow', 'On Track'),
         ('red', 'Delayed')
     ], compute="_compute_delivery_status_color", store=True)
+
+    def _inverse_client_phone(self):
+        for record in self:
+            if record.client_id and record.client_phone or record.client_mobile:
+                record.client_id.phone = record.client_phone
+                record.client_id.mobile = record.client_mobile
 
     @api.depends('promised_date', 'receipt_date')
     def _compute_delivery_status_color(self):
@@ -184,7 +204,6 @@ class FleetRepair(models.Model):
 
             })
             self.sale_order_id = sale_order.id
-
         else:
             sale_order = self.sale_order_id
 
@@ -209,8 +228,8 @@ class FleetRepair(models.Model):
                 'res_id': self.invoice_order_id.id,
             }
 
-        if not self.product_line_ids:
-            raise UserError("Cannot create invoice: No product lines found.")
+        # if not self.product_line_ids:
+        #     raise UserError("Cannot create invoice: No product lines found.")
 
         journal = self.env['account.journal'].search([
             ('type', '=', 'sale'),
@@ -234,8 +253,8 @@ class FleetRepair(models.Model):
                 'tax_ids': [(6, 0, [])],
             }))
 
-        if not invoice_lines:
-            raise UserError("All product lines are empty or invalid.")
+        # if not invoice_lines:
+        #     raise UserError("All product lines are empty or invalid.")
 
         invoice = self.env['account.move'].create({
             'partner_id': self.client_id.id,
@@ -760,6 +779,21 @@ class ServiceDetailLine(models.Model):
     service_type = fields.Many2one('service.type', string='Nature of Service')
     service_detail_id = fields.Many2one('fleet.repair', string='Car.', copy=False)
     service_detail = fields.Text(string='Service Details')
+
+    @api.model
+    def create(self, vals):
+        if 'service_detail_id' in vals:
+            repair = self.env['fleet.repair'].browse(vals['service_detail_id'])
+            if len(repair.service_detail_line) >= 10:
+                raise ValidationError("You can't enter more than 10 service details.")
+        return super().create(vals)
+
+    def write(self, vals):
+        res = super().write(vals)
+        for rec in self:
+            if rec.service_detail_id and len(rec.service_detail_id.service_detail_line) > 10:
+                raise ValidationError("You can't enter more than 10 service details.")
+        return res
 
 
 class FleetRepairAnalysis(models.Model):
