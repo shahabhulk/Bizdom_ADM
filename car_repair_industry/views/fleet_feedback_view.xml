@@ -1,0 +1,180 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- list/List View for Feedback -->
+    <record id="view_fleet_feedback_list" model="ir.ui.view">
+        <field name="name">fleet.repair.feedback.list</field>
+        <field name="model">fleet.repair.feedback</field>
+        <field name="arch" type="xml">
+            <list>
+                <field name="name" string="Reference"/>
+                <field name="job_card_name" string="Job Card No"/>
+                <field name="customer_id" string="Customer"/>
+                <field name="service_advisor_id" string="Service Advisor"/>
+                <field name="feedback_date" string="Date"/>
+                <field name="average_rating" string="Avg. Rating" widget="float"/>
+                <field name="department_ids" string="Department" widget="many2many_tags"/>
+                <!--                <field name="state" widget="statusbar"/>-->
+
+                <field name="state"
+                       widget="badge"
+                       decoration-warning="state == 'reschedule'"
+                       decoration-info="state == 'psf'"
+                       decoration-success="state == 'done'"/>
+            </list>
+        </field>
+    </record>
+
+    <!-- Form View for Feedback -->
+    <record id="view_fleet_feedback_form" model="ir.ui.view">
+        <field name="name">fleet.repair.feedback.form</field>
+        <field name="model">fleet.repair.feedback</field>
+        <field name="arch" type="xml">
+            <form>
+                <header>
+                    <field name="state" widget="statusbar" statusbar_visible="psf,reschedule,done"
+                           options="{'clickable': '1'}"/>
+
+                </header>
+
+                <sheet>
+                    <group>
+                        <group>
+                            <field name="name" string="Reference"/>
+                            <field name="job_card_name" string="Job Card No"/>
+                            <field name="customer_id" string="Customer"/>
+                            <field name="service_advisor_id" string="Service Advisor"/>
+                        </group>
+                        <group>
+                            <field name="feedback_date" required="1"/>
+                            <field name="department_ids" string="Department" widget="many2many_tags"/>
+                            <field name="average_rating" widget="float" readonly="1"/>
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="Questions">
+                            <field name="question_line_ids" widget="one2many_list">
+                                <list editable="bottom">
+                                    <field name="question_id"/>
+                                    <field name="department_id"/>
+                                    <field name="rating" widget="selection"/>
+                                    <field name="feedback_comment"/>
+                                </list>
+                            </field>
+                        </page>
+                    </notebook>
+                </sheet>
+                <chatter/>
+            </form>
+        </field>
+    </record>
+
+    <!-- Action and Menu Items -->
+    <record id="action_fleet_feedback" model="ir.actions.act_window">
+        <field name="name">Feedbacks</field>
+        <field name="res_model">fleet.repair.feedback</field>
+        <field name="view_mode">list,form</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                Create your first feedback
+            </p>
+        </field>
+    </record>
+
+    <menuitem id="menu_fleet_feedback_root" name="Feedbacks"
+              parent="car_repair_industry.menu_main_car_repair" sequence="100"/>
+
+    <menuitem id="menu_fleet_feedback" name="Service Feedback"
+              parent="menu_fleet_feedback_root"
+              action="action_fleet_feedback" sequence="10"/>
+
+    <!-- Add button in Fleet Repair form to access feedbacks -->
+    <!--    <record id="view_fleet_repair_form_inherit_feedback" model="ir.ui.view">-->
+    <!--        <field name="name">fleet.repair.form.inherit.feedback</field>-->
+    <!--        <field name="model">fleet.repair</field>-->
+    <!--        <field name="inherit_id" ref="car_repair_industry.view_fleet_repair_form"/>-->
+    <!--        <field name="arch" type="xml">-->
+    <!--            <xpath expr="//field[@name='state']" position="after">-->
+    <!--                <button name="%(fleet_repair.action_fleet_repair_feedback)d"-->
+    <!--                        type="action"-->
+    <!--                        class="oe_stat_button"-->
+    <!--                        icon="fa-comments"-->
+    <!--                        attrs="{'invisible': [('id', '=', False)]}">-->
+    <!--                    <field name="feedback_count" widget="statinfo" string="Feedback"/>-->
+    <!--                </button>-->
+    <!--            </xpath>-->
+    <!--        </field>-->
+    <!--    </record>-->
+
+    <!--   feedback question view-->
+
+    <!--    <record id="view_feedback_question_search" model="ir.ui.view">-->
+    <!--        <field name="name">fleet.feedback.question.search</field>-->
+    <!--        <field name="model">fleet.feedback.question</field>-->
+    <!--        <field name="arch" type="xml">-->
+    <!--            <search>-->
+    <!--                <filter string="Active" name="active" domain="[('active', '=', True)]"/>-->
+    <!--                <filter string="Inactive" name="inactive" domain="[('active', '=', False)]"/>-->
+    <!--            </search>-->
+    <!--        </field>-->
+    <!--    </record>-->
+
+
+    <!-- List View for Feedback Questions -->
+    <record id="view_feedback_question_tree" model="ir.ui.view">
+        <field name="name">feedback.question.tree</field>
+        <field name="model">fleet.feedback.question</field>
+        <field name="arch" type="xml">
+            <list>
+                <field name="sequence" widget="handle"/>
+                <field name="name"/>
+                <field name="active" widget="boolean_toggle"/>
+            </list>
+        </field>
+    </record>
+
+    <!-- Form View for Feedback Questions -->
+    <record id="view_feedback_question_form" model="ir.ui.view">
+        <field name="name">feedback.question.form</field>
+        <field name="model">fleet.feedback.question</field>
+        <field name="arch" type="xml">
+            <form>
+                <sheet>
+                    <group>
+                        <group>
+                            <field name="name" placeholder="Enter your question here..."/>
+                            <group>
+                                <field name="department_id"/>
+                                <field name="active"/>
+                            </group>
+                        </group>
+
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <!-- Action for Feedback Questions -->
+    <record id="action_feedback_question" model="ir.actions.act_window">
+        <field name="name">Feedback Questions</field>
+        <field name="res_model">fleet.feedback.question</field>
+        <field name="view_mode">list,form</field>
+        <field name="context">{'active_test': False}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                Create your first feedback question
+            </p>
+        </field>
+    </record>
+
+    <!-- Main Feedback Menu (parent) -->
+
+    <!-- Feedback Questions Menu -->
+    <menuitem id="menu_feedback_question"
+              name="Feedback Questions"
+              parent="menu_fleet_feedback_root"
+              action="action_feedback_question"
+              sequence="11"/>
+
+
+</odoo>

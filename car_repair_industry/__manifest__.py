@@ -4,7 +4,7 @@
 {
     "name": "Car Repair and Automotive Service Maintenance Management Odoo App",
     "version": "18.0.0.0",
-    "depends": ['base', 'sale', 'purchase', 'account', 'sale_stock', 'mail', 'product', 'stock', 'fleet','sale_management', 'website', 'calendar', 'hr_timesheet','web'],
+    "depends": ['base', 'sale', 'purchase', 'account', 'sale_stock', 'mail', 'product', 'stock', 'fleet','sale_management', 'website', 'calendar', 'hr_timesheet','web','project'],
     "author": "BROWSEINFO",
     "summary": "Fleet repair vehicle repair car Maintenance auto-fleet service repair Car Maintenance Repair workshop automobile repair Automotive Service repair Automotive repair machine repair workshop equipment repair service Repair auto repair shop Auto Shop repair",
     "description": """
@@ -159,6 +159,7 @@ automotive workshop management software
         'wizard/fleet_repair_assign_to_head_tech_view.xml',
         'wizard/fleet_diagnose_assign_to_technician_view.xml',
         'views/fleet_repair_view.xml',
+        'views/fleet_feedback_view.xml',
         'views/fleet_repair_service_checklist_view.xml',
         'views/fleet_repair_sequence.xml',
         'views/fleet_diagnose_view.xml',
@@ -170,6 +171,7 @@ automotive workshop management software
         'views/dashboard.xml',
         'views/fleet_repair_product_view.xml',
         'views/templates.xml',
+        'views/fleet_lead.xml',
         'report/fleet_repair_label_view.xml',
         'report/fleet_repair_label_menu.xml',
         'report/fleet_repair_receipt_view.xml',
@@ -182,6 +184,7 @@ automotive workshop management software
         'report/fleet_diagnostic_result_report_menu.xml',
         'report/fleet_workorder_report_view.xml',
         'report/fleet_workorder_report_menu.xml',
+
     ],
     'assets': {
         'web.assets_frontend': [

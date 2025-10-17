@@ -27,5 +27,5 @@
     </record>
 
 
-    <menuitem id="menu_labour_billing" name="Labour Billing" parent="menu_bizdom_root" action="action_labour_billing"/>
+    <menuitem id="menu_labour_billing" name="Labour Charges Data" parent="menu_bizdom_data" action="action_labour_billing"/>
 </odoo>

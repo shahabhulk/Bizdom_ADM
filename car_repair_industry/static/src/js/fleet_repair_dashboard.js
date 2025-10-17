@@ -29,6 +29,8 @@ export class FleetRepairDasboard extends Component{
                 self.fleet_repair_d_count = result.fleet_repair_d_count;
                 self.fleet_workorder_count = result.fleet_workorder_count;
                 self.fleet_service_type_count = result.fleet_service_type_count;
+                self.feedback_count = result.feedback_count;
+                self.lead_count = result.lead_count || 0;
             });
             return Promise.all([def]);
 
@@ -112,7 +114,41 @@ export class FleetRepairDasboard extends Component{
             on_reverse_breadcrumb: this.on_reverse_breadcrumb
         });
     
-    }  
+    }
+
+    clickServiceFeedback (ev) {
+        ev.preventDefault();
+        this.action.doAction({
+            name: 'Service Feedbacks',
+            res_model: 'fleet.repair.feedback',
+            res_id: false,
+            views: [[false, 'list'], [false, 'form']],
+            type: 'ir.actions.act_window',
+        }, {
+            on_reverse_breadcrumb: this.on_reverse_breadcrumb
+        });
+    }
+
+    clickFleetLeads(ev) {
+    ev.preventDefault();
+    this.action.doAction({
+        name: 'Fleet Leads',
+        res_model: 'crm.lead',  // Make sure this matches your lead model name
+        res_id: false,
+        views: [[false, 'list'], [false, 'form']],
+        type: 'ir.actions.act_window',
+        context: {
+            'default_state': 'new'  // Optional: set default filters
+        },
+        domain: []  // Optional: add domain filters if needed
+    }, {
+        on_reverse_breadcrumb: this.on_reverse_breadcrumb
+    });
+}
+
+
+
+
 
 }
 

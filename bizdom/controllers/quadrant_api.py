@@ -668,7 +668,7 @@ class BizdomQuadrant(http.Controller):
         auth_header = request.httprequest.headers.get("Authorization")
         if not auth_header:
             return request.make_response(
-                json.dumps({"statusCode": 401, "message": "Token missing"}),
+                json.dumps({"statusCode" : 401, "message": "Token missing"}),
                 headers=[('Content-Type', 'application/json')]
             )
 

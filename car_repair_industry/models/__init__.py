@@ -9,4 +9,7 @@ from . import fleet_repair_checklist
 from . import calendar_event
 from . import appointment_slots
 from . import product_item
+from . import fleet_feedback
+from . import fleet_lead
+
 

@@ -189,13 +189,30 @@
                                 <field name="timesheet_ids" widget="one2many_list">
                                     <list string="Timesheet" editable="bottom">
                                         <field name="repair_id" column_invisible="1"/>
-                                        <field name="date"/>
                                         <field name="project_id" string="Service Name"/>
+                                        <field name="task_id" string="Work"/>
+                                        <field name="employee_id" string="Employee"/>
                                         <field name="name"/>
                                         <field name="service_type" required="1"/>
-                                        <field name="unit_amount" string="Duration (Hours)" widget="timesheet_uom"
+                                        <field name="timer_start"/>
+                                        <field name="timer_end"/>
+                                        <field name="unit_amount" string="Duration" widget="timesheet_uom"
                                                sum="Total"/>
-                                        <field name="company_id" column_invisible="1"/>
+                                        <button name="action_start_timer"
+                                                type="object"
+                                                class="oe_stat_button"
+                                                icon="fa-play"
+                                        />
+                                        <button name="action_stop_timer"
+                                                type="object"
+                                                class="oe_stat_button"
+                                                icon="fa-stop"
+                                        />
+                                        <button name="action_reset_timer"
+                                                type="object"
+                                                class="oe_stat_button"
+                                                icon="fa-refresh"/>
+
                                         <field name="currency_id" column_invisible="1"/>
                                         <field name="account_id" required="False" column_invisible="1"/>
                                     </list>

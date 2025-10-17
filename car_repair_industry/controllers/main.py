@@ -4,15 +4,14 @@ import base64
 
 from odoo import http, _
 from odoo.http import request
-from datetime import datetime,timedelta
+from datetime import datetime, timedelta
+
 
 class Appointment(http.Controller):
 
     @http.route('/appointment-book', auth='public', type='http', website=True)
     def appointment(self, **post):
         return request.render("car_repair_industry.appointment_form")
-
-
 
     @http.route('/appointment/confirm', auth='public', type='http', website=True)
     def appointment_confirm(self, **post):
@@ -29,7 +28,8 @@ class Appointment(http.Controller):
             stop_datetime = combined_datetime + timedelta(hours=1)
             combined_datetime_str_formatted = combined_datetime.strftime('%Y-%m-%d %H:%M:%S')
             stop_datetime_str_formatted = stop_datetime.strftime('%Y-%m-%d %H:%M:%S')
-            weekday_id_get = request.env['appointement.slots'].sudo().search([('appointment_date', '=', post.get('appoint_date'))], limit=1)
+            weekday_id_get = request.env['appointement.slots'].sudo().search(
+                [('appointment_date', '=', post.get('appoint_date'))], limit=1)
             if not partner:
                 partner_new = request.env['res.partner'].sudo().create({
                     'name': post['name'],
@@ -41,7 +41,7 @@ class Appointment(http.Controller):
                 'appoi_name': post.get('name'),
                 'email': post.get('email_from'),
                 'phone': post.get('phone'),
-                'start':combined_datetime_str_formatted,
+                'start': combined_datetime_str_formatted,
                 'stop': stop_datetime_str_formatted,
                 'duration': 1.0,
                 'time_slot': post.get('time_slot'),
@@ -52,7 +52,6 @@ class Appointment(http.Controller):
             meeting_val = meeting.create(values)
 
             return request.render("car_repair_industry.appointment_confirm", values)
-
 
     @http.route('/service-repair', auth='public', type='http', website=True)
     def service_repair_form(self, **post):
@@ -66,11 +65,12 @@ class Appointment(http.Controller):
 
             Attachments = request.env['ir.attachment'].sudo()
             # upload_file = post['upload']
-            name_get = request.env['res.users'].sudo().search([('name','=',post.get('name'))])
+            name_get = request.env['res.users'].sudo().search([('name', '=', post.get('name'))])
             default_user = request.env['res.users'].sudo().browse(request.uid)
-            service_type_get = request.env['service.type'].sudo().search([('id','=',post.get('service'))], limit=1)
-            car_brand_get = request.env['fleet.vehicle'].sudo().search([('id','=',post.get('car_brand'))], limit=1)
-            car_model_get = request.env['fleet.vehicle.model'].sudo().search([('id','=',post.get('car_model'))], limit=1)
+            service_type_get = request.env['service.type'].sudo().search([('id', '=', post.get('service'))], limit=1)
+            car_brand_get = request.env['fleet.vehicle'].sudo().search([('id', '=', post.get('car_brand'))], limit=1)
+            car_model_get = request.env['fleet.vehicle.model'].sudo().search([('id', '=', post.get('car_model'))],
+                                                                             limit=1)
             val = {
                 'service_type': service_type_get.id if service_type_get.id else '',
                 'fleet_id': car_brand_get.id if car_brand_get.id else '',
@@ -86,7 +86,7 @@ class Appointment(http.Controller):
                 'client_phone': post.get('phone'),
                 'priority': post.get('priority'),
                 'fleet_repair_line': [(0, 0, val)],
-                
+
             }
             car_repair_obj = car_repair.create(values)
 
@@ -122,12 +122,20 @@ class Appointment(http.Controller):
 
     @http.route('/fleet_repair/dashboard_data', type="json", auth='user')
     def fleet_repair_dashboard_data(self):
+        request.env.invalidate_all()
+        company_id = request.env.user.company_id.id
+
         fleet_repair = request.env['fleet.repair'].sudo().search([])
         fleet_diagnose = request.env['fleet.diagnose'].sudo().search([])
         fleet_diagnos_d = request.env['fleet.diagnose'].sudo().search([('state', '=', 'in_progress')])
         fleet_repair_d = request.env['fleet.repair'].sudo().search([('state', '=', 'done')])
         fleet_workorder = request.env['fleet.workorder'].sudo().search([])
         fleet_service_type = request.env['service.type'].sudo().search([])
+        lead_count = request.env['crm.lead'].sudo().search_count([
+            ('company_id', '=', company_id)
+        ])
+        feedback_count = request.env['fleet.repair.feedback'].sudo().search([])  # Add this line
+
         dashboard_data = {
             'fleet_repair_count': len(fleet_repair),
             'fleet_diagnos_count': len(fleet_diagnose),
@@ -135,5 +143,7 @@ class Appointment(http.Controller):
             'fleet_repair_d_count': len(fleet_repair_d),
             'fleet_workorder_count': len(fleet_workorder),
             'fleet_service_type_count': len(fleet_service_type),
+            'feedback_count': len(feedback_count),
+            'lead_count': lead_count
         }
         return dashboard_data

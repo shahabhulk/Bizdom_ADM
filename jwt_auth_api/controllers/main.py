@@ -160,7 +160,7 @@ class CustomAuthController(http.Controller):
 
             # Determine DB from host (same logic as login)
             host = request.httprequest.host
-            if "laptop-uijcccph:8070" in host:
+            if "laptop-uijcccph:8071" in host:
                 db = "bizapp_april23"
             elif "13.233.223.127" in host:
                 db = "bitnami_odoo"
@@ -178,7 +178,7 @@ class CustomAuthController(http.Controller):
             request.env.cr.execute("""
                 SELECT login FROM res_users WHERE id = %s """, (uid,))
             user_data = request.env.cr.fetchone()
-            
+
             if not user_data:
                 return http.Response(
                     json.dumps({
@@ -188,10 +188,10 @@ class CustomAuthController(http.Controller):
                     content_type='application/json',
                     status=404
                 )
-            
+
             login = user_data[0]
             print(f"Authenticating user with login: {login} (ID: {uid})")
-            
+
             credentials = {
                 'login': login,
                 'password': old_password,

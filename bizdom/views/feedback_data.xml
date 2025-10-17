@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- list/List View -->
+    <record id="view_feedback_data_list" model="ir.ui.view">
+        <field name="name">feedback.data.list</field>
+        <field name="model">feedback.data</field>
+        <field name="arch" type="xml">
+            <list string="Feedback Data">
+                <header>
+                    <button name="sync_feedback_data"
+                            string="Sync Feedback Data"
+                            type="object"
+                            class="oe_highlight"
+                            confirm="Are you sure you want to sync all feedback data?"/>
+                </header>
+                <field name="invoice_name" string="Invoice"/>
+                <field name="job_card_name" string="Job Card"/>
+                <field name="customer_id"/>
+                <field name="feedback_date"/>
+                <field name="department_id" string="Department"/>
+                <field name="rating" string="Rating"/>
+                <!--                <field name="total_average_rating" string="Avg Rating"/>-->
+            </list>
+        </field>
+    </record>
+
+    <!-- Search View -->
+    <!--    <record id="view_feedback_data_search" model="ir.ui.view">-->
+    <!--        <field name="name">feedback.data.search</field>-->
+    <!--        <field name="model">feedback.data</field>-->
+    <!--        <field name="arch" type="xml">-->
+    <!--            <search string="Feedback Search">-->
+    <!--                <field name="customer_id" string="Customer"/>-->
+    <!--                <field name="job_card_name" string="Job Card"/>-->
+    <!--                <field name="invoice_name_id" string="Invoice"/>-->
+    <!--                <separator/>-->
+    <!--                <filter string="This Month" name="this_month"-->
+    <!--                        domain="[('feedback_date', '>=', (context_today() + relativedelta(day=1)).strftime('%%Y-%%m-%%d'))]"/>-->
+    <!--                <group expand="0" string="Group By">-->
+    <!--                    <filter string="Customer" name="group_customer" context="{'group_by':'customer_id'}"/>-->
+    <!--                    <filter string="Department" name="group_department" context="{'group_by':'department_name_id'}"/>-->
+    <!--                    <filter string="Month" name="group_month" context="{'group_by':'feedback_date:month'}"/>-->
+    <!--                </group>-->
+    <!--            </search>-->
+    <!--        </field>-->
+    <!--    </record>-->
+
+    <!-- Action -->
+    <record id="action_feedback_data" model="ir.actions.act_window">
+        <field name="name">Feedback Data</field>
+        <field name="res_model">feedback.data</field>
+        <field name="view_mode">list,form</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                No feedback data found.
+            </p>
+        </field>
+    </record>
+
+    <!-- Menu Item -->
+    <menuitem id="menu_feedback_data_root"
+              name="Feedback Data"
+              parent="menu_bizdom_data"
+              action="action_feedback_data"
+              sequence="10"/>
+</odoo>

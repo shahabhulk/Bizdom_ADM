@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8" ?>
+
+<odoo>
+    <!-- Form View Extension for CRM Lead -->
+    <record id="view_crm_lead_form_inherit" model="ir.ui.view">
+        <field name="name">crm.lead.form.inherit</field>
+        <field name="model">crm.lead</field>
+        <field name="inherit_id" ref="crm.crm_lead_view_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='tag_ids']" position="after">
+                <field name="vehicle_brand_id"/>
+                <field name="vehicle_model_id"/>
+            </xpath>
+        </field>
+    </record>
+
+    <!-- List View Extension for CRM Lead -->
+    <record id="view_crm_lead_tree_inherit" model="ir.ui.view">
+        <field name="name">crm.lead.tree.inherit</field>
+        <field name="model">crm.lead</field>
+        <field name="inherit_id" ref="crm.crm_case_tree_view_oppor"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='user_id']" position="after">
+                <field name="vehicle_brand_id"/>
+                <field name="vehicle_model_id"/>
+            </xpath>
+        </field>
+    </record>
+
+    <!-- Action for Feedback Questions -->
+    <record id="action_fleet_lead" model="ir.actions.act_window">
+        <field name="name">Leads</field>
+        <field name="res_model">crm.lead</field>
+        <field name="view_mode">list,form</field>
+        <field name="context">{'active_test': False}</field>
+    </record>
+
+    <!-- Main Feedback Menu (parent) -->
+
+    <!-- Feedback Questions Menu -->
+    <menuitem id="menu_fleet_lead_root" name="Leads"
+              parent="car_repair_industry.menu_main_car_repair" sequence="99"/>
+
+    <menuitem id="menu_fleet_lead"
+              name="Leads"
+              parent="menu_fleet_lead_root"
+              action="action_fleet_lead"
+              sequence="11"/>
+</odoo>

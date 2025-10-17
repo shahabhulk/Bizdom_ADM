@@ -82,6 +82,7 @@ class BizdomScore(models.Model):
             if rec.start_date and rec.end_date and rec.start_date > rec.end_date:
                 raise ValidationError("Start Date cannot be greater than End Date.")
 
+    # for the frontend app
     @api.model
     def _recompute_with_dates(self, record, start_date, end_date):
         record_ctx = record.with_context(
@@ -108,21 +109,25 @@ class BizdomScore(models.Model):
                 continue
 
             if rec.pillar_id.name == "Operations":
-                if rec.score_name=="Labour":
+                if rec.score_name == "Labour":
                     records = self.env['labour.billing'].search([
                         ('date', '>=', start_date),
                         ('date', '<=', end_date)
                     ])
                     rec.context_total_score = sum(records.mapped('charge_amount'))
-                elif rec.score_name=="AOV":
-                    records = self.env['labour.billing'].search([
-                        ('date', '>=', start_date),
-                        ('date', '<=', end_date)
+                elif rec.score_name == "Customer Satisfaction":
+                    records = self.env['fleet.repair.feedback'].search([
+                        ('feedback_date', '>=', start_date),
+                        ('feedback_date', '<=', end_date)
                     ])
-                    total = sum(records.mapped('charge_amount'))
-                    number_of_cars = len(set(records.mapped('car_number')))
-                    rec.context_total_score = total / number_of_cars if number_of_cars > 0 else 0.0
-
+                    list_of_records = list(records.mapped('average_rating'))
+                    # print("dsf", list_of_records)
+                    list_of_jc = list(set(records.mapped('job_card_name')))
+                    if len(list_of_records) == len(list_of_jc):
+                        rec.total_score_value = sum(1 for i in list_of_records if i > 3) / len(list_of_jc) if len(
+                            list_of_jc) > 0 else 0
+                    print(rec.total_score_value)
+                    rec.context_total_score = round(rec.total_score_value,2)
 
     @api.depends('start_date', 'end_date', 'score_name')
     def _compute_total_score_value(self):
@@ -146,60 +151,52 @@ class BizdomScore(models.Model):
                     total = sum(records.mapped('charge_amount'))
                     rec.total_score_value = total
 
-                elif rec.score_name == "AOV":
-                    records = self.env['labour.billing'].search([
-                        ('date', '>=', start_date),
-                        ('date', '<=', end_date)
+
+                elif rec.score_name == "TAT":
+                    print("hellloooo")
+                    repair_records = self.env['fleet.repair'].search([
+                        ('receipt_date', '>=', start_date),
+                        ('receipt_date', '<=', end_date),
+                        ('invoice_order_id', '!=', False),
+                        ('invoice_order_id.invoice_date', '!=', False)
                     ])
-                    total = sum(records.mapped('charge_amount'))
-                    number_of_cars = len(set(records.mapped('car_number')))
-                    rec.total_score_value = total / number_of_cars if number_of_cars > 0 else 0
-                # elif rec.score_name == "Customer Satisfaction":
-                #     print("Start date",rec.start_date)
-                #     print("Close Date",rec.end_date)
-                #     records = self.env['fleet.repair'].search([])
-                #     for i in records:
-                #         print(f"JC{i.sequence}",rec.start_date<=i.receipt_date.date()<=rec.end_date)
+                    # for i in repair_records:
+                    #     print(i.job_card_display) mj
+                    total_tat_days = 0.0
+                    valid_records = 0
+                    for repair in repair_records:
+                        if repair.receipt_date and repair.invoice_order_id.invoice_date:
+                            delta = repair.invoice_order_id.invoice_date - repair.receipt_date.date()
+                            total_tat_days += abs(delta.days)
+                            valid_records += 1
+                            print(repair.job_card_display, ":", delta.days)
+
+                    rec.total_score_value = total_tat_days / valid_records if valid_records > 0 else 0.0
+                    rec.total_score_value_percentage = rec.total_score_value
 
                 elif rec.score_name == "Customer Satisfaction":
-                    print("Start date", start_date)
-                    print("Close Date", end_date)
+                    print("helloooooo")
+                    records = self.env['fleet.repair.feedback'].search([
+                        ('feedback_date', '>=', start_date),
+                        ('feedback_date', '<=', end_date)
+                    ])
+                    list_of_records = list(records.mapped('average_rating'))
+                    # print("dsf", list_of_records)
+                    list_of_jc = list(set(records.mapped('job_card_name')))
+                    if len(list_of_records) == len(list_of_jc):
+                        rec.total_score_value = sum(1 for i in list_of_records if i > 3) / len(list_of_jc) if len(
+                            list_of_jc) > 0 else 0
+                    print(rec.total_score_value)
+                    rec.total_score_value_percentage = rec.total_score_value
 
-                    # Fetch all job cards
-                    all_records = self.env['fleet.repair'].search([])
-
-                    # Filter based on date part of receipt_date
-                    records = all_records.filtered(
-                        lambda r: r.receipt_date and rec.start_date <= r.receipt_date.date() <= rec.end_date
-                    )
-
-                    total_rating = len(records.filtered(lambda r: r.csat_rating in ["4", "5"]))
-                    number_of_jc = len(records)
-                    print("Total Job Cards:", number_of_jc)
-                    print("High Rating JC:", total_rating)
-
-                    for i in records:
-                        print(f"JC{i.sequence}")
-
-                    if number_of_jc > 0:
-                        rec.total_score_value = (total_rating / number_of_jc)
-                        rec.total_score_value_percentage = rec.total_score_value
-                    else:
-                        raise UserError("No job card found in the selected date range.")
-                    #
-                    # number_of_jc = len(records)
-                    # if number_of_jc == 0:
-                    #     raise UserError("No job card found in the selected date range.")
-                    #
-                    # total_rating = len(records.filtered(lambda r: r.csat_rating in ["4", "5"]))
-                    #
-                    # for i in records:
-                    #     print(f"JC{i.sequence}")
-                    #
-                    # rec.total_score_value = total_rating / number_of_jc
-                    # rec.total_score_value_percentage = rec.total_score_value
-
-                    # get all records first
+            elif rec.pillar_id.name == "Sales and Marketing":
+                if rec.score_name == "Leads":
+                    records = self.env['crm.lead'].search([
+                        ('create_date', '>=', start_date),
+                        ('create_date', '<=', end_date),
+                        ('stage_id', '=', 1)
+                    ])
+                    rec.total_score_value = len(records)
 
 
 class BizdomScoreLine(models.Model):
@@ -216,41 +213,65 @@ class BizdomScoreLine(models.Model):
     @api.onchange('score_id.start_date', 'score_id.end_date', 'score_id.score_name', 'department_id')
     def _compute_score_value(self):
         for rec in self:
+            rec.score_value = 0.0
             if not rec.score_id or not rec.department_id:
-                rec.score_value = 0.0
                 continue
 
-            # Base filters: date range
-            domain = []
-            if rec.score_id.start_date:
-                domain.append(('date', '>=', rec.score_id.start_date))
-            if rec.score_id.end_date:
-                domain.append(('date', '<=', rec.score_id.end_date))
+            # Common domain filters
+            # domain = [('department_id', '=', rec.department_id.id)]
 
-            # Department Filter
-            domain.append(('department_id', '=', rec.department_id.id))
-
-            # Now compute by score name
             if rec.score_id.pillar_id.name == "Operations":
                 if rec.score_id.score_name == "Labour":
-                    records = self.env["labour.billing"].search(domain)
-                    rec.score_value = sum(records.mapped('charge_amount'))
+                    domain = [('department_id', '=', rec.department_id.id)]
+                    # Date domain for labour billing
+                    labour_domain = list(domain)
+                    if rec.score_id.start_date:
+                        labour_domain.append(('date', '>=', rec.score_id.start_date))
+                    if rec.score_id.end_date:
+                        labour_domain.append(('date', '<=', rec.score_id.end_date))
 
-                elif rec.score_id.score_name == "AOV":
-                    records = self.env["labour.billing"].search(domain)
-                    total = sum(records.mapped('charge_amount'))
-                    number_of_cars = len(set(records.mapped('car_number')))
-                    rec.score_value = total / number_of_cars if number_of_cars > 0 else 0
-                # Department wise rating is not effective need to look out for other methods
-                # elif rec.score_id.score_name == "Customer Satisfaction":
-                #     records = self.env['fleet.repair'].search([
-                #         ('receipt_date', '>=', rec.score_id.start_date),
-                #         ('receipt_date', '<=', rec.score_id.end_date),
-                #         ('department_id', '=', rec.department_id.id)
-                #     ])
-                #     total_rating = len(records.filtered(lambda r: r.csat_rating in ["4", "5"]))
-                #     number_of_jc = len(records)
-                #     rec.score_value = (total_rating / number_of_jc) if number_of_jc > 0 else 0.0
+                    records = self.env["labour.billing"].search(labour_domain)
+                    rec.score_value = sum(records.mapped('charge_amount'))
+                elif rec.score_id.score_name == "Customer Satisfaction":
+                    # Date domain for feedback
+                    feedback_domain = []
+                    if rec.score_id.start_date:
+                        feedback_domain.append(('feedback_date', '>=', rec.score_id.start_date))
+                    if rec.score_id.end_date:
+                        feedback_domain.append(('feedback_date', '<=', rec.score_id.end_date))
+
+                    # Get all feedback records for the department
+                    record_jc = self.env['feedback.data'].search(feedback_domain)
+                    for i in record_jc:
+                        print("jc name", i.job_card_name)
+                    domain = [('department_id', '=', rec.department_id.id)]
+                    records = self.env['feedback.data'].search(feedback_domain + domain)
+                    for i in records:
+                        print("job card", i.job_card_name, i.department_id.name, i.rating)
+
+                    filter_records = records.filtered(lambda x: x.rating and x.rating in ['4', '5'])
+                    # for i in filter_records:
+                    #     print(i.department_id.name)
+                    list_of_jc = list(set(record_jc.mapped('job_card_name')))
+                    rec.score_value = sum(1 for i in records if i.rating in ['4', '5']) / len(list_of_jc) if len(
+                        list_of_jc) > 0 else 0
+                    for i in list_of_jc:
+                        print("jc name", i)
+
+                    # print(rec.department_id.name,rec.score_value)
+
+                    # Group by job card and get one rating per job card
+                    # job_card_ratings = {}
+                    # for record in records:
+                    #     if record.job_card_name and record.job_card_name not in job_card_ratings:
+                    #         job_card_ratings[record.job_card_name] = record.average_rating
+                    #
+                    # print(job_card_ratings)
+
+                    # Calculate satisfaction percentage
+                    # if job_card_ratings:
+                    #     good_ratings = sum(1 for rating in job_card_ratings.values() if rating > 3)
+                    #     rec.score_value = (good_ratings / len(job_card_ratings)) * 100  # as percentage
 
     # @api.depends('score_id.score_name', 'department_id', 'score_id.from_date', 'score_id.to_date')
     # def _compute_score_value(self):

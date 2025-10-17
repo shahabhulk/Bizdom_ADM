@@ -37,3 +37,6 @@ access_fleet_repair,fleet_repair,model_fleet_repair,base.group_user,1,1,1,1
 access_service_detail_line,service.detail.line,car_repair_industry.model_service_detail_line,base.group_user,1,1,1,1
 access_fleet_repair_product_line,fleet.repair.product.line,car_repair_industry.model_fleet_repair_product_line,base.group_user,1,1,1,1
 access_account_analytic_line_user,analytic.account.analytic.line.timesheet.user,analytic.model_account_analytic_line,hr_timesheet.group_hr_timesheet_user,1,1,1,1
+access_fleet_repair_feedback,fleet.repair.feedback,car_repair_industry.model_fleet_repair_feedback,base.group_user,1,1,1,1
+access_fleet_feedback_line,fleet.feedback.line,car_repair_industry.model_fleet_feedback_line,base.group_user,1,1,1,1
+access_fleet_feedback_question,fleet.feedback.question,car_repair_industry.model_fleet_feedback_question,base.group_user,1,1,1,1

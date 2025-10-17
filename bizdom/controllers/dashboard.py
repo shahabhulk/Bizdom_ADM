@@ -92,7 +92,7 @@ class BizdomDashboard(http.Controller):
                             "type": s.type,
                             "min_value": min_value,
                             "max_value": max_value,
-                            "total_score_value": score_value
+                            "total_score_value": score_value * 100 if s.type == "percentage" else score_value
                         })
                     pillars.append({
                         "pillar_id": p.id,
@@ -152,7 +152,7 @@ class BizdomDashboard(http.Controller):
                             "type": s.type,
                             "min_value": min_value,
                             "max_value": max_value,
-                            "total_score_value": score_value
+                            "total_score_value":score_value * 100 if s.type == "percentage" else score_value
                         })
                     pillars.append({
                         "pillar_id": p.id,
@@ -207,8 +207,7 @@ class BizdomDashboard(http.Controller):
                         "type": s.type,
                         "min_value": min_value,
                         "max_value": max_value,
-                        "total_score_value": score_value
-                    })
+                        "total_score_value": score_value * 100 if s.type == "percentage" else score_value                    })
                 pillars.append({
                     "pillar_id": p.id,
                     "pillar_name": p.name,
@@ -259,7 +258,7 @@ class BizdomDashboard(http.Controller):
                         "type": s.type,
                         "min_value": min_value,
                         "max_value": max_value,
-                        "total_score_value": score_value
+                        "total_score_value": score_value * 100 if s.type == "percentage" else score_value
                     })
                 pillars.append({
                     "pillar_id": p.id,

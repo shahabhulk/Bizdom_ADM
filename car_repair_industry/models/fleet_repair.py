@@ -147,6 +147,28 @@ class FleetRepair(models.Model):
         ('yellow', 'On Track'),
         ('red', 'Delayed')
     ], compute="_compute_delivery_status_color", store=True)
+    project_id = fields.Many2one('project.project', string='Project', copy=False, readonly=True)
+
+    # def write(self, vals):
+    #     # First call the original write method
+    #     res = super().write(vals)
+    #     print("helllloosojojsodji")
+    #     # Only proceed if we're updating specific records (not creating)
+    #     if self and not self._context.get('skip_project_creation'):
+    #         Project = self.env['project.project']
+    #         for repair in self:
+    #             # Only create project if sequence is set and no project exists
+    #             if not repair.project_id and repair.sequence:
+    #                 project_vals = {
+    #                     'name': f"Job Card No: {repair.sequence}",
+    #                     'allow_timesheets': True,
+    #                     'partner_id': repair.client_id.id if repair.client_id else False,
+    #                 }
+    #                 # Use with_context to prevent recursion
+    #                 repair.with_context(skip_project_creation=True).write({
+    #                     'project_id': Project.create(project_vals).id
+    #                 })
+    #     return res
 
     def _inverse_client_phone(self):
         for record in self:
@@ -283,14 +305,31 @@ class FleetRepair(models.Model):
 
     @api.model_create_multi
     def create(self, vals_list):
+        # First, get the maximum sequence number
         self.env.cr.execute("SELECT COALESCE(MAX(CAST(sequence AS INTEGER)), 0) FROM fleet_repair")
         last_seq = self.env.cr.fetchone()[0]
 
+        # Set sequence numbers in the vals_list
         for vals in vals_list:
             last_seq += 1
             vals['sequence'] = str(last_seq)
 
-        return super(FleetRepair, self).create(vals_list)
+        # Create the fleet repair records
+        repairs = super(FleetRepair, self).create(vals_list)
+
+        # Now create projects for each repair
+        project = self.env['project.project']
+        for repair in repairs:
+            company_id = repair.company_id.id if repair.company_id else self.env.company.id
+            project_vals = {
+                'name': f"Job Card No: {repair.sequence}",
+                'allow_timesheets': True,
+                'partner_id': repair.client_id.id if repair.client_id else False,
+                'company_id': company_id,
+            }
+            repair.project_id = project.with_company(company_id).create(project_vals).id
+
+        return repairs
 
     @api.depends('child_ids.planned_hours')
     def _compute_subtask_planned_hours(self):
@@ -530,10 +569,14 @@ class FleetRepair(models.Model):
             line.write({'state': 'diagnosis'})
 
         for rec in repair_obj.timesheet_ids:
+            if rec.task_id and rec.task_id.private:
+                rec.task_id.write({'private': False})
             timesheet_line_vals = {
                 'date': rec.date,
                 'diagnose_id': diagnose_id.id,
                 'project_id': rec.project_id.id,
+                'task_id': rec.task_id.id,
+                'employee_id': rec.employee_id.id,
                 'name': rec.name,
                 'service_type': rec.service_type.id,
                 'unit_amount': rec.unit_amount,
@@ -827,10 +870,51 @@ class AccountAnalyticLine(models.Model):
     workorder_id = fields.Many2one('fleet.workorder', string="Car workorder")
     service_type = fields.Many2one('service.type', string="Service Type")
 
-    @api.depends('service_type', 'unit_amount')
-    def _cal_total_cost(self):
-        for timesheet in self:
-            if timesheet.type_id and (timesheet.unit_amount > 0):
-                timesheet.total_cost = timesheet.service_type.cost * timesheet.unit_amount
+    timer_start = fields.Datetime('Start Timer')
+    timer_end = fields.Datetime('End Timer')
+    timer_duration = fields.Float('Timer Duration (Hours)', compute='_compute_timer_duration', store=True)
+    unit_amount = fields.Float(
+        compute='_compute_unit_amount',
+        store=True
+    )
+
+    @api.depends('timer_start', 'timer_end')
+    def _compute_unit_amount(self):
+        for rec in self:
+            if rec.timer_start and rec.timer_end:
+                delta = rec.timer_end - rec.timer_start
+                rec.unit_amount = delta.total_seconds() / 3600.0
+            elif rec.timer_start and not rec.timer_end:
+                now = fields.Datetime.now()
+                delta = now - rec.timer_start
+                rec.unit_amount = delta.total_seconds() / 3600.0
             else:
-                timesheet.total_cost = 0.0
+                rec.unit_amount = 0.0
+
+    def action_start_timer(self):
+        for rec in self:
+            if rec.timer_start:
+                raise UserError('Timer is already started')
+            rec.timer_start = fields.Datetime.now()
+
+    def action_stop_timer(self):
+        for rec in self:
+            if not rec.timer_start:
+                raise UserError('Timer is not started')
+            if rec.timer_end:
+                raise UserError('Timer is already stopped')
+            rec.timer_end = fields.Datetime.now()
+
+    def action_reset_timer(self):
+        for rec in self:
+            rec.timer_start = False
+            rec.timer_end = False
+            rec.unit_amount = 0.0
+
+    # @api.depends('service_type', 'unit_amount')
+    # def _cal_total_cost(self):
+    #     for timesheet in self:
+    #         if timesheet.type_id and (timesheet.unit_amount > 0):
+    #             timesheet.total_cost = timesheet.service_type.cost * timesheet.unit_amount
+    #         else:
+    #             timesheet.total_cost = 0.0

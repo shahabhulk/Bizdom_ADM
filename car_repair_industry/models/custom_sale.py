@@ -143,6 +143,20 @@ class AccountInvoice(models.Model):
     license_plate = fields.Char(related='fleet_repair_invoice_id.license_plate', store=True)
     model_name = fields.Char(related='fleet_repair_invoice_id.model_name', store=True)
     vin_sn = fields.Char(related='fleet_repair_invoice_id.vin_sn', store=True)
+    fleet_feedback_count = fields.Integer(compute='_compute_feedback_count', string='Feedback Count')
+    fleet_feedback_ids = fields.One2many('fleet.repair.feedback', 'account_move_id', string='Service Feedbacks')
+    fleet_repair_id = fields.Many2one('fleet.repair', string='Repair Order')
+    # job_card_name = fields.Char(string='Job Card No', compute='_compute_job_card_name')
+    job_card_name = fields.Char(string='Job Card No', related='fleet_repair_invoice_id.sequence')
+
+    # @api.depends('fleet_repair_invoice_id.job_card_display')
+    # def _compute_job_card_name(self):
+    #     for rec in self:
+    #         rec.job_card_name = rec.fleet_repair_invoice_id.sequence if rec.fleet_repair_invoice_id else False
+
+    def _compute_feedback_count(self):
+        for move in self:
+            move.fleet_feedback_count = len(move.fleet_feedback_ids)
 
     # def _prepare_product_base_line_for_taxes_computation(self, line):
     #     res = super()._prepare_product_base_line_for_taxes_computation(line)
@@ -150,6 +164,22 @@ class AccountInvoice(models.Model):
     #         quantity = line.quantity or 1.0
     #         res['price_unit'] += line.labour_charges / quantity
     #     return res
+
+    def action_post(self):
+        res = super(AccountInvoice, self).action_post()
+        print("helllooooo")
+        for invoice in self:
+            print("hei jbksfdj")
+            print("fleet", invoice.fleet_repair_invoice_id.id)
+            if invoice.fleet_repair_invoice_id.id:
+                self.env['fleet.repair.feedback'].create({
+                    'name': invoice.name,
+                    'account_move_id': invoice.id,
+                    'fleet_repair_id': invoice.fleet_repair_invoice_id.id,
+                    'customer_id': invoice.partner_id.id,
+                    'feedback_date': fields.Date.today()
+                })
+        return res
 
     @api.model_create_multi
     def create(self, vals_list):
@@ -200,6 +230,39 @@ class AccountInvoice(models.Model):
                         template = self.env['mail.template'].browse(template_id)
                         template.send_mail(repair_obj.id, force_send=True)
         return super(AccountInvoice, self).write(vals)
+
+    # def action_view_service_feedback(self):
+    #     self.ensure_one()
+    #     return {
+    #         'name': 'Service Feedback',
+    #         'type': 'ir.actions.act_window',
+    #         'res_model': 'fleet.repair.feedback',
+    #         'view_mode': 'form',
+    #         'context': {
+    #             'default_name': self.name,
+    #             'default_account_move_id': self.id,
+    #             'default_fleet_repair_id': self.fleet_repair_id.id if self.fleet_repair_id else False,
+    #             'default_customer_id': self.partner_id.id,
+    #             'default_feedback_date': fields.Date.today(),
+    #             'default_fleet_repair_invoice_id': self.id,
+    #         }
+    #     }
+
+    # def button_view_service_feedback(self):
+    #     self.ensure_one()
+    #     return {
+    #         'name': 'Service Feedbacks',
+    #         'type': 'ir.actions.act_window',
+    #         'res_model': 'fleet.repair.feedback',
+    #         'view_mode': 'list,form',
+    #         'domain': [('account_move_id', '=', self.id)],
+    #         'context': {
+    #             'default_account_move_id': self.id,
+    #             'default_fleet_repair_id': self.fleet_repair_id.id if self.fleet_repair_id else False,
+    #             'default_customer_id': self.partner_id.id,
+    #             'default_fleet_repair_invoice_id': self.id,
+    #         }
+    #     }
 
 
 class MailComposeMessage(models.TransientModel):
@@ -285,4 +348,3 @@ class AccountInvoiceLine(models.Model):
                 }
                 line.employee_id = False
                 return {'warning': warning}
-
