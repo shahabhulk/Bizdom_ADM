@@ -5,3 +5,4 @@ access_bizdom_score_line,bizdom.score.line,model_bizdom_score_line,base.group_us
 access_bizdom_signal,bizdom.signal,model_bizdom_signal,base.group_user,1,1,1,1
 access_labour_billing,labour.billing,model_labour_billing,,1,1,1,1
 access_feedback_data,feedback.data,model_feedback_data,base.group_user,1,1,1,1
+access_bizdom_dashboard,bizdom.dashboard,model_bizdom_dashboard,base.group_user,1,1,1,1

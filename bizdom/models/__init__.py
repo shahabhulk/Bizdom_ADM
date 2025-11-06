@@ -6,3 +6,4 @@ from .import signal_bizdom
 from .import labour_billing
 from .import feedback_data
 from .import custom_fleet_feedback
+from .import dashboard

@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+    <t t-name="bizdom.Dashboard" owl="1">
+        <div>
+            <h2>Bizdom Dashboard</h2>
+
+            <t t-if="state.loading">
+                <div>Loading pillars...</div>
+            </t>
+
+            <t t-elif="!state.pillars.length">
+                <div>No pillars found.</div>
+            </t>
+
+            <t t-else="">
+                <div>
+                    <t t-foreach="state.pillars" t-as="pillar" t-key="pillar.id">
+                        <div style="border: 1px solid #ddd; padding: 10px; margin-bottom: 10px;">
+                            <h3 t-esc="pillar.name"/>
+                            <div t-esc="pillar.description || 'No description'"/>
+                        </div>
+                    </t>
+                </div>
+            </t>
+        </div>
+    </t>
+</templates>

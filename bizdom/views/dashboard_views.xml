@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<odoo>
+
+    <!-- Client Action for Dashboard -->
+    <record id="action_bizdom_dashboard" model="ir.actions.client">
+        <field name="name">Bizdom Dashboard</field>
+        <field name="tag">bizdom_dashboard</field>
+    </record>
+
+    <!-- Menu Item -->
+    <menuitem
+        id="menu_bizdom_dashboard"
+        name="Dashboard"
+        parent="menu_bizdom_root"
+        action="action_bizdom_dashboard"
+        sequence="10"/>
+</odoo>
