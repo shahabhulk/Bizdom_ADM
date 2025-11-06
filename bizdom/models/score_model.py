@@ -1,4 +1,4 @@
-from odoo import models, fields, api
+from odoo import models, fields, api,_
 from odoo.exceptions import ValidationError
 from datetime import date, timedelta
 from odoo.exceptions import UserError
@@ -82,6 +82,42 @@ class BizdomScore(models.Model):
             if rec.start_date and rec.end_date and rec.start_date > rec.end_date:
                 raise ValidationError("Start Date cannot be greater than End Date.")
 
+    def action_set_wtd(self):
+        today = fields.Date.today()
+        start_of_week = today - timedelta(days=today.weekday())
+        self.write({
+            'start_date': start_of_week,
+            'end_date': today
+        })
+        return {
+            'type': 'ir.actions.client',
+            'tag': 'reload'
+        }
+
+    def action_set_mtd(self):
+        today = fields.Date.today()
+        start_of_month = today.replace(day=1)
+        self.write({
+            'start_date': start_of_month,
+            'end_date': today
+        })
+        return {
+            'type': 'ir.actions.client',
+            'tag': 'reload'
+        }
+
+    def action_set_ytd(self):
+        today = fields.Date.today()
+        start_of_year = today.replace(month=1, day=1)
+        self.write({
+            'start_date': start_of_year,
+            'end_date': today
+        })
+        return {
+            'type': 'ir.actions.client',
+            'tag': 'reload'
+        }
+
     # for the frontend app
     @api.model
     def _recompute_with_dates(self, record, start_date, end_date):
@@ -109,6 +145,7 @@ class BizdomScore(models.Model):
                 continue
 
             if rec.pillar_id.name == "Operations":
+                print("lkjasfdlkja")
                 if rec.score_name == "Labour":
                     records = self.env['labour.billing'].search([
                         ('date', '>=', start_date),
@@ -120,15 +157,83 @@ class BizdomScore(models.Model):
                         ('feedback_date', '>=', start_date),
                         ('feedback_date', '<=', end_date)
                     ])
-                    list_of_records = list(records.mapped('average_rating'))
-                    # print("dsf", list_of_records)
-                    list_of_jc = list(set(records.mapped('job_card_name')))
-                    if len(list_of_records) == len(list_of_jc):
-                        rec.total_score_value = sum(1 for i in list_of_records if i > 3) / len(list_of_jc) if len(
-                            list_of_jc) > 0 else 0
-                    print(rec.total_score_value)
-                    rec.context_total_score = round(rec.total_score_value,2)
+                    # calculate the average rating
+                    list_of_records = records.mapped('average_rating')
+                    average_total_rating = sum(list_of_records) / len(list_of_records) if len(list_of_records) else 0
+                    average_total_rating_percentage = average_total_rating / 5
+                    rec.context_total_score = average_total_rating_percentage
+                elif rec.score_name == "TAT":
+                    repair_delivered_records = self.env['fleet.repair'].search([
+                        ('invoice_order_id', '!=', False),
+                        ('invoice_order_id.invoice_date', '!=', False),
+                        ('invoice_order_id.invoice_date', '>=', start_date),
+                        ('invoice_order_id.invoice_date', '<=', end_date)
+                    ])
+                    repair_pending_records = self.env['fleet.repair'].search([
+                        ('receipt_date', '>=', start_date),
+                        ('receipt_date', '<=', end_date),
+                        ('invoice_order_id', '=', False)
+                    ])
+                    pre_repair_pending_records = self.env['fleet.repair'].search([
+                        ('receipt_date', '<', start_date),
+                        ('invoice_order_id', '=', False)
+                    ])
+                    # for i in repair_records:
+                    #     print(i.job_card_display) mj
+                    total_delivered_tat_days = 0.0
+                    total_pending_tat_days = 0.0
+                    total_pre_pending_tat_days = 0.0
+                    valid_pre_pending_records = 0
+                    valid_delivered_records = 0
+                    valid_pending_records = 0
+                    for repair in repair_delivered_records:
+                        if repair.receipt_date and repair.invoice_order_id.invoice_date:
+                            receipt_date = repair.receipt_date.date() if hasattr(repair.receipt_date,
+                                                                                 'date') else repair.receipt_date
+                            invoice_date = repair.invoice_order_id.invoice_date.date() if hasattr(
+                                repair.invoice_order_id.invoice_date, 'date') else repair.invoice_order_id.invoice_date
+                            delta = invoice_date - receipt_date
+                            total_delivered_tat_days += abs(delta.days)
+                            valid_delivered_records += 1
+                            print(repair.job_card_display, ":", delta.days)
 
+                    for repair in repair_pending_records:
+                        if repair.receipt_date and not repair.invoice_order_id.invoice_date:
+                            receipt_date = repair.receipt_date.date() if hasattr(repair.receipt_date,
+                                                                                 'date') else repair.receipt_date
+                            end_date_dt = end_date.date() if hasattr(end_date, 'date') else end_date
+                            delta = end_date_dt - receipt_date
+                            total_pending_tat_days += abs(delta.days)
+                            valid_pending_records += 1
+                            print(repair.job_card_display, ":", delta.days)
+
+                    for repair in pre_repair_pending_records:
+                        if repair.receipt_date and not repair.invoice_order_id.invoice_date:
+                            receipt_date = repair.receipt_date.date() if hasattr(repair.receipt_date,
+                                                                                 'date') else repair.receipt_date
+                            end_date_dt = end_date.date() if hasattr(end_date, 'date') else end_date
+                            delta = end_date_dt - receipt_date
+                            total_pending_tat_days += abs(delta.days)
+                            valid_pending_records += 1
+                            print(repair.job_card_display, ":", delta.days)
+
+                    rec.total_score_value = (
+                                                        total_pending_tat_days + total_delivered_tat_days + total_pre_pending_tat_days) / (
+                                                        valid_pending_records + valid_delivered_records + valid_pre_pending_records) if valid_pending_records + valid_delivered_records + valid_pre_pending_records > 0 else 0.0
+                    rec.context_total_score = rec.total_score_value
+
+            elif rec.pillar_id.name == "Sales and Marketing":
+                if rec.score_name == "Leads":
+                    records = self.env['crm.lead'].search([
+                        ('create_date', '>=', start_date),
+                        ('create_date', '<=', end_date),
+                        ('stage_id', 'in', [1, 2]),
+                        ('company_id', '=', self.company_id.id)
+                    ])
+                    rec.total_score_value = len(records)
+                    rec.context_total_score = rec.total_score_value
+
+    # for the backend app
     @api.depends('start_date', 'end_date', 'score_name')
     def _compute_total_score_value(self):
         for rec in self:
@@ -153,26 +258,65 @@ class BizdomScore(models.Model):
 
 
                 elif rec.score_name == "TAT":
-                    print("hellloooo")
-                    repair_records = self.env['fleet.repair'].search([
+                    repair_delivered_records = self.env['fleet.repair'].search([
+                        ('invoice_order_id', '!=', False),
+                        ('invoice_order_id.invoice_date', '!=', False),
+                        ('invoice_order_id.invoice_date', '>=', start_date),
+                        ('invoice_order_id.invoice_date', '<=', end_date)
+                    ])
+                    repair_pending_records = self.env['fleet.repair'].search([
                         ('receipt_date', '>=', start_date),
                         ('receipt_date', '<=', end_date),
-                        ('invoice_order_id', '!=', False),
-                        ('invoice_order_id.invoice_date', '!=', False)
+                        ('invoice_order_id', '=', False)
+                    ])
+                    pre_repair_pending_records = self.env['fleet.repair'].search([
+                        ('receipt_date', '<', start_date),
+                        ('invoice_order_id', '=', False)
                     ])
                     # for i in repair_records:
                     #     print(i.job_card_display) mj
-                    total_tat_days = 0.0
-                    valid_records = 0
-                    for repair in repair_records:
+                    total_delivered_tat_days = 0.0
+                    total_pending_tat_days = 0.0
+                    total_pre_pending_tat_days = 0.0
+                    valid_pre_pending_records = 0
+                    valid_delivered_records = 0
+                    valid_pending_records = 0
+                    for repair in repair_delivered_records:
                         if repair.receipt_date and repair.invoice_order_id.invoice_date:
                             delta = repair.invoice_order_id.invoice_date - repair.receipt_date.date()
-                            total_tat_days += abs(delta.days)
-                            valid_records += 1
+                            total_delivered_tat_days += abs(delta.days)
+                            valid_delivered_records += 1
                             print(repair.job_card_display, ":", delta.days)
 
-                    rec.total_score_value = total_tat_days / valid_records if valid_records > 0 else 0.0
-                    rec.total_score_value_percentage = rec.total_score_value
+                    for repair in repair_pending_records:
+                        if repair.receipt_date and not repair.invoice_order_id.invoice_date:
+                            delta = end_date - repair.receipt_date.date()
+                            total_pending_tat_days += abs(delta.days)
+                            valid_pending_records += 1
+                            print(repair.job_card_display, ":", delta.days)
+
+                    for repair in pre_repair_pending_records:
+                        if repair.receipt_date and not repair.invoice_order_id.invoice_date:
+                            delta = end_date - repair.receipt_date.date()
+                            total_pending_tat_days += abs(delta.days)
+                            valid_pending_records += 1
+                            print(repair.job_card_display, ":", delta.days)
+
+                    rec.total_score_value = (
+                                                    total_pending_tat_days + total_delivered_tat_days + total_pre_pending_tat_days) / (
+                                                    valid_pending_records + valid_delivered_records + valid_pre_pending_records) if valid_pending_records + valid_delivered_records + valid_pre_pending_records > 0 else 0.0
+
+                    # rec.total_score_value_percentage = rec.total_score_value
+
+                    # for repair in repair_records:
+                    #     if repair.receipt_date and repair.invoice_order_id.invoice_date:
+                    #         delta = repair.invoice_order_id.invoice_date - repair.receipt_date.date()
+                    #         total_tat_days += abs(delta.days)
+                    #         valid_records += 1
+                    #         print(repair.job_card_display, ":", delta.days)
+                    #
+                    # rec.total_score_value = total_tat_days / valid_records if valid_records > 0 else 0.0
+                    # rec.total_score_value_percentage = rec.total_score_value
 
                 elif rec.score_name == "Customer Satisfaction":
                     print("helloooooo")
@@ -181,20 +325,19 @@ class BizdomScore(models.Model):
                         ('feedback_date', '<=', end_date)
                     ])
                     list_of_records = list(records.mapped('average_rating'))
-                    # print("dsf", list_of_records)
-                    list_of_jc = list(set(records.mapped('job_card_name')))
-                    if len(list_of_records) == len(list_of_jc):
-                        rec.total_score_value = sum(1 for i in list_of_records if i > 3) / len(list_of_jc) if len(
-                            list_of_jc) > 0 else 0
-                    print(rec.total_score_value)
-                    rec.total_score_value_percentage = rec.total_score_value
+                    average_total_rating = sum(list_of_records) / len(list_of_records) if len(
+                        list_of_records) > 0 else 0.0
+                    average_total_rating_percentage = average_total_rating / 5
+                    rec.total_score_value = average_total_rating_percentage
+                    rec.total_score_value_percentage = average_total_rating_percentage
 
             elif rec.pillar_id.name == "Sales and Marketing":
                 if rec.score_name == "Leads":
                     records = self.env['crm.lead'].search([
                         ('create_date', '>=', start_date),
                         ('create_date', '<=', end_date),
-                        ('stage_id', '=', 1)
+                        ('stage_id', 'in', [1, 2]),
+                        ('company_id', '=', self.company_id.id)
                     ])
                     rec.total_score_value = len(records)
 
@@ -246,50 +389,48 @@ class BizdomScoreLine(models.Model):
                         print("jc name", i.job_card_name)
                     domain = [('department_id', '=', rec.department_id.id)]
                     records = self.env['feedback.data'].search(feedback_domain + domain)
-                    for i in records:
-                        print("job card", i.job_card_name, i.department_id.name, i.rating)
+                    ratings = [int(rating) for rating in records.mapped('rating') if rating]
+                    list_of_jc = list(set(records.mapped('job_card_name')))
+                    print('list', list_of_jc)
+                    average_total_rating = sum(ratings) / len(list_of_jc) if len(list_of_jc) > 0 else 0.0
+                    average_total_rating_percentage = average_total_rating / 5 * 100
+                    rec.score_value = average_total_rating_percentage
 
-                    filter_records = records.filtered(lambda x: x.rating and x.rating in ['4', '5'])
-                    # for i in filter_records:
-                    #     print(i.department_id.name)
-                    list_of_jc = list(set(record_jc.mapped('job_card_name')))
-                    rec.score_value = sum(1 for i in records if i.rating in ['4', '5']) / len(list_of_jc) if len(
-                        list_of_jc) > 0 else 0
-                    for i in list_of_jc:
-                        print("jc name", i)
+                elif rec.score_id.score_name == "TAT":
+                    delivered_records = self.env['fleet.repair'].search([
+                        ('invoice_order_id', '!=', False),
+                        ('invoice_order_id.invoice_date', '!=', False),
+                        ('invoice_order_id.invoice_date', '>=', rec.score_id.start_date),
+                        ('invoice_order_id.invoice_date', '<=', rec.score_id.end_date)
 
-                    # print(rec.department_id.name,rec.score_value)
+                    ])
 
-                    # Group by job card and get one rating per job card
-                    # job_card_ratings = {}
-                    # for record in records:
-                    #     if record.job_card_name and record.job_card_name not in job_card_ratings:
-                    #         job_card_ratings[record.job_card_name] = record.average_rating
-                    #
-                    # print(job_card_ratings)
+                    # for i in delivered_records:
+                    #     print("jcc",i.job_card_display)
 
-                    # Calculate satisfaction percentage
-                    # if job_card_ratings:
-                    #     good_ratings = sum(1 for rating in job_card_ratings.values() if rating > 3)
-                    #     rec.score_value = (good_ratings / len(job_card_ratings)) * 100  # as percentage
+                    delivered_rec = []
+                    for i in delivered_records:
+                        for j in i.fleet_work_line_ids:
+                            if j.department_type_id.id == rec.department_id.id:
+                                delivered_rec.append(j)
 
-    # @api.depends('score_id.score_name', 'department_id', 'score_id.from_date', 'score_id.to_date')
-    # def _compute_score_value(self):
-    #     for record in self:
-    #         value = 0.0
-    #         score = record.score_id
-    #         if score and record.department_id and score.from_date and score.to_date:
-    #             if score.score_name and score.score_name.strip().lower() == 'productivity':
-    #                 employees = self.env['hr.employee'].search([('department_id', '=', record.department_id.id)])
-    #                 productivities = []
-    #                 for emp in employees:
-    #                     timesheet_lines = self.env['account.analytic.line'].search([
-    #                         ('employee_id', '=', emp.id),
-    #                         ('date', '>=', score.from_date),
-    #                         ('date', '<=', score.to_date)
-    #                     ])
-    #                     actual_hours = sum(timesheet_lines.mapped('unit_amount'))
-    #                     personal_prod = (actual_hours / 200) * 100 if actual_hours else 0
-    #                     productivities.append(personal_prod)
-    #                 value = round(sum(productivities) / len(productivities), 2) if productivities else 0.0
-    #         record.score_value = value
+                    for i in delivered_rec:
+                        print("ssss", i.repair_id.job_card_display)
+
+                    job_card_num = []
+                    for i in delivered_rec:
+                        job_card_num.append(i.repair_id.job_card_display)
+
+                    job_card_num = list(set(job_card_num))
+                    print("job_card_num", len(job_card_num))
+
+                    total_hours = 0.0
+                    for record in delivered_rec:
+                        # Assuming time_diff is in hours with decimal minutes (e.g., 1.5 hours = 1 hour 30 minutes)
+                        hours = record.time_diff  # Get whole hours
+                        # Get minutes from decimal part
+                        total_hours += hours  # Convert everything to hours
+
+                    total_days = total_hours / 24.0  # Convert total hours to days
+                    print("total_hours", total_hours, "total_days", total_days, 'length', len(list(set(delivered_rec))))
+                    rec.score_value = total_days / len(job_card_num) if len(job_card_num) > 0 else 0.0

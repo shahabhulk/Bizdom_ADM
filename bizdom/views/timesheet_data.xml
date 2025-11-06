@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="utf-8" ?>
+
+<odoo>
+
+    <record id="view_fleet_repair_work_line_search" model="ir.ui.view">
+        <field name="name">fleet.repair.work.line.search</field>
+        <field name="model">fleet.repair.work.line</field>
+        <field name="arch" type="xml">
+            <search string="Work Lines">
+                <!-- Add a filter for invoiced job cards -->
+                <filter string="Invoiced Job Cards" name="invoiced_job_cards"
+                        domain="[('repair_id.invoice_order_id', '!=', False)]"/>
+
+                <!-- Add a group by repair state for better filtering -->
+                <separator/>
+<!--                <group expand="0" string="Group By">-->
+<!--                    <filter string="Job Card State" name="group_by_repair_state"-->
+<!--                            context="{'group_by': 'repair_id.s'}"/>-->
+<!--                    <filter string="Employee" name="group_by_employee" context="{'group_by': 'employee_id'}"/>-->
+<!--                    <filter string="Department" name="group_by_department"-->
+<!--                            context="{'group_by': 'department_type_id'}"/>-->
+<!--                </group>-->
+
+                <!-- Search fields -->
+                <field name="employee_id"/>
+                <field name="repair_id"/>
+                <field name="work_type"/>
+            </search>
+        </field>
+    </record>
+    <!-- Form View Extension for CRM Lead -->
+    <!--    <record id="view_crm_lead_form_inherit" model="ir.ui.view">-->
+    <!--        <field name="name">crm.lead.form.inherit</field>-->
+    <!--        <field name="model">crm.lead</field>-->
+    <!--        <field name="inherit_id" ref="crm.crm_lead_view_form"/>-->
+    <!--        <field name="arch" type="xml">-->
+    <!--            <xpath expr="//field[@name='tag_ids']" position="after">-->
+    <!--                <field name="vehicle_brand_id"/>-->
+    <!--                <field name="vehicle_model_id"/>-->
+    <!--            </xpath>-->
+    <!--        </field>-->
+    <!--    </record>-->
+
+    <!-- List View Extension for CRM Lead -->
+    <!--    <record id="view_timesheet_tree_inherit" model="ir.ui.view">-->
+    <!--        <field naasdfme="name">timesheet.tree.inherit</field>-->
+    <!--        <field name="model">account.analytic.line</field>-->
+    <!--        <field name="inherit_id" ref="hr_timesheet.timesheet_view_tree_user"/>-->
+    <!--        <field name="arch" type="xml">-->
+    <!--        </field>-->
+    <!--        </field>-->
+    <!--    </record>-->
+
+    <record id="view_fleet_repair_work_line_tree" model="ir.ui.view">
+        <field name="name">fleet.repair.work.line.tree</field>
+        <field name="model">fleet.repair.work.line</field>
+        <field name="arch" type="xml">
+            <list string="Work Lines">
+                <field name="repair_id" string="Job Card"/>
+                <field name="employee_id"/>
+                <field name="department_type_id"/>
+                <field name="work_type"/>
+                <field name="receipt_date"/>
+                <field name="timer_start"/>
+                <field name="timer_end"/>
+                <field name="time_diff" string="Duration (hours)"/>
+            </list>
+        </field>
+    </record>
+
+
+    <!-- Action for Feedback Questions -->
+    <record id="action_fleet_timesheet" model="ir.actions.act_window">
+        <field name="name">Employee Timesheet</field>
+        <field name="res_model">fleet.repair.work.line</field>
+        <field name="view_mode">list,form</field>
+        <field name="context">{'active_test': False}</field>
+    </record>
+
+    <!-- Main Feedback Menu (parent) -->
+
+    <!-- Lead Menu -->
+    <!--    <menuitem id="menu_fleet_lead_root" name="Marketing"-->
+    <!--              parent="car_repair_industry.menu_main_car_repair" sequence="99"/>-->
+
+    <menuitem id="menu_fleet_timesheet"
+              name="Employee Timesheet"
+              parent="menu_bizdom_data"
+              action="action_fleet_timesheet"
+              sequence="11"/>
+</odoo>

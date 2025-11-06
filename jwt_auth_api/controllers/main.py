@@ -160,7 +160,7 @@ class CustomAuthController(http.Controller):
 
             # Determine DB from host (same logic as login)
             host = request.httprequest.host
-            if "laptop-uijcccph:8071" in host:
+            if "laptop-uijcccph:8070" in host:
                 db = "bizapp_april23"
             elif "13.233.223.127" in host:
                 db = "bitnami_odoo"

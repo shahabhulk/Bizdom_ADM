@@ -19,6 +19,11 @@
         <field name="model">bizdom.score</field>
         <field name="arch" type="xml">
             <form>
+                <header>
+                    <button name="action_set_wtd" type="object" string="WTD" class="oe_highlight"   help="Week  from near Monday till Date"/>
+                    <button name="action_set_mtd" type="object" string="MTD" class="oe_highlight"  help="Month till Date"/>
+                    <button name="action_set_ytd" type="object" string="YTD" class="oe_highlight" help="Year till Date"/>
+                </header>
                 <sheet>
                     <group>
                         <group>
@@ -56,10 +61,10 @@
                         <page name="scores" string="Departments">
                             <field name="score_line_ids" widget="one2many_list">
                                 <list editable="bottom" class="equal-columns">
-                                    <field name="department_id" width="25px" />
-                                    <field name="max_dep_score"  width="25px"/>
-                                    <field name="min_dep_score"  width="25px"/>
-                                    <field name="score_value"  width="25px" />
+                                    <field name="department_id" width="25px"/>
+                                    <field name="max_dep_score" width="25px"/>
+                                    <field name="min_dep_score" width="25px"/>
+                                    <field name="score_value" width="25px"/>
                                 </list>
                             </field>
                         </page>

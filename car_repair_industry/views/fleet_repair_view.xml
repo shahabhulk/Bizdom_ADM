@@ -185,19 +185,49 @@
                                     <field name="csat_rating" widget="priority"/>
                                 </group>
                             </page>
-                            <page string="Timesheet">
-                                <field name="timesheet_ids" widget="one2many_list">
-                                    <list string="Timesheet" editable="bottom">
+<!--                            <page string="Timesheet">-->
+<!--                                <field name="timesheet_ids" widget="one2many_list">-->
+<!--                                    <list string="Timesheet" editable="bottom">-->
+<!--                                        <field name="repair_id" column_invisible="1"/>-->
+<!--                                        <field name="project_id" string="Service Name"/>-->
+<!--                                        <field name="task_id" string="Work"/>-->
+<!--                                        <field name="employee_id" string="Employee"/>-->
+<!--                                        <field name="name"/>-->
+<!--                                        <field name="department_type_id" required="1"/>-->
+<!--                                        <field name="timer_start"/>-->
+<!--                                        <field name="timer_end"/>-->
+<!--                                        <field name="unit_amount" string="Duration" widget="timesheet_uom"-->
+<!--                                               sum="Total"/>-->
+<!--                                        <button name="action_start_timer"-->
+<!--                                                type="object"-->
+<!--                                                class="oe_stat_button"-->
+<!--                                                icon="fa-play"-->
+<!--                                        />-->
+<!--                                        <button name="action_stop_timer"-->
+<!--                                                type="object"-->
+<!--                                                class="oe_stat_button"-->
+<!--                                                icon="fa-stop"-->
+<!--                                        />-->
+<!--                                        <button name="action_reset_timer"-->
+<!--                                                type="object"-->
+<!--                                                class="oe_stat_button"-->
+<!--                                                icon="fa-refresh"/>-->
+
+<!--                                        <field name="currency_id" column_invisible="1"/>-->
+<!--                                        <field name="account_id" required="False" column_invisible="1"/>-->
+<!--                                    </list>-->
+<!--                                </field>-->
+<!--                            </page>-->
+                            <page string="Car works">
+                                <field name="fleet_work_line_ids" widget="one2many_list">
+                                    <list editable="bottom">
                                         <field name="repair_id" column_invisible="1"/>
-                                        <field name="project_id" string="Service Name"/>
-                                        <field name="task_id" string="Work"/>
-                                        <field name="employee_id" string="Employee"/>
-                                        <field name="name"/>
-                                        <field name="service_type" required="1"/>
+                                        <field name="employee_id"/>
+                                        <field name="department_type_id"/>
+                                        <field name="work_type"/>
                                         <field name="timer_start"/>
                                         <field name="timer_end"/>
-                                        <field name="unit_amount" string="Duration" widget="timesheet_uom"
-                                               sum="Total"/>
+                                        <field name="time_diff" string="Duration" sum="Total"/>
                                         <button name="action_start_timer"
                                                 type="object"
                                                 class="oe_stat_button"
@@ -212,9 +242,6 @@
                                                 type="object"
                                                 class="oe_stat_button"
                                                 icon="fa-refresh"/>
-
-                                        <field name="currency_id" column_invisible="1"/>
-                                        <field name="account_id" required="False" column_invisible="1"/>
                                     </list>
                                 </field>
                             </page>

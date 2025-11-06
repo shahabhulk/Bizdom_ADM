@@ -40,3 +40,4 @@ access_account_analytic_line_user,analytic.account.analytic.line.timesheet.user,
 access_fleet_repair_feedback,fleet.repair.feedback,car_repair_industry.model_fleet_repair_feedback,base.group_user,1,1,1,1
 access_fleet_feedback_line,fleet.feedback.line,car_repair_industry.model_fleet_feedback_line,base.group_user,1,1,1,1
 access_fleet_feedback_question,fleet.feedback.question,car_repair_industry.model_fleet_feedback_question,base.group_user,1,1,1,1
+access_fleet_repair_work_line,fleet.repair.work.line,car_repair_industry.model_fleet_repair_work_line,base.group_user,1,1,1,1

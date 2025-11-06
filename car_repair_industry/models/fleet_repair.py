@@ -100,6 +100,7 @@ class FleetRepair(models.Model):
     feedback_description = fields.Char(string="Feedback")
     rating = fields.Selection([('0', 'Low'), ('1', 'Normal'), ('2', 'High')], string="Rating")
     timesheet_ids = fields.One2many('account.analytic.line', 'repair_id', string="Timesheet")
+    fleet_work_line_ids = fields.One2many('fleet.repair.work.line', 'repair_id', string="Work Lines")
     planned_hours = fields.Float("Initially Planned Hours", tracking=True)
     subtask_planned_hours = fields.Float("Sub-tasks Planned Hours", compute='_compute_subtask_planned_hours',
                                          help="Sum of the hours allocated for all the sub-tasks (and their own sub-tasks) linked to this task. Usually less than or equal to the allocated hours of this task.")
@@ -868,15 +869,20 @@ class AccountAnalyticLine(models.Model):
     repair_id = fields.Many2one('fleet.repair', string="Car Repair")
     diagnose_id = fields.Many2one('fleet.diagnose', string="Car diagnose")
     workorder_id = fields.Many2one('fleet.workorder', string="Car workorder")
-    service_type = fields.Many2one('service.type', string="Service Type")
-
+    service_type = fields.Many2one('service.type', string="Nature of Service")
+    department_type_id = fields.Many2one('hr.department', string="Service Type")
     timer_start = fields.Datetime('Start Timer')
     timer_end = fields.Datetime('End Timer')
-    timer_duration = fields.Float('Timer Duration (Hours)', compute='_compute_timer_duration', store=True)
+    # timer_duration = fields.Float('Timer Duration (Hours)', compute='_compute_timer_duration', store=True)
     unit_amount = fields.Float(
         compute='_compute_unit_amount',
         store=True
     )
+
+    @api.onchange('employee_id')
+    def _onchange_employee_id(self):
+        if self.employee_id and self.employee_id.department_id:
+            self.department_type_id = self.employee_id.department_id.id
 
     @api.depends('timer_start', 'timer_end')
     def _compute_unit_amount(self):
@@ -918,3 +924,61 @@ class AccountAnalyticLine(models.Model):
     #             timesheet.total_cost = timesheet.service_type.cost * timesheet.unit_amount
     #         else:
     #             timesheet.total_cost = 0.0
+
+
+# fleet repair work line
+class FleetRepairWorkLine(models.Model):
+    _name = 'fleet.repair.work.line'
+    _description = 'Fleet Repair Work Line'
+
+    employee_id=fields.Many2one('hr.employee', string='Employee')
+    repair_id = fields.Many2one('fleet.repair', string='Repair Order', ondelete='cascade', required=True)
+    department_type_id = fields.Many2one('hr.department', string='Department Type')
+    work_type=fields.Many2one('service.type', string='Work')
+    timer_start = fields.Datetime('Start Timer')
+    timer_end = fields.Datetime('End Timer')
+    time_diff = fields.Float(
+        compute='_compute_time_diff',
+        store=True
+    )
+    receipt_date = fields.Datetime(related='repair_id.receipt_date', string='JC date', store=True, readonly=True)
+
+    @api.onchange('employee_id')
+    def _onchange_employee_id(self):
+        if self.employee_id and self.employee_id.department_id:
+            self.department_type_id = self.employee_id.department_id.id
+
+    @api.depends('timer_start', 'timer_end')
+    def _compute_time_diff(self):
+        for rec in self:
+            if rec.timer_start and rec.timer_end:
+                delta = rec.timer_end - rec.timer_start
+                rec.time_diff = delta.total_seconds() / 3600.0
+            elif rec.timer_start and not rec.timer_end:
+                now = fields.Datetime.now()
+                delta = now - rec.timer_start
+                rec.time_diff = delta.total_seconds() / 3600.0
+            else:
+                rec.time_diff = 0.0
+
+    def action_start_timer(self):
+        for rec in self:
+            if rec.timer_start:
+                raise UserError('Timer is already started')
+
+            rec.timer_start=fields.Datetime.now()
+
+    def action_stop_timer(self):
+        for rec in self:
+            if not rec.timer_start:
+                raise UserError('Timer is not started')
+            if rec.timer_end:
+                raise UserError('Timer is already stopped')
+            rec.timer_end = fields.Datetime.now()
+
+    def action_reset_timer(self):
+        for rec in self:
+            rec.timer_start = False
+            rec.timer_end = False
+            rec.time_diff = 0.0
+

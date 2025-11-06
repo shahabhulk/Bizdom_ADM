@@ -11,6 +11,10 @@
                 <field name="vehicle_brand_id"/>
                 <field name="vehicle_model_id"/>
             </xpath>
+            <xpath expr="//field[@name='tag_ids']" position="before">
+                <field name="source_id" />
+                <field name="medium_id"/>
+            </xpath>
         </field>
     </record>
 
@@ -37,8 +41,8 @@
 
     <!-- Main Feedback Menu (parent) -->
 
-    <!-- Feedback Questions Menu -->
-    <menuitem id="menu_fleet_lead_root" name="Leads"
+    <!-- Lead Menu -->
+    <menuitem id="menu_fleet_lead_root" name="Marketing"
               parent="car_repair_industry.menu_main_car_repair" sequence="99"/>
 
     <menuitem id="menu_fleet_lead"
