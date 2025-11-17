@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<odoo>
+    <record id="score_dashboard_view_form" model="ir.ui.view">
+        <field name="name">score.dashboard.form</field>
+        <field name="model">bizdom.score</field>
+        <field name="arch" type="xml">
+            <form>
+                <header>
+                    <button name="action_back" type="object" string="Back" class="oe_highlight" />
+                    <h1>
+                        <field name="score_name" readonly="1" />
+                    </h1>
+                </header>
+                <sheet>
+                    <div class="o_score_dashboard container-fluid p-3">
+                        <div class="row g-3">
+                            <!-- Top Left Quadrant -->
+                            <div class="col-md-6">
+                                <div class="card h-100">
+                                    <div class="card-header bg-primary text-white">
+                                        <h5 class="mb-0">Quadrant 1</h5>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="text-center p-4">
+                                            <i class="fa fa-chart-pie fa-3x text-muted mb-2"></i>
+                                            <p class="mb-0">Add your content here</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Top Right Quadrant -->
+                            <div class="col-md-6">
+                                <div class="card h-100">
+                                    <div class="card-header bg-success text-white">
+                                        <h5 class="mb-0">Quadrant 2</h5>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="text-center p-4">
+                                            <i class="fa fa-chart-line fa-3x text-muted mb-2"></i>
+                                            <p class="mb-0">Add your content here</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Bottom Left Quadrant -->
+                            <div class="col-md-6">
+                                <div class="card h-100">
+                                    <div class="card-header bg-warning text-dark">
+                                        <h5 class="mb-0">Quadrant 3</h5>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="text-center p-4">
+                                            <i class="fa fa-table fa-3x text-muted mb-2"></i>
+                                            <p class="mb-0">Add your content here</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Bottom Right Quadrant -->
+                            <div class="col-md-6">
+                                <div class="card h-100">
+                                    <div class="card-header bg-danger text-white">
+                                        <h5 class="mb-0">Quadrant 4</h5>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="text-center p-4">
+                                            <i class="fa fa-chart-bar fa-3x text-muted mb-2"></i>
+                                            <p class="mb-0">Add your content here</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </sheet>
+            </form>
+        </field>
+    </record>
+</odoo>

@@ -8,7 +8,6 @@ SECRET_KEY = "Your-secret-key"
 
 class FavoriteScore(http.Controller):
 
-
     def _json_response(self, data, status=200):
         """Helper to return clean JSON responses."""
         return Response(
@@ -54,13 +53,30 @@ class FavoriteScore(http.Controller):
         if not pillar.exists():
             return self._json_response({"statusCode": 404, "message": "Pillar not found"}, 404)
 
+        if score.pillar_id.id != pillar_id:
+            return self._json_response({"statusCode": 400, "message": "Score does not belong to the specified pillar"},
+                                       400)
         # Check max favorites constraint BEFORE writing
         if favorite:
-            favorites = request.env['bizdom.score'].sudo().search_count([
+
+            if score.favorite:
+                return self._json_response({
+                    "statusCode": 400,
+                    "message": f"The score {score.score_name} is already in your favorites for the pillar {pillar.name}."
+                }, 400)
+
+            elif score.pillar_id.id != pillar_id:
+                return self._json_response({
+                    "statusCode": 400,
+                    "message": f"Score {score.score_name} does not belong to the specified pillar {pillar.name}"
+                }, 400)
+
+            favorites_count = request.env['bizdom.score'].sudo().search_count([
                 ('favorite', '=', True),
-                ('pillar_id', '=', pillar_id),
+                ('pillar_id', '=', int(pillar_id)),
+                ('id', '!=', score_id)
             ])
-            if favorites >= 3:
+            if favorites_count >= 3:
                 return self._json_response({
                     "statusCode": 400,
                     "message": "You can only choose up to 3 favorite scores per pillar."

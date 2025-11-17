@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <template id="swagger_ui_template" name="Swagger UI">
+        <t t-call="web.layout">
+            <t t-set="title">API Documentation</t>
+
+            <div id="wrap" class="oe_structure">
+                <div class="container mt-4">
+                    <div id="swagger-ui"></div>
+                </div>
+            </div>
+
+            <!-- Load CSS -->
+            <t t-set="head" position="inside">
+                <link rel="stylesheet" type="text/css"
+                      href="/swagger_api/static/lib/swagger/swagger-ui.css"/>
+            </t>
+
+            <!-- Load JS -->
+            <script src="/swagger_api/static/lib/swagger/swagger-ui-bundle.js"></script>
+            <script src="/swagger_api/static/lib/swagger/swagger-ui-standalone-preset.js"></script>
+
+            <!-- ✅ Auto Token Script (CDATA Safe) -->
+            <script type="text/javascript">
+                <![CDATA[
+                    document.addEventListener('DOMContentLoaded', function () {
+
+                        const ui = SwaggerUIBundle({
+                            url: "/api-docs.json",
+                            dom_id: '#swagger-ui',
+                            presets: [
+                                SwaggerUIBundle.presets.apis,
+                                SwaggerUIStandalonePreset
+                            ],
+                            layout: "StandaloneLayout",
+
+                            requestInterceptor: function (request) {
+                                var token = sessionStorage.getItem("jwt_token");
+                                if (token) {
+                                    request.headers["Authorization"] = "Bearer " + token;
+                                }
+                                return request;
+                            },
+
+                            responseInterceptor: function (response) {
+                                try {
+                                    if (response.url.indexOf("/api/login") !== -1 && response.status === 200) {
+                                        var body = JSON.parse(response.data);
+                                        if (body.token) {
+                                            sessionStorage.setItem("jwt_token", body.token);
+                                            console.log("✅ JWT token updated automatically");
+                                        }
+                                    }
+                                } catch (e) {
+                                    console.error("Token parse error:", e);
+                                }
+                                return response;
+                            }
+                        });
+
+                        window.ui = ui;
+                    });
+                ]]>
+            </script>
+
+        </t>
+    </template>
+</odoo>

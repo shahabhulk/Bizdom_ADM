@@ -4,7 +4,7 @@
     'summary': 'Add Pillars (SM, Operations, Finance) to Departments',
     'author': 'Your Name',
     'category': 'Customization',
-    'depends': ['base', 'hr', 'mail', 'hr_timesheet', 'account', 'jwt_auth_api', 'car_repair_industry', 'board'],
+    'depends': ['base', 'hr', 'mail', 'hr_timesheet', 'account', 'jwt_auth_api', 'car_repair_industry', 'board','web'],
     'data': [
         'security/ir.model.access.csv',
         'data/data.xml',
@@ -15,6 +15,7 @@
         'views/feedback_data.xml',
         'views/timesheet_data.xml',
         # 'wizard/productivity_wizard_views.xml'
+        'views/score_dashboard.xml',
         'views/score_views.xml',
         'views/dashboard_views.xml'
         # 'views/signal_views.xml',
@@ -23,8 +24,14 @@
     ],
     'assets': {
         'web.assets_backend': [
+            # 'bizdom/static/src/css/dashboard.css',
             'bizdom/static/src/xml/dashboard_templates.xml',
-            'bizdom/static/src/js/dashboard.js'
+            'bizdom/static/src/js/dashboard.js',
+            'bizdom/static/src/js/score_dashboard.js',
+            'bizdom/static/src/xml/score_dashboard_templates.xml'
+            # 'bizdom/static/src/css/swagger-ui.css',
+            # 'bizdom/static/src/js/swagger-ui-bundle.js',
+            # 'bizdom/static/src/js/swagger-ui-standalone-preset.js',
         ],
     },
     "post_init_hook": "post_init_sync_feedback_data",

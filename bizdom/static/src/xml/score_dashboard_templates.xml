@@ -1,0 +1,191 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+    <t t-name="bizdom.ScoreDashboard" owl="1">
+        <div class="container">
+            <!-- Header with back button and dashboard title -->
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div class="d-flex align-items-center">
+                    <button class="btn btn-link me-3" t-on-click="navigateBack">
+                        <i class="fa fa-arrow-left me-1"></i> Back to Dashboard
+                    </button>
+                    <h2 class="mb-0" t-esc="state.scoreName + ' Dashboard'"/>
+                </div>
+            </div>
+
+            <!-- Loading state -->
+            <t t-if="state.loading">
+                <div class="alert alert-info">Loading score data...</div>
+            </t>
+
+            <!-- Main content when data is loaded -->
+            <t t-else="">
+                <!-- First row with two quadrants -->
+                <div class="row mb-4">
+                    <!-- Quadrant 1 - Score Overview with Bar Graph -->
+                    <div class="col-md-6">
+                        <div class="card h-100">
+                            <div class="card-header bg-primary text-white">
+                                <h5 class="card-title mb-0" t-esc="state.quadrants.q1.title"/>
+                            </div>
+                            <div class="card-body">
+                                <t t-if="state.quadrants.q1.data.length">
+                                    <div class="bar-chart-container d-flex align-items-end justify-content-between gap-2">
+                                        <t t-foreach="state.quadrants.q1.data" t-as="item" t-key="item.start_date">
+                                            <div class="bar-item text-center flex-grow-1">
+                                                <t t-if="this.hasPositiveValue(item)">
+                                                    <div class="bar-wrapper">
+                                                        <div class="bar-value-overlay" t-esc="this.formatValue(item.actual_value)"/>
+                                                        <div class="bar-fill"
+                                                             t-att-style="'height: ' + this.getBarHeight(item.actual_value, state.quadrants.q1.data) + ';'"
+                                                             t-att-title="this.formatValue(item.actual_value)">
+                                                        </div>
+                                                    </div>
+                                                </t>
+                                                <t t-else="">
+                                                    <div class="bar-wrapper bar-zero">
+                                                        <div class="bar-value-overlay" t-esc="this.formatValue(item.actual_value)"/>
+                                                        <div class="bar-zero-line"></div>
+                                                    </div>
+                                                </t>
+                                                <div class="bar-label fw-bold mt-2" t-esc="this.getPeriodLabel(item, state.quadrants.q1.filter_type)"/>
+                                                <div class="text-muted small">
+                                                    <span t-esc="item.start_date"/> - <span t-esc="item.end_date"/>
+                                                </div>
+                                            </div>
+                                        </t>
+                                    </div>
+                                </t>
+                                <t t-if="!state.quadrants.q1.data.length">
+                                    <div class="text-muted text-center p-4">No data available</div>
+                                </t>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Quadrant 2 -->
+                    <div class="col-md-6">
+                        <div class="card h-100">
+                            <div class="card-header bg-success text-white">
+                                <h5 class="card-title mb-0" t-esc="state.quadrants.q2.title"/>
+                            </div>
+                            <div class="card-body">
+                                <t t-foreach="state.quadrants.q2.data" t-as="item" t-key="item.id">
+                                    <div class="mb-2">
+                                        <span t-esc="item.label"/>: <span t-esc="item.value"/>
+                                    </div>
+                                </t>
+                                <t t-if="!state.quadrants.q2.data.length">
+                                    <div class="text-muted">No data available</div>
+                                </t>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Second row with two more quadrants -->
+                <div class="row">
+                    <!-- Quadrant 3 -->
+                    <div class="col-md-6">
+                        <div class="card h-100">
+                            <div class="card-header bg-warning text-dark">
+                                <h5 class="card-title mb-0" t-esc="state.quadrants.q3.title"/>
+                            </div>
+                            <div class="card-body">
+                                <t t-foreach="state.quadrants.q3.data" t-as="item" t-key="item.id">
+                                    <div class="mb-2">
+                                        <span t-esc="item.label"/>: <span t-esc="item.value"/>
+                                    </div>
+                                </t>
+                                <t t-if="!state.quadrants.q3.data.length">
+                                    <div class="text-muted">No data available</div>
+                                </t>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Quadrant 4 -->
+                    <div class="col-md-6">
+                        <div class="card h-100">
+                            <div class="card-header bg-danger text-white">
+                                <h5 class="card-title mb-0" t-esc="state.quadrants.q4.title"/>
+                            </div>
+                            <div class="card-body">
+                                <t t-foreach="state.quadrants.q4.data" t-as="item" t-key="item.id">
+                                    <div class="mb-2">
+                                        <span t-esc="item.label"/>: <span t-esc="item.value"/>
+                                    </div>
+                                </t>
+                                <t t-if="!state.quadrants.q4.data.length">
+                                    <div class="text-muted">No data available</div>
+                                </t>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </t>
+        </div>
+
+        <style>
+            .bar-chart-container {
+                padding: 10px 0;
+                min-height: 220px;
+            }
+            .bar-item {
+                display: flex;
+                flex-direction: column;
+                justify-content: flex-end;
+            }
+            .bar-wrapper {
+                position: relative;
+                width: 100%;
+                min-width: 26px;
+                max-width: 45px;
+                margin: 0 auto;
+                height: 180px;
+                border-radius: 4px;
+                border: 1px solid #dce3ea;
+                background-color: #f8f9fb;
+                overflow: hidden;
+                display: flex;
+                align-items: flex-end;
+                justify-content: center;
+            }
+            .bar-value-overlay {
+                position: absolute;
+                top: 6px;
+                left: 0;
+                width: 100%;
+                text-align: center;
+                font-size: 0.85rem;
+                font-weight: 600;
+                color: #333;
+                pointer-events: none;
+            }
+            .bar-wrapper.bar-zero {
+                background-color: #fff;
+            }
+            .bar-zero-line {
+                position: absolute;
+                bottom: 12px;
+                left: 25%;
+                right: 25%;
+                height: 2px;
+                background-color: #d1d9e6;
+                border-radius: 1px;
+            }
+            .bar-fill {
+                width: 100%;
+                background-color: #0d6efd;
+                border-radius: 2px 2px 0 0;
+                transition: height 0.4s ease;
+                min-height: 10px;
+            }
+            .bar-label {
+                font-size: 0.9rem;
+                color: #333;
+            }
+            .bar-value {
+                font-size: 0.85rem;
+                font-weight: 600;
+            }
+        </style>
+    </t>
+</templates>

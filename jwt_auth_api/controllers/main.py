@@ -25,9 +25,9 @@ class CustomAuthController(http.Controller):
                     json.dumps({
                         "statusCode": 400,
                         "message": "Missing login or password"
-                    }),
+                    }),)
 
-                )
+            # elif password !=
 
             # Dynamic DB selection based on host
 
@@ -51,48 +51,65 @@ class CustomAuthController(http.Controller):
                 'password': password,
                 'type': 'password'
             }
-
-            uid = request.session.authenticate(db, credentials)
-            if uid:
-                # Generate JWT token
-                payload = {
-                    'uid': uid,
-                    'login': username,
-                    'exp': datetime.datetime.utcnow() + datetime.timedelta(days=1)
-                }
-                token = jwt.encode(payload, SECRET_KEY, algorithm='HS256')
-                return http.Response(
-                    json.dumps({
-                        "statusCode": 200,
-                        "message": "Login successful",
-                        "uid": uid,
-                        "token": token
-
-                    }),
-                    content_type='application/json',
-                    status=200
-                )
-            else:
+            user = request.env['res.users'].sudo().search([('login', '=', username)], limit=1)
+            if not user:
                 return http.Response(
                     json.dumps({
                         "statusCode": 401,
-                        "message": "Invalid credentials"
+                        "message": "Invalid username or password"
                     }),
                     content_type='application/json',
                     status=401
                 )
 
+            try:
+                uid = request.session.authenticate(db, credentials)
+                if uid:
+                    # Generate JWT token
+                    payload = {
+                        'uid': uid,
+                        'login': username,
+                        'exp': datetime.datetime.utcnow() + datetime.timedelta(days=1)
+                    }
+                    token = jwt.encode(payload, SECRET_KEY, algorithm='HS256')
+                    return http.Response(
+                        json.dumps({
+                            "statusCode": 200,
+                            "message": "Login successful",
+                            "uid": uid,
+                            "token": token
+
+                        }),
+                        content_type='application/json',
+                        status=200
+                    )
+            except Exception as e:
+                return http.Response(
+                    json.dumps({
+                        "statusCode": 401,
+                        "message": "Invalid username or password"
+                    }),
+                    content_type='application/json',
+                    status=401
+                )
+
+
+            # else:
+            #     return http.Response(
+            #         json.dumps({
+            #             "statusCode": 401,
+            #             "message": "Invalid username or password"
+            #         }),
+            #         content_type='application/json',
+            #         status=401
+            #     )
+
+
         except Exception as e:
-            _logger.exception("Authentication error")
-            return http.Response(
-                json.dumps({
-                    "statusCode": 500,
-                    "message": "Internal Server Error",
-                    "error": str(e)
-                }),
-                content_type='application/json',
-                status=500
-            )
+            return json.dumps({
+                "statusCode": 500,
+                "message": "Internal Server Error"
+            })
 
     @http.route('/api/change_password', type='http', auth='none', methods=['POST'], csrf=False)
     def change_password(self, **kwargs):
@@ -220,14 +237,10 @@ class CustomAuthController(http.Controller):
                 status=200
             )
 
+
         except Exception as e:
-            _logger.exception("Change password error")
-            return http.Response(
-                json.dumps({
-                    "statusCode": 500,
-                    "message": "Internal Server Error",
-                    "error": str(e)
-                }),
-                content_type='application/json',
-                status=500
-            )
+            return json.dumps({
+                "statusCode": 500,
+                "message": "Internal Server Error"
+
+            })

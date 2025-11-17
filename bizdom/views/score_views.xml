@@ -6,6 +6,17 @@
         <field name="model">bizdom.score</field>
         <field name="arch" type="xml">
             <list>
+                <header>
+                    <button name="action_set_wtd" type="object" string="WTD" class="btn-info"
+                            help="Week from near Monday till Date" display="always"/>
+                    <button name="action_set_mtd" type="object" string="MTD" class="btn-info"
+                            help="Month till Date" display="always"/>
+                    <button name="action_set_ytd" type="object" string="YTD" class="btn-info"
+                            help="Year till Date" display="always"/>
+<!--                     <field name="favorite" invisible="1"/>-->
+<!--                    <widget name="group_by" string="Group By" groups="base.group_no_one"/>-->
+
+                </header>
                 <field name="score_name"/>
                 <field name="pillar_id"/>
                 <field name="favorite"/>
@@ -20,9 +31,12 @@
         <field name="arch" type="xml">
             <form>
                 <header>
-                    <button name="action_set_wtd" type="object" string="WTD" class="oe_highlight"   help="Week  from near Monday till Date"/>
-                    <button name="action_set_mtd" type="object" string="MTD" class="oe_highlight"  help="Month till Date"/>
-                    <button name="action_set_ytd" type="object" string="YTD" class="oe_highlight" help="Year till Date"/>
+                    <button name="action_set_wtd" type="object" string="WTD" class="oe_highlight"
+                            help="Week  from near Monday till Date"/>
+                    <button name="action_set_mtd" type="object" string="MTD" class="oe_highlight"
+                            help="Month till Date"/>
+                    <button name="action_set_ytd" type="object" string="YTD" class="oe_highlight"
+                            help="Year till Date"/>
                 </header>
                 <sheet>
                     <group>

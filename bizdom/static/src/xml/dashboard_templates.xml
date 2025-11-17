@@ -1,27 +1,134 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <templates xml:space="preserve">
     <t t-name="bizdom.Dashboard" owl="1">
-        <div>
-            <h2>Bizdom Dashboard</h2>
+        <div class="container">
 
-            <t t-if="state.loading">
-                <div>Loading pillars...</div>
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                        <h2 class="mb-0">Bizdom Dashboard</h2>
+                <div class="filter-section d-flex align-items-center gap-2 flex-wrap">
+                            <select class="form-select form-select-sm" style="width: 200px;"
+                                    t-on-change="onFilterChange">
+                                    <option value="MTD" t-att-selected="state.currentFilter === 'MTD' ? true : null">
+                                         Month to Date (MTD)
+                                    </option>
+                                <option value="WTD" t-att-selected="state.currentFilter === 'WTD' ? true : null">
+                                    Week to Date (WTD)
+                                </option>
+                                <option value="YTD" t-att-selected="state.currentFilter === 'YTD' ? true : null">
+                                      Year to Date (YTD)
+                                </option>
+                                <option value="Custom" t-att-selected="state.currentFilter === 'Custom' ? true : null">
+                                      Custom Range
+                                </option>
+                            </select>
+                            <t t-if="state.currentFilter === 'Custom'">
+                                <div class="d-flex align-items-center gap-2 flex-wrap custom-range-picker">
+                                    <div class="input-group input-group-sm">
+                                        <span class="input-group-text">From</span>
+                                        <input type="date" class="form-control"
+                                               t-att-value="state.customRange.start"
+                                               t-on-change="(ev) => this.onCustomDateChange('start', ev)"/>
+                                    </div>
+                                    <div class="input-group input-group-sm">
+                                        <span class="input-group-text">To</span>
+                                        <input type="date" class="form-control"
+                                               t-att-value="state.customRange.end"
+                                               t-on-change="(ev) => this.onCustomDateChange('end', ev)"/>
+                                    </div>
+                                </div>
+                            </t>
+                </div>
+            </div>
+            <t t-if="state.dateRangeLabel">
+                <div class="alert alert-light py-2 px-3 mb-3 border">
+                    <strong>Date Range:</strong>
+                    <span t-esc="state.dateRangeLabel"/>
+                </div>
             </t>
 
-            <t t-elif="!state.pillars.length">
-                <div>No pillars found.</div>
+            <t t-if="state.loading">
+                <div class="alert alert-info">Loading dashboard data...</div>
+            </t>
+
+            <t t-elif="!state.pillars">
+                <div class="alert alert-warning">No pillars found.</div>
             </t>
 
             <t t-else="">
-                <div>
+                <div class="row">
                     <t t-foreach="state.pillars" t-as="pillar" t-key="pillar.id">
-                        <div style="border: 1px solid #ddd; padding: 10px; margin-bottom: 10px;">
-                            <h3 t-esc="pillar.name"/>
-                            <div t-esc="pillar.description || 'No description'"/>
+                        <div class="col-md-6 col-lg-4 mb-4">
+                            <div class="card h-100">
+                                <div class="card-header">
+                                    <h5 class="card-title mb-0" t-esc="pillar.name"/>
+                                </div>
+                                <div class="card-body">
+                                    <div t-esc="pillar.description || 'No description provided'"/>
+
+                                    <!--                                    <div class="mt-3">-->
+                                    <!--                                        <h6 class="d-inline">Average Score: </h6>-->
+                                    <!--                                        <span t-attf-class="badge #{pillar.averageScore >= 7 ? 'bg-success' : pillar.averageScore >= 4 ? 'bg-warning' : 'bg-danger'}">-->
+                                    <!--                                            <t t-esc="pillar.averageScore"/>-->
+                                    <!--                                        </span>-->
+                                    <!--                                    </div>-->
+
+                                    <t t-if="pillar.scores and pillar.scores.length">
+                                        <div class="mt-3">
+                                            <h6>Scores:</h6>
+                                            <ul class="list-group list-group-flush">
+                                                <t t-foreach="pillar.scores.slice(0, 3)" t-as="score" t-key="score.id">
+<!--                                                    <li class="list-group-item ">-->
+                                                    <!--                                                           <div class="d-flex align-items-center">-->
+                                                    <!--                                                               <span class="me-3" t-esc="score.date"/>-->
+
+                                                    <!--                                                               <span class="badge bg-secondary" t-esc="score.score"/>-->
+
+                                                    <!--                                                           </div>-->
+                                                    <!--                                                    </li>-->
+                                                    <li class="list-group-item">
+                                                       <div class="d-flex justify-content-between align-items-center">
+                                                          <div class="d-flex align-items-center">
+                                                              <a href="#" t-on-click="(ev) => this.openScoreDashboard(ev, score)" class="text-decoration-none">
+                                                                             <span class="badge bg-secondary me-2" t-esc="score.score_name"/>
+                                                              </a>
+                                                           </div>
+                                                           <div class="text-muted small">
+                                                                      <t t-esc="'Total: ' + (score.context_total_score || 0).toFixed(2)"/>                                                           </div>
+                                                       </div>
+                                                    </li>
+                                                </t>
+                                            </ul>
+                                        </div>
+                                    </t>
+                                    <t t-else="">
+                                        <div class="alert alert-light mt-3 mb-0">No scores available</div>
+                                    </t>
+                                </div>
+
+
+                            </div>
                         </div>
                     </t>
                 </div>
             </t>
+
+
+
         </div>
+
+        <style>
+            .card {
+                box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+                transition: transform 0.2s;
+            }
+            .card:hover {
+                transform: translateY(-2px);
+                box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+            }
+            .badge {
+                font-size: 0.9em;
+                padding: 0.35em 0.65em;
+            }
+        </style>
     </t>
 </templates>

@@ -7,6 +7,12 @@
         <field name="tag">bizdom_dashboard</field>
     </record>
 
+    <!-- Alias action used by JS (bizdom.dashboard_action) -->
+    <record id="dashboard_action" model="ir.actions.client">
+        <field name="name">Bizdom Dashboard</field>
+        <field name="tag">bizdom_dashboard</field>
+    </record>
+
     <!-- Menu Item -->
     <menuitem
         id="menu_bizdom_dashboard"

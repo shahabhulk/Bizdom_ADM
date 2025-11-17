@@ -29,6 +29,7 @@ class BizdomQuadrant(http.Controller):
                 ]
             )
 
+        # auth check
         auth_header = request.httprequest.headers.get("Authorization")
         if not auth_header:
             return json.dumps({"statusCode": 401, "message": "Token missing"})
@@ -36,7 +37,16 @@ class BizdomQuadrant(http.Controller):
         token = auth_header.split(" ")[1] if auth_header.startswith("Bearer ") else auth_header
 
         try:
-            body = json.loads(request.httprequest.data.decode("utf-8"))
+            body = {
+                'scoreId': int(kwargs.get('scoreId')),
+                'filterType': kwargs.get('filterType')
+            }
+            if 'startDate' in kwargs:
+                body['startDate'] = kwargs['startDate']
+            if 'endDate' in kwargs:
+                body['endDate'] = kwargs['endDate']
+
+            # body = json.loads(request.httprequest.data.decode("utf-8"))
             payload = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
             uid = payload.get("uid")
             if isinstance(uid, dict):
@@ -70,6 +80,10 @@ class BizdomQuadrant(http.Controller):
         overview_list = []
         score_record = request.env['bizdom.score'].sudo().browse(score_id)
 
+        if not score_record.exists():
+            return request.make_response(
+                json.dumps({"statusCode": 404, "message": "Score record not found"}),
+            )
         # PILLAR OPERATIONS
         if score_record.score_name == "Labour":
             if filter_type == "Custom" and start_date_str and end_date_str:
@@ -701,8 +715,7 @@ class BizdomQuadrant(http.Controller):
                 except Exception as e:
                     return json.dumps({
                         "statusCode": 500,
-                        "message": "An error occurred",
-                        "error": str(e)
+                        "message": "Internal Server Error"
                     })
             elif filter_type == "WTD":
                 current_week_start = today - timedelta(days=today.weekday())
@@ -860,7 +873,7 @@ class BizdomQuadrant(http.Controller):
         token = auth_header.split(" ")[1] if auth_header.startswith("Bearer ") else auth_header
 
         try:
-            body = json.loads(request.httprequest.data.decode("utf-8"))
+            # body = json.loads(request.httprequest.data.decode("utf-8"))
             payload = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
             uid = payload.get("uid")
             if isinstance(uid, dict):
@@ -873,7 +886,7 @@ class BizdomQuadrant(http.Controller):
             return request.make_response(
                 json.dumps({"statusCode": 401, "message": "Invalid token"})
             )
-        score_id = int(body.get("scoreId"))
+        score_id = int(kwargs.get("scoreId"))
         if not score_id:
             return request.make_response(
                 json.dumps({"statusCode": 400, "message": "scoreId is required"}),
@@ -888,9 +901,9 @@ class BizdomQuadrant(http.Controller):
 
         print("Logged in user:", user.name)
 
-        start_date_str = body.get("startDate")
-        end_date_str = body.get("endDate")
-        filter_type = body.get("filterType")
+        start_date_str = kwargs.get("startDate")
+        end_date_str =  kwargs.get("endDate")
+        filter_type =  kwargs.get("filterType")
 
         score_record = request.env['bizdom.score'].sudo().browse(score_id)
 
@@ -1931,8 +1944,7 @@ class BizdomQuadrant(http.Controller):
                 except Exception as e:
                     return json.dumps({
                         "statusCode": 500,
-                        "message": "An error occurred",
-                        "error": str(e)
+                        "message": "Internal Server Error"
                     })
 
             elif filter_type == 'WTD':
@@ -2167,7 +2179,7 @@ class BizdomQuadrant(http.Controller):
         token = auth_header.split(" ")[1] if auth_header.startswith("Bearer ") else auth_header
 
         try:
-            body = json.loads(request.httprequest.data.decode("utf-8"))
+            # body = json.loads(request.httprequest.data.decode("utf-8"))
             payload = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
             uid = payload.get("uid")
             if isinstance(uid, dict):
@@ -2181,11 +2193,11 @@ class BizdomQuadrant(http.Controller):
                 json.dumps({"statusCode": 401, "message": "Invalid token"})
             )
 
-        score_id = int(body.get("scoreId"))
-        dept_id = int(body.get("departmentId"))
-        filter_type = body.get("filterType")
-        start_date_str = body.get("startDate")
-        end_date_str = body.get("endDate")
+        score_id = int(kwargs.get("scoreId"))
+        dept_id = int(kwargs.get("departmentId"))
+        filter_type = kwargs.get("filterType")
+        start_date_str = kwargs.get("startDate")
+        end_date_str =kwargs.get("endDate")
 
         if not score_id or not dept_id:
             return request.make_response(
@@ -2563,14 +2575,12 @@ class BizdomQuadrant(http.Controller):
                             })
 
 
+
                 except Exception as e:
-                    return request.make_response(
-                        json.dumps({
-                            "error": str(e)
-                        }),
-                        headers=[('Content-Type', 'application/json')],
-                        status=500
-                    )
+                    return json.dumps({
+                        "statusCode": 500,
+                        "message": "Internal Server Error"
+                    })
             elif filter_type == "WTD":
                 current_week_start = today - timedelta(days=today.weekday())
                 current_week_end = today
@@ -2827,14 +2837,12 @@ class BizdomQuadrant(http.Controller):
                             })
 
 
+
                 except Exception as e:
-                    return request.make_response(
-                        json.dumps({
-                            "error": str(e)
-                        }),
-                        headers=[('Content-Type', 'application/json')],
-                        status=500
-                    )
+                    return json.dumps({
+                        "statusCode": 500,
+                        "message": "Internal Server Error"
+                    })
 
             elif filter_type == "WTD":
                 current_week_start = today - timedelta(days=today.weekday())
@@ -2973,7 +2981,7 @@ class BizdomQuadrant(http.Controller):
 
             response = {
                 "statusCode": 200,
-                "message": "Sources Overview",
+                "message": "Employee Overview",
                 "score_id": score_id,
                 "score_name": score_record.score_name,
                 "department_id": medium.id,
@@ -2987,3 +2995,13 @@ class BizdomQuadrant(http.Controller):
         )
 
 
+
+    # response = {
+    #     "statusCode": 200,
+    #     "message": "Employee Overview",
+    #     "score_id": score_id,
+    #     "score_name": score_record.score_name,
+    #     "department_id": medium.id,
+    #     "department_name": medium.name,
+    #     "overview_employee": overview_employee
+    # }
