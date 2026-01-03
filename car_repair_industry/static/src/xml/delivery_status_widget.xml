@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+    <t t-name="car_repair_industry.DeliveryStatusWidget">
+        <span t-attf-class="o_status rounded-circle d-inline-block {{ statusClass }}" 
+              t-att-title="statusTitle"
+              style="width: 20px; height: 20px; margin: 0 4px; display: inline-block;"/>
+    </t>
+</templates>
+

@@ -4,7 +4,7 @@
 {
     "name": "Car Repair and Automotive Service Maintenance Management Odoo App",
     "version": "18.0.0.0",
-    "depends": ['base', 'sale', 'purchase', 'account', 'sale_stock', 'mail', 'product', 'stock', 'fleet','sale_management', 'website', 'calendar', 'hr_timesheet','web','project'],
+    "depends": ['base', 'sale', 'purchase', 'account', 'sale_stock', 'mail', 'product', 'stock', 'fleet','sale_management', 'website', 'calendar', 'hr_timesheet','web','project', 'crm'],
     "author": "BROWSEINFO",
     "summary": "Fleet repair vehicle repair car Maintenance auto-fleet service repair Car Maintenance Repair workshop automobile repair Automotive Service repair Automotive repair machine repair workshop equipment repair service Repair auto repair shop Auto Shop repair",
     "description": """
@@ -192,7 +192,9 @@ automotive workshop management software
             'car_repair_industry/static/src/js/slot_time.js',
         ],
         'web.assets_backend': [
+            'car_repair_industry/static/src/css/custom.css',
             'car_repair_industry/static/src/js/fleet_repair_dashboard.js',
+            'car_repair_industry/static/src/js/delivery_status_widget.js',
             'car_repair_industry/static/src/xml/**/*',
         ],
     },

@@ -300,95 +300,160 @@ class SwaggerController(http.Controller):
                             }
                         ],
                         "responses": {
-    "200": {
-        "description": "Success",
-        "content": {
-            "application/json": {
-                "schema": {
-                    "type": "object",
-                    "properties": {
-                        "statusCode": {
-                            "type": "integer",
-                            "example": 200
-                        },
-                        "message": {
-                            "type": "string",
-                            "example": "Score Department Overview"
-                        },
-                        "score_id": {
-                            "type": "integer",
-                            "example": 4
-                        },
-                        "score_name": {
-                            "type": "string",
-                            "example": "Leads"
-                        },
-                        "overview_department": {
-                            "type": "array",
-                            "items": {
-                                "type": "object",
-                                "properties": {
-                                    "start_date": {
-                                        "type": "string",
-                                        "example": "01-10-2025"
-                                    },
-                                    "end_date": {
-                                        "type": "string",
-                                        "example": "10-10-2025"
-                                    },
-                                    "max_value": {
-                                        "type": "string",
-                                        "example": ""
-                                    },
-                                    "min_value": {
-                                        "type": "string",
-                                        "example": ""
-                                    },
-                                    "total_actual_value": {
-                                        "type": "integer",
-                                        "example": 4
-                                    },
-                                    "department": {
-                                        "type": "array",
-                                        "items": {
+                            "200": {
+                                "description": "Success",
+                                "content": {
+                                    "application/json": {
+                                        "schema": {
                                             "type": "object",
                                             "properties": {
-                                                "department_id": {
+                                                "statusCode": {
                                                     "type": "integer",
-                                                    "example": 13
+                                                    "example": 200
                                                 },
-                                                "department_name": {
+                                                "message": {
                                                     "type": "string",
-                                                    "example": "Online"
+                                                    "example": "Score Department Overview"
                                                 },
-                                                "max_value": {
-                                                    "type": "string",
-                                                    "example": ""
-                                                },
-                                                "min_value": {
-                                                    "type": "string",
-                                                    "example": ""
-                                                },
-                                                "conversion_value": {
+                                                "score_id": {
                                                     "type": "integer",
-                                                    "example": 1
+                                                    "example": 4
                                                 },
-                                                "actual_value": {
-                                                    "type": "integer",
-                                                    "example": 2
+                                                "score_name": {
+                                                    "type": "string",
+                                                    "example": "Leads"
+                                                },
+                                                "overview_department": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "type": "object",
+                                                        "properties": {
+                                                            "start_date": {
+                                                                "type": "string",
+                                                                "example": "01-10-2025"
+                                                            },
+                                                            "end_date": {
+                                                                "type": "string",
+                                                                "example": "10-10-2025"
+                                                            },
+                                                            "max_value": {
+                                                                "type": "string",
+                                                                "example": ""
+                                                            },
+                                                            "min_value": {
+                                                                "type": "string",
+                                                                "example": ""
+                                                            },
+                                                            "total_actual_value": {
+                                                                "type": "integer",
+                                                                "example": 4
+                                                            },
+                                                            "department": {
+                                                                "type": "array",
+                                                                "items": {
+                                                                    "type": "object",
+                                                                    "properties": {
+                                                                        "department_id": {
+                                                                            "type": "integer",
+                                                                            "example": 13
+                                                                        },
+                                                                        "department_name": {
+                                                                            "type": "string",
+                                                                            "example": "Online"
+                                                                        },
+                                                                        "max_value": {
+                                                                            "type": "string",
+                                                                            "example": ""
+                                                                        },
+                                                                        "min_value": {
+                                                                            "type": "string",
+                                                                            "example": ""
+                                                                        },
+                                                                        "conversion_value": {
+                                                                            "type": "integer",
+                                                                            "example": 1
+                                                                        },
+                                                                        "actual_value": {
+                                                                            "type": "integer",
+                                                                            "example": 2
+                                                                        }
+                                                                    }
+                                                                }
+                                                            }
+                                                        }
+                                                    }
                                                 }
                                             }
                                         }
                                     }
                                 }
+                            },
+                            "400": {
+                                "description": "Bad Request - Missing or invalid scoreId",
+                                "content": {
+                                    "application/json": {
+                                        "schema": {
+                                            "type": "object",
+                                            "properties": {
+                                                "statusCode": {
+                                                    "type": "integer",
+                                                    "example": 400
+                                                },
+                                                "message": {
+                                                    "type": "string",
+                                                    "example": "scoreId is required"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            },
+                            "401": {
+                                "description": "Unauthorized - Invalid, expired, or missing token",
+                                "content": {
+                                    "application/json": {
+                                        "schema": {
+                                            "type": "object",
+                                            "properties": {
+                                                "statusCode": {
+                                                    "type": "integer",
+                                                    "example": 401
+                                                },
+                                                "message": {
+                                                    "type": "string",
+                                                    "enum": ["Token missing", "Token expired", "Invalid token"],
+                                                    "example": "Token missing"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            },
+                            "404": {
+                                "description": "Not Found - User or Score record not found",
+                                "content": {
+                                    "application/json": {
+                                        "schema": {
+                                            "type": "object",
+                                            "properties": {
+                                                "statusCode": {
+                                                    "type": "integer",
+                                                    "example": 404
+                                                },
+                                                "message": {
+                                                    "type": "string",
+                                                    "enum": ["User not found or multiple users", "Score record not found"],
+                                                    "example": "Score record not found"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            },
+                            "500": {
+                                "description": "Internal server error"
                             }
-                        }
-                    }
-                }
-            }
-        }
-    }
-},
+                        },
                         "security": [{"bearerAuth": []}]
                     }
                 },
@@ -396,8 +461,7 @@ class SwaggerController(http.Controller):
                     "get": {
                         "tags": ["Score Q3 Overview"],
                         "summary": "Get score employee-wise overview data",
-                        "description": "Retrieves employee overview data for a specific score, with optional date filtering. Parameters: scoreId (required) - ID of the score to get overview for, startDate (optional) - Start date for filtering, endDate (optional) - End date for filtering, filterType (optional) - Type of filter to apply (Custom, WTD, MTD, YTD).(scoreId:1-2-3-4,labour-Customer Satisfaction-TAT-Leads)(departmentId:8-9,Bodyshop-Workshop)(departmentId:13-14,Online-Offline)"
-                        ,
+                        "description": "Retrieves employee overview data for a specific score, with optional date filtering. Parameters: scoreId (required) - ID of the score to get overview for, startDate (optional) - Start date for filtering, endDate (optional) - End date for filtering, filterType (optional) - Type of filter to apply (Custom, WTD, MTD, YTD).(scoreId:1-2-3-4,labour-Customer Satisfaction-TAT-Leads)(departmentId:8-9,Bodyshop-Workshop)(departmentId:13-14,Online-Offline)",
                         "parameters": [
                             {
                                 "name": "scoreId",

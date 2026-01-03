@@ -129,25 +129,25 @@ class FleetRepair(models.Model):
     )
 
     promised_date = fields.Datetime(string="Promised Delivery Date", default=fields.Datetime.now, required=True)
-    csat_rating = fields.Selection(
-        [
-            ("0", "No comments"),
-            ("1", "Very Unsatisfied"),
-            ("2", "Unsatisfied"),
-            ("3", "Neutral"),
-            ("4", "Satisfied"),
-            ("5", "Very Satisfied"),
-        ],
-        string="Customer Satisfaction",
-        default="0",
-    )
+    # csat_rating = fields.Selection(
+    #     [
+    #         ("0", "No comments"),
+    #         ("1", "Very Unsatisfied"),
+    #         ("2", "Unsatisfied"),
+    #         ("3", "Neutral"),
+    #         ("4", "Satisfied"),
+    #         ("5", "Very Satisfied"),
+    #     ],
+    #     string="Customer Satisfaction",
+    #     default="0",
+    # )
 
     # This field will control the decoration color
     delivery_status_color = fields.Selection([
         ('green', 'Delivered'),
         ('yellow', 'On Track'),
         ('red', 'Delayed')
-    ], compute="_compute_delivery_status_color", store=True)
+    ], compute="_compute_delivery_status_color", store=True, string="Signal")
     project_id = fields.Many2one('project.project', string='Project', copy=False, readonly=True)
 
     # def write(self, vals):
@@ -177,22 +177,60 @@ class FleetRepair(models.Model):
                 record.client_id.phone = record.client_phone
                 record.client_id.mobile = record.client_mobile
 
-    @api.depends('promised_date', 'receipt_date')
+    @api.depends(
+        'promised_date',
+        'receipt_date',
+        'state',
+        'invoice_order_id.state',
+        'invoice_order_id.invoice_date',
+        'invoice_order_id.date',
+    )
     def _compute_delivery_status_color(self):
         today = fields.Date.today()
         for record in self:
-            record.delivery_status_color = False
-            if record.promised_date and record.receipt_date:
-                # Convert both datetime fields to date before comparing
-                promised_date = record.promised_date.date()
-                receipt_date = record.receipt_date.date()
+            color = 'yellow'
+            promised_date = False
+            receipt_date = False
+            invoice_date = False
 
-                if receipt_date <= today < promised_date:
-                    record.delivery_status_color = 'green'
+            if record.promised_date:
+                promised_dt = record.promised_date
+                promised_date = promised_dt.date() if hasattr(promised_dt, 'date') else promised_dt
+
+            if record.receipt_date:
+                receipt_dt = record.receipt_date
+                receipt_date = receipt_dt.date() if hasattr(receipt_dt, 'date') else receipt_dt
+
+            if record.invoice_order_id:
+                invoice_dt = record.invoice_order_id.invoice_date or record.invoice_order_id.date
+                if invoice_dt:
+                    invoice_date = invoice_dt.date() if hasattr(invoice_dt, 'date') else invoice_dt
+
+            invoice_posted = record.invoice_order_id and record.invoice_order_id.state == 'posted'
+
+            if invoice_posted and invoice_date:
+                if receipt_date and invoice_date == receipt_date:
+                    color = 'green'
+                elif promised_date:
+                    if invoice_date < promised_date:
+                        color = 'green'
+                    elif invoice_date == promised_date:
+                        color = 'yellow'
+                    else:
+                        color = 'red'
+                else:
+                    color = 'green'
+            else:
+                if not promised_date:
+                    color = 'yellow'
+                elif today < promised_date:
+                    color = 'green'
                 elif today == promised_date:
-                    record.delivery_status_color = 'yellow'
-                elif today > promised_date:
-                    record.delivery_status_color = 'red'
+                    color = 'yellow'
+                else:
+                    color = 'red'
+
+            record.delivery_status_color = color
 
     @api.depends('product_line_ids.subtotal')
     def _compute_amount_total(self):
@@ -200,9 +238,16 @@ class FleetRepair(models.Model):
             rec.amount_total = sum(line.subtotal for line in rec.product_line_ids)
 
     def _cron_update_delivery_colors(self):
+        """Cron job to update delivery status colors for all repairs"""
         repairs = self.sudo().search([])
-        print("hello")
-        repairs._compute_delivery_status_color()
+        if not repairs:
+            return
+        # Mark the field as needing recomputation
+        field = self._fields['delivery_status_color']
+        self.env.add_to_compute(field, repairs)
+        # Trigger recomputation - this will call _compute_delivery_status_color
+        repairs._recompute_recordset(['delivery_status_color'])
+
 
     @api.depends('product_line_ids.subtotal')
     def _compute_total(self):

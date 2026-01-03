@@ -172,13 +172,18 @@ class AccountInvoice(models.Model):
             print("hei jbksfdj")
             print("fleet", invoice.fleet_repair_invoice_id.id)
             if invoice.fleet_repair_invoice_id.id:
-                self.env['fleet.repair.feedback'].create({
-                    'name': invoice.name,
-                    'account_move_id': invoice.id,
-                    'fleet_repair_id': invoice.fleet_repair_invoice_id.id,
-                    'customer_id': invoice.partner_id.id,
-                    'feedback_date': fields.Date.today()
-                })
+                # Check if feedback already exists to prevent duplicates
+                existing_feedback = self.env['fleet.repair.feedback'].search([
+                    ('account_move_id', '=', invoice.id)
+                ], limit=1)
+                if not existing_feedback:
+                    self.env['fleet.repair.feedback'].create({
+                        'name': invoice.name,
+                        'account_move_id': invoice.id,
+                        'fleet_repair_id': invoice.fleet_repair_invoice_id.id,
+                        'customer_id': invoice.partner_id.id,
+                        'feedback_date': invoice.invoice_date
+                    })
         return res
 
     @api.model_create_multi
@@ -216,6 +221,15 @@ class AccountInvoice(models.Model):
                                     'quantity': line_vals[2].get('quantity'),
                                 })
         return super(AccountInvoice, self).create(vals_list)
+
+    def button_draft(self):
+        """Override to unlink feedbacks when invoice is reset to draft"""
+        res = super(AccountInvoice, self).button_draft()
+        for invoice in self:
+            # Unlink all feedbacks linked to this invoice
+            if invoice.fleet_feedback_ids:
+                invoice.fleet_feedback_ids.unlink()
+        return res
 
     def write(self, vals):
         if vals.get('state'):

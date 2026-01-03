@@ -3,6 +3,41 @@
     padding: 16px;
 }
 
+/* Score Dashboard - General scrolling fix for all score dashboards */
+/* Override Odoo's height restrictions with maximum specificity */
+.o_action_manager .o_action .o_content.o_score_dashboard_scrollable,
+.o_action_manager .o_action .o_content {
+    overflow-y: auto !important;
+    height: auto !important;
+    min-height: 100% !important;
+    max-height: none !important;
+}
+
+/* Ensure the action container allows scrolling */
+.o_action_manager .o_action {
+    overflow-y: auto !important;
+    height: auto !important;
+    max-height: none !important;
+}
+
+/* Ensure action manager allows scrolling */
+.o_action_manager {
+    overflow-y: auto !important;
+    height: auto !important;
+}
+
+/* Ensure the renderer/wrapper expands */
+.o_action_manager .o_action .o_content > div {
+    min-height: 100% !important;
+}
+
+/* Score Dashboard container - allow scrolling */
+.o_score_dashboard,
+.o_score_dashboard_container {
+    min-height: calc(100vh - 200px);
+    padding-bottom: 3rem;
+}
+
 /* Card Styling */
 .card {
     transition: transform 0.2s, box-shadow 0.2s;

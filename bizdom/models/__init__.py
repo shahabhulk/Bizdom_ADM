@@ -7,3 +7,5 @@ from .import labour_billing
 from .import feedback_data
 from .import custom_fleet_feedback
 from .import dashboard
+from .import bizdom_category_lvl1
+from .import bizdom_category_lvl2

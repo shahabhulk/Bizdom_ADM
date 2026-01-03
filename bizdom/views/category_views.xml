@@ -1,0 +1,148 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<odoo>
+    <record id="view_bizdom_category_lvl1_form" model="ir.ui.view">
+        <field name="name">bizdom.category_lvl1.form</field>
+        <field name="model">bizdom.category_lvl1</field>
+        <field name="arch" type="xml">
+            <form string="Category Lvl1">
+                <sheet>
+                    <group>
+                        <group>
+                           <field name="category_lvl1_selection"/>
+                            <field name="score_id"/>
+                            <field name="type"/>
+                            <field name="max_category_percentage_lvl1" widget="percentage"  invisible="type!='percentage'"/>
+                            <field name="min_category_percentage_lvl1"  widget="percentage"  invisible="type!='percentage'"/>
+                            <field name="max_category_value_lvl1"  invisible="type=='percentage'" />
+                            <field name="min_category_value_lvl1"  invisible="type=='percentage'" />
+                        </group>
+                        <group>
+                            <field name="start_date"/>
+                            <field name="end_date"/>
+                            <field name="score_category_lvl1"/>
+                        </group>
+                    </group>
+                    <!--                    <field name="category_id"/>-->
+                    <notebook>
+                        <page string="Level 2 (Employees/Salespersons)">
+                            <field name="category_lvl2_ids" nolabel="1" context="{'default_category_lvl1_id': id}">
+                                <list>
+                                    <field name="category_lvl2_selection"/>
+                                    <field name="score_category_lvl2"/>
+                                    <field name="start_date"/>
+                                    <field name="end_date"/>
+                                </list>
+                            </field>
+                        </page>
+                    </notebook>
+
+                </sheet>
+            </form>
+        </field>
+    </record>
+    <record id="view_bizdom_category_lvl1_list" model="ir.ui.view">
+        <field name="name">bizdom.category_lvl1.list</field>
+        <field name="model">bizdom.category_lvl1</field>
+        <field name="arch" type="xml">
+            <list string="Category Lvl1">
+               <field name="category_lvl1_selection"/>
+                <field name="score_id"/>
+                <field name="category_type"/>
+                <field name="score_category_lvl1"/>
+                <field name="start_date"/>
+                <field name="end_date"/>
+            </list>
+        </field>
+    </record>
+    <record id="action_bizdom_category_lvl1" model="ir.actions.act_window">
+        <field name="name">Category Level 1</field>
+        <field name="res_model">bizdom.category_lvl1</field>
+        <field name="view_mode">list,form</field>
+    </record>
+    
+    <!-- Main Categories Menu -->
+    <menuitem id="menu_bizdom_categories" name="Categories" parent="menu_bizdom_root" sequence="20"/>
+    
+    <!-- Category Level 1 Menu -->
+    <menuitem id="menu_bizdom_category_lvl1" name="Category Level 1" parent="menu_bizdom_categories"
+              action="action_bizdom_category_lvl1" sequence="10"/>
+    
+    <!-- List view for Category Level 2 in One2many -->
+    <record id="view_bizdom_category_lvl2_list_inline" model="ir.ui.view">
+        <field name="name">bizdom.category_lvl2.list.inline</field>
+        <field name="model">bizdom.category_lvl2</field>
+        <field name="arch" type="xml">
+            <list string="Category Level 2">
+                <field name="category_lvl2_selection"/>
+                <field name="score_category_lvl2"/>
+                <field name="start_date"/>
+                <field name="end_date"/>
+            </list>
+        </field>
+    </record>
+    
+    <!-- Category Level 2 Views -->
+    <record id="view_bizdom_category_lvl2_form" model="ir.ui.view">
+        <field name="name">bizdom.category_lvl2.form</field>
+        <field name="model">bizdom.category_lvl2</field>
+        <field name="arch" type="xml">
+            <form string="Category Lvl2 (Employee/Salesperson)">
+                <sheet>
+                    <group>
+                        <group>
+                            <field name="category_lvl1_id" options="{'no_create': True}"/>
+                            <field name="score_id" readonly="1"/>
+                            <field name="category_lvl2_selection" options="{'no_create': True}"/>
+                            <field name="employee_id" readonly="1" invisible="1"/>
+                            <field name="source_id" readonly="1" invisible="1"/>
+                            <field name="department_id" readonly="1"/>
+                            <field name="medium_id" readonly="1"/>
+                            <field name="type"/>
+                            <field name="max_category_percentage_lvl2" widget="percentage" invisible="type!='percentage'"/>
+                            <field name="min_category_percentage_lvl2" widget="percentage" invisible="type!='percentage'"/>
+                            <field name="max_category_value_lvl2" invisible="type=='percentage'"/>
+                            <field name="min_category_value_lvl2" invisible="type=='percentage'"/>
+                        </group>
+                        <group>
+                            <field name="start_date"/>
+                            <field name="end_date"/>
+                            <field name="score_category_lvl2"/>
+                        </group>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+    
+    <record id="view_bizdom_category_lvl2_list" model="ir.ui.view">
+        <field name="name">bizdom.category_lvl2.list</field>
+        <field name="model">bizdom.category_lvl2</field>
+        <field name="arch" type="xml">
+            <list string="Category Lvl2 (Employees/Salespersons)">
+                <field name="category_lvl1_id"/>
+                <field name="score_id"/>
+                <field name="category_lvl2_selection"/>
+<!--                <field name="employee_id" invisible="1"/>-->
+<!--                <field name="source_id" invisible="1"/>-->
+                <field name="department_id"/>
+                <field name="medium_id"/>
+                <field name="score_category_lvl2"/>
+                <field name="start_date"/>
+                <field name="end_date"/>
+            </list>
+        </field>
+    </record>
+    
+    <record id="action_bizdom_category_lvl2" model="ir.actions.act_window">
+        <field name="name">Category Level 2</field>
+        <field name="res_model">bizdom.category_lvl2</field>
+        <field name="view_mode">list,form</field>
+    </record>
+    
+    <!-- Category Level 2 Menu -->
+    <menuitem id="menu_bizdom_category_lvl2" 
+              name="Category Level 2" 
+              parent="menu_bizdom_categories"
+              action="action_bizdom_category_lvl2"
+              sequence="20"/>
+</odoo>

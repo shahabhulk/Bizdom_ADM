@@ -8,7 +8,7 @@ class LabourBilling(models.Model):
     employee_name=fields.Char(related="employee_id.resource_id.name",string="Employee")
     department_id = fields.Many2one(related='employee_id.department_id', store=True)
     charge_amount = fields.Float(string="Labour Charge")
-    date = fields.Date(string="Date")
+    date = fields.Date(string="Date", index=True)
     invoice_line_id = fields.Many2one('account.move.line', string="Source Invoice Line", ondelete='cascade')
     invoice_id = fields.Many2one(related="invoice_line_id.move_id", string="Invoice", store=True)
     invoice_number = fields.Char(related="invoice_line_id.move_id.name", string="Invoice Number", store=True)

@@ -1,61 +1,64 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <templates xml:space="preserve">
     <t t-name="bizdom.ScoreDashboard" owl="1">
-        <div class="container">
+        <div class="container o_score_dashboard_container">
             <!-- Header with back button and dashboard title -->
-            <div class="d-flex justify-content-between align-items-center mb-4">
+            <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
                 <div class="d-flex align-items-center">
                     <button class="btn btn-link me-3" t-on-click="navigateBack">
                         <i class="fa fa-arrow-left me-1"></i> Back to Dashboard
                     </button>
                     <h2 class="mb-0" t-esc="state.scoreName + ' Dashboard'"/>
                 </div>
+                <div class="btn-group filter-group ms-auto">
+                    <button type="button"
+                            t-att-class="'btn btn-sm ' + (state.filterType === 'WTD' ? 'btn-primary text-white' : 'btn-outline-primary')"
+                            t-att-disabled="state.loading"
+                            t-on-click="() => this.switchFilter('WTD')">
+                        WTD
+                    </button>
+                    <button type="button"
+                            t-att-class="'btn btn-sm ' + (state.filterType === 'MTD' ? 'btn-primary text-white' : 'btn-outline-primary')"
+                            t-att-disabled="state.loading"
+                            t-on-click="() => this.switchFilter('MTD')">
+                        MTD
+                    </button>
+                    <button type="button"
+                            t-att-class="'btn btn-sm ' + (state.filterType === 'YTD' ? 'btn-primary text-white' : 'btn-outline-primary')"
+                            t-att-disabled="state.loading"
+                            t-on-click="() => this.switchFilter('YTD')">
+                        YTD
+                    </button>
+                </div>
             </div>
 
-            <!-- Loading state -->
-            <t t-if="state.loading">
-                <div class="alert alert-info">Loading score data...</div>
-            </t>
-
-            <!-- Main content when data is loaded -->
-            <t t-else="">
+            <!-- Main content -->
+            <div>
                 <!-- First row with two quadrants -->
                 <div class="row mb-4">
-                    <!-- Quadrant 1 - Score Overview with Bar Graph -->
+                    <!-- Quadrant 1 -->
                     <div class="col-md-6">
                         <div class="card h-100">
                             <div class="card-header bg-primary text-white">
                                 <h5 class="card-title mb-0" t-esc="state.quadrants.q1.title"/>
                             </div>
-                            <div class="card-body">
-                                <t t-if="state.quadrants.q1.data.length">
-                                    <div class="bar-chart-container d-flex align-items-end justify-content-between gap-2">
-                                        <t t-foreach="state.quadrants.q1.data" t-as="item" t-key="item.start_date">
-                                            <div class="bar-item text-center flex-grow-1">
-                                                <t t-if="this.hasPositiveValue(item)">
-                                                    <div class="bar-wrapper">
-                                                        <div class="bar-value-overlay" t-esc="this.formatValue(item.actual_value)"/>
-                                                        <div class="bar-fill"
-                                                             t-att-style="'height: ' + this.getBarHeight(item.actual_value, state.quadrants.q1.data) + ';'"
-                                                             t-att-title="this.formatValue(item.actual_value)">
-                                                        </div>
-                                                    </div>
-                                                </t>
-                                                <t t-else="">
-                                                    <div class="bar-wrapper bar-zero">
-                                                        <div class="bar-value-overlay" t-esc="this.formatValue(item.actual_value)"/>
-                                                        <div class="bar-zero-line"></div>
-                                                    </div>
-                                                </t>
-                                                <div class="bar-label fw-bold mt-2" t-esc="this.getPeriodLabel(item, state.quadrants.q1.filter_type)"/>
-                                                <div class="text-muted small">
-                                                    <span t-esc="item.start_date"/> - <span t-esc="item.end_date"/>
-                                                </div>
+                            <div class="card-body position-relative">
+                                <t t-if="state.loading">
+                                    <div class="chart-loading-overlay">
+                                        <div class="spinner-container">
+                                            <div class="spinner-border text-primary" role="status">
+                                                <span class="visually-hidden">Loading...</span>
                                             </div>
-                                        </t>
+                                            <p class="mt-3 text-muted">Loading chart data...</p>
+                                        </div>
                                     </div>
                                 </t>
-                                <t t-if="!state.quadrants.q1.data.length">
+                                <t t-if="state.quadrants.q1.data.length">
+                                    <div class="chart-container" t-att-class="state.loading ? 'chart-loading' : ''">
+                                        <canvas t-ref="chartCanvas"></canvas>
+                                    </div>
+                                </t>
+                                <t t-if="!state.quadrants.q1.data.length and !state.loading">
                                     <div class="text-muted text-center p-4">No data available</div>
                                 </t>
                             </div>
@@ -65,16 +68,21 @@
                     <div class="col-md-6">
                         <div class="card h-100">
                             <div class="card-header bg-success text-white">
-                                <h5 class="card-title mb-0" t-esc="state.quadrants.q2.title"/>
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <h5 class="card-title mb-0" t-esc="state.quadrants.q2.title"/>
+                                    <small class="text-white-50" t-esc="state.departmentChartLabel"/>
+                                </div>
                             </div>
                             <div class="card-body">
-                                <t t-foreach="state.quadrants.q2.data" t-as="item" t-key="item.id">
-                                    <div class="mb-2">
-                                        <span t-esc="item.label"/>: <span t-esc="item.value"/>
+                                <t t-if="state.departmentDataLoading or state.departmentError or !state.departmentChartData">
+                                    <div class="text-muted text-center p-4">
+                                        <t t-esc="getDepartmentPlaceholderMessage()"/>
                                     </div>
                                 </t>
-                                <t t-if="!state.quadrants.q2.data.length">
-                                    <div class="text-muted">No data available</div>
+                                <t t-if="state.departmentChartData">
+                                    <div class="chart-container">
+                                        <canvas t-ref="departmentChartCanvas"></canvas>
+                                    </div>
                                 </t>
                             </div>
                         </div>
@@ -87,16 +95,64 @@
                     <div class="col-md-6">
                         <div class="card h-100">
                             <div class="card-header bg-warning text-dark">
-                                <h5 class="card-title mb-0" t-esc="state.quadrants.q3.title"/>
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <h5 class="card-title mb-0">
+                                        <t t-if="isLabourScore()">Employee Labour</t>
+                                        <t t-if="isLeadsScore()">Leads by Source</t>
+                                        <t t-if="isConversionScore()">Conversions by Salesperson</t>
+                                        <t t-if="!isLabourScore() and !isLeadsScore() and !isConversionScore()" t-esc="state.quadrants.q3.title"/>
+                                    </h5>
+                                    <t t-if="isLabourScore() or isLeadsScore() or isConversionScore()">
+                                        <small class="text-dark-50" t-esc="state.employeeChartLabel"/>
+                                    </t>
+                                </div>
                             </div>
                             <div class="card-body">
-                                <t t-foreach="state.quadrants.q3.data" t-as="item" t-key="item.id">
-                                    <div class="mb-2">
-                                        <span t-esc="item.label"/>: <span t-esc="item.value"/>
-                                    </div>
+                                <t t-if="isLabourScore()">
+                                    <t t-if="state.employeeDataLoading or state.employeeError or !state.employeeChartData">
+                                        <div class="text-muted text-center p-4">
+                                            <t t-esc="getEmployeePlaceholderMessage()"/>
+                                        </div>
+                                    </t>
+                                    <t t-if="state.employeeChartData">
+                                        <div class="chart-container">
+                                            <canvas t-ref="employeeChartCanvas"></canvas>
+                                        </div>
+                                    </t>
                                 </t>
-                                <t t-if="!state.quadrants.q3.data.length">
-                                    <div class="text-muted">No data available</div>
+                                <t t-if="isLeadsScore()">
+                                    <t t-if="state.employeeDataLoading or state.employeeError or !state.employeeChartData">
+                                        <div class="text-muted text-center p-4">
+                                            <t t-esc="getEmployeePlaceholderMessage()"/>
+                                        </div>
+                                    </t>
+                                    <t t-if="state.employeeChartData">
+                                        <div class="chart-container">
+                                            <canvas t-ref="employeeChartCanvas"></canvas>
+                                        </div>
+                                    </t>
+                                </t>
+                                <t t-if="isConversionScore()">
+                                    <t t-if="state.employeeDataLoading or state.employeeError or !state.employeeChartData">
+                                        <div class="text-muted text-center p-4">
+                                            <t t-esc="getEmployeePlaceholderMessage()"/>
+                                        </div>
+                                    </t>
+                                    <t t-if="state.employeeChartData">
+                                        <div class="chart-container">
+                                            <canvas t-ref="employeeChartCanvas"></canvas>
+                                        </div>
+                                    </t>
+                                </t>
+                                <t t-if="!isLabourScore() and !isLeadsScore() and !isConversionScore()">
+                                    <t t-foreach="state.quadrants.q3.data" t-as="item" t-key="item.id">
+                                        <div class="mb-2">
+                                            <span t-esc="item.label"/>: <span t-esc="item.value"/>
+                                        </div>
+                                    </t>
+                                    <t t-if="!state.quadrants.q3.data.length">
+                                        <div class="text-muted">No data available</div>
+                                    </t>
                                 </t>
                             </div>
                         </div>
@@ -120,71 +176,85 @@
                         </div>
                     </div>
                 </div>
-            </t>
+            </div>
         </div>
 
         <style>
-            .bar-chart-container {
-                padding: 10px 0;
-                min-height: 220px;
+            /* Ensure the dashboard container allows scrolling */
+            .container {
+                min-height: 100%;
+                padding-bottom: 2rem;
+                overflow-y: visible;
             }
-            .bar-item {
-                display: flex;
-                flex-direction: column;
-                justify-content: flex-end;
+            
+            /* Ensure parent containers allow scrolling - target Odoo's content area */
+            :host {
+                display: block;
+                height: auto !important;
+                min-height: 100%;
+                overflow-y: auto !important;
             }
-            .bar-wrapper {
+            
+            .chart-container {
                 position: relative;
+                height: 300px;
                 width: 100%;
-                min-width: 26px;
-                max-width: 45px;
-                margin: 0 auto;
-                height: 180px;
-                border-radius: 4px;
-                border: 1px solid #dce3ea;
-                background-color: #f8f9fb;
-                overflow: hidden;
-                display: flex;
-                align-items: flex-end;
-                justify-content: center;
+                padding: 10px;
+                transition: opacity 0.3s ease, filter 0.3s ease;
             }
-            .bar-value-overlay {
-                position: absolute;
-                top: 6px;
-                left: 0;
+            .chart-container-small {
+                position: relative;
+                height: 280px;
                 width: 100%;
-                text-align: center;
-                font-size: 0.85rem;
-                font-weight: 600;
-                color: #333;
+                padding: 5px;
+                transition: opacity 0.3s ease, filter 0.3s ease;
+            }
+            .chart-container.chart-loading {
+                opacity: 0.5;
+                filter: blur(2px);
                 pointer-events: none;
             }
-            .bar-wrapper.bar-zero {
-                background-color: #fff;
-            }
-            .bar-zero-line {
+            .chart-loading-overlay {
                 position: absolute;
-                bottom: 12px;
-                left: 25%;
-                right: 25%;
-                height: 2px;
-                background-color: #d1d9e6;
-                border-radius: 1px;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background-color: rgba(255, 255, 255, 0.9);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                z-index: 10;
+                border-radius: 0.375rem;
+                animation: fadeIn 0.3s ease-in;
             }
-            .bar-fill {
-                width: 100%;
-                background-color: #0d6efd;
-                border-radius: 2px 2px 0 0;
-                transition: height 0.4s ease;
-                min-height: 10px;
+            .spinner-container {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
             }
-            .bar-label {
-                font-size: 0.9rem;
-                color: #333;
+            .spinner-container .spinner-border {
+                width: 3rem;
+                height: 3rem;
+                border-width: 0.3rem;
             }
-            .bar-value {
-                font-size: 0.85rem;
-                font-weight: 600;
+            .filter-group .btn {
+                min-width: 70px;
+                text-transform: uppercase;
+                transition: all 0.2s ease;
+            }
+            .filter-group .btn:disabled {
+                opacity: 0.6;
+                cursor: not-allowed;
+            }
+            @keyframes fadeIn {
+                from {
+                    opacity: 0;
+                }
+                to {
+                    opacity: 1;
+                }
             }
         </style>
     </t>

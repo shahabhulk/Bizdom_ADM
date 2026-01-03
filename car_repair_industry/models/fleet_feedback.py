@@ -32,6 +32,50 @@ class FleetRepairFeedback(models.Model):
 
     department_ids = fields.Many2many('hr.department', string='Department')
 
+    def _set_department_based_on_feedback_count(self):
+        """Helper method to set department based on customer feedback count"""
+        if not self.customer_id:
+            self.department_ids = [(5, 0, 0)]
+            return
+        
+        # Count existing feedbacks for this customer (excluding current record if it exists)
+        domain = [('customer_id', '=', self.customer_id.id)]
+        if self.id:
+            domain.append(('id', '!=', self.id))
+        
+        existing_feedback_count = self.env['fleet.repair.feedback'].search_count(domain)
+        # Add 1 for the current feedback being created/edited
+        total_feedback_count = existing_feedback_count + 1
+        
+        # Determine department based on feedback count
+        # new customer = 1, repeated customer = 2, client = 3, advocate = 4+
+        department_name = None
+        if total_feedback_count == 1:
+            department_name = "New Customers"
+        elif total_feedback_count == 2:
+            department_name = "Repeated Customers"
+        elif total_feedback_count == 3:
+            department_name = "Client"
+        elif total_feedback_count >= 4:
+            department_name = "Advocate"
+        
+        # Find and set the department
+        if department_name:
+            department = self.env['hr.department'].search([('name', '=', department_name)], limit=1)
+            if department:
+                self.department_ids = [(6, 0, [department.id])]
+                # Trigger the onchange to populate questions
+                self._onchange_department_ids()
+            else:
+                self.department_ids = [(5, 0, 0)]
+        else:
+            self.department_ids = [(5, 0, 0)]
+
+    @api.onchange('account_move_id')
+    def _onchange_account_move_id_set_department(self):
+        """Automatically set department when invoice/customer changes"""
+        self._set_department_based_on_feedback_count()
+
     @api.depends('fleet_repair_id', 'fleet_repair_id.user_id')
     def _compute_service_advisor(self):
         for rec in self:
@@ -53,14 +97,7 @@ class FleetRepairFeedback(models.Model):
     @api.model
     def default_get(self, fields):
         res = super(FleetRepairFeedback, self).default_get(fields)
-        if self._context.get('default_question_line_ids') is None:
-            questions = self.env['fleet.feedback.question'].search([ '&',('active', '=', True), ('department_id', '=', False)])
-            res['question_line_ids'] = [(0, 0, {
-                'question_id': q.id,
-                'rating': False,
-                'feedback_comment': False,
-            }) for q in questions]
-
+        
         # Set default values for customer_id and job_card_name if fleet_repair_id is in context
         if self._context.get('default_fleet_repair_id'):
             repair = self.env['fleet.repair'].browse(self._context['default_fleet_repair_id'])
@@ -70,13 +107,85 @@ class FleetRepairFeedback(models.Model):
                 'service_advisor_id': repair.user_id.id if repair.user_id else False
             })
 
-            # Set job card name from invoice if available
+        # Set job card name from invoice if available
         if self._context.get('default_account_move_id'):
             move = self.env['account.move'].browse(self._context['default_account_move_id'])
             res.update({
                 'job_card_name': move.job_card_name,
                 'account_move_id': move.id,
             })
+            # Set department based on customer feedback count
+            if move.partner_id:
+                customer_id = move.partner_id.id
+                existing_feedback_count = self.env['fleet.repair.feedback'].search_count([
+                    ('customer_id', '=', customer_id)
+                ])
+                total_feedback_count = existing_feedback_count + 1
+                
+                department_name = None
+                if total_feedback_count == 1:
+                    department_name = "New Customers"
+                elif total_feedback_count == 2:
+                    department_name = "Repeated Customers"
+                elif total_feedback_count == 3:
+                    department_name = "Client"
+                elif total_feedback_count >= 4:
+                    department_name = "Advocate"
+                
+                if department_name:
+                    department = self.env['hr.department'].search([('name', '=', department_name)], limit=1)
+                    if department:
+                        res['department_ids'] = [(6, 0, [department.id])]
+                        # Set questions based on department
+                        dept_ids = [department.id]
+                        question_domain = [
+                            '&', ('active', '=', True), '|',
+                            ('department_id', 'in', dept_ids),
+                            ('department_id', '=', False)
+                        ]
+                        questions = self.env['fleet.feedback.question'].search(question_domain, order='sequence, id')
+                        res['question_line_ids'] = [(0, 0, {
+                            'question_id': q.id,
+                            'rating': False,
+                            'feedback_comment': False,
+                            'department_id': q.department_id.id,
+                        }) for q in questions]
+                    else:
+                        # No department found, use default questions (no department)
+                        if self._context.get('default_question_line_ids') is None:
+                            questions = self.env['fleet.feedback.question'].search([ '&',('active', '=', True), ('department_id', '=', False)])
+                            res['question_line_ids'] = [(0, 0, {
+                                'question_id': q.id,
+                                'rating': False,
+                                'feedback_comment': False,
+                            }) for q in questions]
+                else:
+                    # No department determined, use default questions (no department)
+                    if self._context.get('default_question_line_ids') is None:
+                        questions = self.env['fleet.feedback.question'].search([ '&',('active', '=', True), ('department_id', '=', False)])
+                        res['question_line_ids'] = [(0, 0, {
+                            'question_id': q.id,
+                            'rating': False,
+                            'feedback_comment': False,
+                        }) for q in questions]
+            else:
+                # No partner, use default questions (no department)
+                if self._context.get('default_question_line_ids') is None:
+                    questions = self.env['fleet.feedback.question'].search([ '&',('active', '=', True), ('department_id', '=', False)])
+                    res['question_line_ids'] = [(0, 0, {
+                        'question_id': q.id,
+                        'rating': False,
+                        'feedback_comment': False,
+                    }) for q in questions]
+        else:
+            # No account_move_id in context, use default questions (no department)
+            if self._context.get('default_question_line_ids') is None:
+                questions = self.env['fleet.feedback.question'].search([ '&',('active', '=', True), ('department_id', '=', False)])
+                res['question_line_ids'] = [(0, 0, {
+                    'question_id': q.id,
+                    'rating': False,
+                    'feedback_comment': False,
+                }) for q in questions]
 
         return res
 
@@ -130,6 +239,28 @@ class FleetRepairFeedback(models.Model):
     #                 'question_id': question.id,
     #             })
     #     return feedbacks
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        """Override create to set department based on customer feedback count"""
+        feedbacks = super().create(vals_list)
+        for feedback in feedbacks:
+            if feedback.customer_id:
+                if not feedback.department_ids:
+                    # Set department if not already set
+                    feedback._set_department_based_on_feedback_count()
+                elif feedback.department_ids:
+                    # Department is set, ensure questions match the department
+                    # Check if questions need to be updated
+                    dept_ids = feedback.department_ids.ids
+                    current_question_depts = set(
+                        line.department_id.id for line in feedback.question_line_ids 
+                        if line.department_id
+                    )
+                    # If no questions match the department, repopulate
+                    if not current_question_depts.intersection(set(dept_ids)):
+                        feedback._onchange_department_ids()
+        return feedbacks
 
     def action_done(self):
         for feedback in self:

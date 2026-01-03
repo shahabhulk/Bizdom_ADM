@@ -12,8 +12,18 @@ SECRET_KEY = "Your-secret-key"
 
 class CustomAuthController(http.Controller):
 
-    @http.route('/api/login', type='http', auth='none', methods=['POST'], csrf=False)
+    @http.route('/api/login', type='http', auth='none', methods=['POST', 'OPTIONS'], csrf=False, cors='*')
     def custom_login(self, **kwargs):
+        # Handle CORS preflight
+        if request.httprequest.method == 'OPTIONS':
+            return http.Response(
+                "",
+                headers=[
+                    ('Access-Control-Allow-Origin', '*'),
+                    ('Access-Control-Allow-Methods', 'POST, OPTIONS'),
+                    ('Access-Control-Allow-Headers', 'Content-Type'),
+                ]
+            )
 
         try:
             body = json.loads(request.httprequest.data.decode('utf-8'))
@@ -25,7 +35,11 @@ class CustomAuthController(http.Controller):
                     json.dumps({
                         "statusCode": 400,
                         "message": "Missing login or password"
-                    }),)
+                    }),
+                    content_type='application/json',
+                    status=400,
+                    headers=[('Access-Control-Allow-Origin', '*')]
+                )
 
             # elif password !=
 
@@ -43,7 +57,8 @@ class CustomAuthController(http.Controller):
                         "message": f"Unknown host: {host}, cannot select DB"
                     }),
                     content_type='application/json',
-                    status=400
+                    status=400,
+                    headers=[('Access-Control-Allow-Origin', '*')]
                 )
 
             credentials = {
@@ -59,7 +74,8 @@ class CustomAuthController(http.Controller):
                         "message": "Invalid username or password"
                     }),
                     content_type='application/json',
-                    status=401
+                    status=401,
+                    headers=[('Access-Control-Allow-Origin', '*')]
                 )
 
             try:
@@ -81,7 +97,8 @@ class CustomAuthController(http.Controller):
 
                         }),
                         content_type='application/json',
-                        status=200
+                        status=200,
+                        headers=[('Access-Control-Allow-Origin', '*')]
                     )
             except Exception as e:
                 return http.Response(
@@ -90,7 +107,8 @@ class CustomAuthController(http.Controller):
                         "message": "Invalid username or password"
                     }),
                     content_type='application/json',
-                    status=401
+                    status=401,
+                    headers=[('Access-Control-Allow-Origin', '*')]
                 )
 
 
@@ -106,10 +124,16 @@ class CustomAuthController(http.Controller):
 
 
         except Exception as e:
-            return json.dumps({
-                "statusCode": 500,
-                "message": "Internal Server Error"
-            })
+            _logger.exception("Login error: %s", str(e))
+            return http.Response(
+                json.dumps({
+                    "statusCode": 500,
+                    "message": "Internal Server Error"
+                }),
+                content_type='application/json',
+                status=500,
+                headers=[('Access-Control-Allow-Origin', '*')]
+            )
 
     @http.route('/api/change_password', type='http', auth='none', methods=['POST'], csrf=False)
     def change_password(self, **kwargs):

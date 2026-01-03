@@ -6,3 +6,5 @@ access_bizdom_signal,bizdom.signal,model_bizdom_signal,base.group_user,1,1,1,1
 access_labour_billing,labour.billing,model_labour_billing,,1,1,1,1
 access_feedback_data,feedback.data,model_feedback_data,base.group_user,1,1,1,1
 access_bizdom_dashboard,bizdom.dashboard,model_bizdom_dashboard,base.group_user,1,1,1,1
+access_bizdom_category_lvl1,bizdom.category_lvl1,model_bizdom_category_lvl1,base.group_user,1,1,1,1
+access_bizdom_category_lvl2,bizdom.category_lvl2,model_bizdom_category_lvl2,base.group_user,1,1,1,1

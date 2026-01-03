@@ -7,13 +7,8 @@
     'data': [
         'views/templates.xml',
     ],
-    'assets': {
-        'web.assets_frontend': [
-            'swagger_api/static/lib/swagger/swagger-ui.css',
-            'swagger_api/static/lib/swagger/swagger-ui-bundle.js',
-            'swagger_api/static/lib/swagger/swagger-ui-standalone-preset.js',
-        ],
-    },
+    # Assets are loaded directly in the template, not via manifest
+    # to avoid loading on login page and causing conflicts
     'installable': True,
     'application': False,
     'auto_install': False,
