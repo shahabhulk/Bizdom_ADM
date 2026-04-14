@@ -31,6 +31,8 @@ export class FleetRepairDasboard extends Component{
                 self.fleet_service_type_count = result.fleet_service_type_count;
                 self.feedback_count = result.feedback_count;
                 self.lead_count = result.lead_count || 0;
+                self.parts_purchase_count = result.parts_purchase_count || 0;
+                self.company_expense_count = result.company_expense_count || 0;
             });
             return Promise.all([def]);
 
@@ -133,21 +135,49 @@ export class FleetRepairDasboard extends Component{
     ev.preventDefault();
     this.action.doAction({
         name: 'Fleet Leads',
-        res_model: 'crm.lead',  // Make sure this matches your lead model name
+        res_model: 'crm.lead',
         res_id: false,
         views: [[false, 'list'], [false, 'form']],
         type: 'ir.actions.act_window',
         context: {
-            'default_state': 'new'  // Optional: set default filters
+            'default_state': 'new'
         },
-        domain: []  // Optional: add domain filters if needed
+        domain: []
     }, {
         on_reverse_breadcrumb: this.on_reverse_breadcrumb
     });
 }
 
+    clickPartsPurchase(ev) {
+        ev.preventDefault();
+        this.action.doAction({
+            name: 'Parts Purchase',
+            res_model: 'account.move',
+            res_id: false,
+            views: [[false, 'list'], [false, 'form']],
+            type: 'ir.actions.act_window',
+            domain: [['move_type', '=', 'in_invoice']],
+            context: {
+                'default_move_type': 'in_invoice',
+            },
+        }, {
+            on_reverse_breadcrumb: this.on_reverse_breadcrumb
+        });
+    }
 
-
+    clickCompanyExpense(ev) {
+        ev.preventDefault();
+        this.action.doAction({
+            name: 'Company Expenses',
+            res_model: 'hr.expense',
+            res_id: false,
+            views: [[false, 'list'], [false, 'form']],
+            type: 'ir.actions.act_window',
+            domain: [],
+        }, {
+            on_reverse_breadcrumb: this.on_reverse_breadcrumb
+        });
+    }
 
 
 }

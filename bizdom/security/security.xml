@@ -1,19 +1,167 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <odoo>
     <data noupdate="1">
-        <record id="bizdom_pillar_multi_company_rule" model="ir.rule">
-            <field name="name">Bizdom Pillar: multi-company rule</field>
-            <field name="model_id" ref="model_bizdom_pillar"/>
-            <field name="domain_force">[('company_id', 'in', company_ids + [False])]</field>
-            <field name="groups" eval="[(4, ref('base.group_user'))]"/>
+<!--        <record id="bizdom_pillar_multi_company_rule" model="ir.rule">-->
+<!--            <field name="name">Bizdom Pillar: multi-company rule</field>-->
+<!--            <field name="model_id" ref="model_bizdom_pillar"/>-->
+<!--            <field name="domain_force">[('company_id', 'in', company_ids + [False])]</field>-->
+<!--            <field name="groups" eval="[(4, ref('base.group_user'))]"/>-->
+<!--        </record>-->
+
+<!--        <record id="bizdom_score_multi_company_rule" model="ir.rule">-->
+<!--            <field name="name">Bizdom Score: multi-company rule</field>-->
+<!--            <field name="model_id" ref="model_bizdom_score"/>-->
+<!--            <field name="domain_force">[('company_id', 'in', company_ids + [False])]</field>-->
+<!--            <field name="groups" eval="[(4, ref('base.group_user'))]"/>-->
+<!--        </record>-->
+
+
+        <record id="module_category_bizdom" model="ir.module.category">
+            <field name="name">Bizdom</field>
+            <field name="description">Access rights for Bizdom module</field>
+            <field name="sequence">30</field>
         </record>
 
-        <record id="bizdom_score_multi_company_rule" model="ir.rule">
-            <field name="name">Bizdom Score: multi-company rule</field>
-            <field name="model_id" ref="model_bizdom_score"/>
-            <field name="domain_force">[('company_id', 'in', company_ids + [False])]</field>
-            <field name="groups" eval="[(4, ref('base.group_user'))]"/>
+
+        <record id="group_bizdom_owner" model="res.groups">
+            <field name="name">Bizdom Owner</field>
+            <field name="category_id" ref="bizdom.module_category_bizdom"/>
+            <field name="implied_ids" eval="[(4, ref('base.group_user'))]"/>
         </record>
+
+        <record id="group_bizdom_manager" model="res.groups">
+            <field name="name">Bizdom Manager</field>
+            <field name="category_id" ref="bizdom.module_category_bizdom"/>
+            <field name="implied_ids" eval="[(4, ref('base.group_user'))]"/>
+        </record>
+
+        <record id="group_bizdom_employee" model="res.groups">
+            <field name="name">Bizdom Employee</field>
+            <field name="category_id" ref="bizdom.module_category_bizdom"/>
+            <field name="implied_ids" eval="[(4, ref('base.group_user'))]"/>
+        </record>
+
+
+        <!-- Manager: Pillars (company + allowed pillars) -->
+        <record id="bizdom_pillar_manager_rule" model="ir.rule">
+            <field name="name">Bizdom Pillar Manager Rule</field>
+            <field name="model_id" ref="model_bizdom_pillar"/>
+            <field name="domain_force">[('company_id', 'in', company_ids + [False]), ('id', 'in',
+                user.bizdom_allowed_pillar_ids.ids)]
+            </field>
+            <field name="groups" eval="[(4, ref('bizdom.group_bizdom_manager'))]"/>
+            <field name="perm_read" eval="1"/>
+            <field name="perm_write" eval="1"/>
+            <field name="perm_create" eval="1"/>
+            <field name="perm_unlink" eval="1"/>
+        </record>
+
+        <record id="bizdom_score_manager_rule" model="ir.rule">
+            <field name="name">Bizdom Score Manager Rule</field>
+            <field name="model_id" ref="model_bizdom_score"/>
+            <field name="domain_force">[('company_id', 'in', company_ids + [False]), ('pillar_id', 'in',
+                user.bizdom_allowed_pillar_ids.ids)]
+            </field>
+            <field name="groups" eval="[(4, ref('bizdom.group_bizdom_manager'))]"/>
+            <field name="perm_read" eval="1"/>
+            <field name="perm_write" eval="1"/>
+            <field name="perm_create" eval="1"/>
+            <field name="perm_unlink" eval="1"/>
+        </record>
+
+
+        <!-- Manager: Category Lvl1 -->
+        <record id="bizdom_category_lvl1_manager_rule" model="ir.rule">
+            <field name="name">Bizdom Category Lvl1 Manager Rule</field>
+            <field name="model_id" ref="model_bizdom_category_lvl1"/>
+            <field name="domain_force">[('score_id.pillar_id', 'in', user.bizdom_allowed_pillar_ids.ids)]</field>
+            <field name="groups" eval="[(4, ref('bizdom.group_bizdom_manager'))]"/>
+            <field name="perm_read" eval="1"/>
+            <field name="perm_write" eval="1"/>
+            <field name="perm_create" eval="1"/>
+            <field name="perm_unlink" eval="1"/>
+        </record>
+
+        <!-- Manager: Category Lvl2 -->
+        <record id="bizdom_category_lvl2_manager_rule" model="ir.rule">
+            <field name="name">Bizdom Category Lvl2 Manager Rule</field>
+            <field name="model_id" ref="model_bizdom_category_lvl2"/>
+            <field name="domain_force">[('score_id.pillar_id', 'in', user.bizdom_allowed_pillar_ids.ids)]</field>
+            <field name="groups" eval="[(4, ref('bizdom.group_bizdom_manager'))]"/>
+            <field name="perm_read" eval="1"/>
+            <field name="perm_write" eval="1"/>
+            <field name="perm_create" eval="1"/>
+            <field name="perm_unlink" eval="1"/>
+        </record>
+
+
+        <!-- Employee: Pillars (company + allowed pillars) -->
+        <record id="bizdom_pillar_employee_rule" model="ir.rule">
+            <field name="name">Bizdom Pillar Employee Rule</field>
+            <field name="model_id" ref="model_bizdom_pillar"/>
+            <field name="domain_force">[('company_id', 'in', company_ids + [False]), ('id', 'in',
+                user.bizdom_allowed_pillar_ids.ids)]
+            </field>
+            <field name="groups" eval="[(4, ref('bizdom.group_bizdom_employee'))]"/>
+            <field name="perm_read" eval="1"/>
+            <field name="perm_write" eval="0"/>
+            <field name="perm_create" eval="0"/>
+            <field name="perm_unlink" eval="0"/>
+        </record>
+
+
+        <!-- Employee: Scores (company + allowed pillars) -->
+        <record id="bizdom_score_employee_rule" model="ir.rule">
+            <field name="name">Bizdom Score Employee Rule</field>
+            <field name="model_id" ref="model_bizdom_score"/>
+            <field name="domain_force">[('company_id', 'in', company_ids + [False]), ('pillar_id', 'in',
+                user.bizdom_allowed_pillar_ids.ids)]
+            </field>
+            <field name="groups" eval="[(4, ref('bizdom.group_bizdom_employee'))]"/>
+            <field name="perm_read" eval="1"/>
+            <field name="perm_write" eval="0"/>
+            <field name="perm_create" eval="0"/>
+            <field name="perm_unlink" eval="0"/>
+        </record>
+
+        <!-- Employee: Score Lines -->
+        <record id="bizdom_score_line_employee_rule" model="ir.rule">
+            <field name="name">Bizdom Score Line Employee Rule</field>
+            <field name="model_id" ref="model_bizdom_score_line"/>
+            <field name="domain_force">[('score_id.pillar_id', 'in', user.bizdom_allowed_pillar_ids.ids)]</field>
+            <field name="groups" eval="[(4, ref('bizdom.group_bizdom_employee'))]"/>
+            <field name="perm_read" eval="1"/>
+            <field name="perm_write" eval="0"/>
+            <field name="perm_create" eval="0"/>
+            <field name="perm_unlink" eval="0"/>
+        </record>
+
+
+        <!-- Employee: Category Lvl1 -->
+        <record id="bizdom_category_lvl1_employee_rule" model="ir.rule">
+            <field name="name">Bizdom Category Lvl1 Employee Rule</field>
+            <field name="model_id" ref="model_bizdom_category_lvl1"/>
+            <field name="domain_force">[('score_id.pillar_id', 'in', user.bizdom_allowed_pillar_ids.ids)]</field>
+            <field name="groups" eval="[(4, ref('bizdom.group_bizdom_employee'))]"/>
+            <field name="perm_read" eval="1"/>
+            <field name="perm_write" eval="0"/>
+            <field name="perm_create" eval="0"/>
+            <field name="perm_unlink" eval="0"/>
+        </record>
+
+        <!-- Employee: Category Lvl2 -->
+        <record id="bizdom_category_lvl2_employee_rule" model="ir.rule">
+            <field name="name">Bizdom Category Lvl2 Employee Rule</field>
+            <field name="model_id" ref="model_bizdom_category_lvl2"/>
+            <field name="domain_force">[('score_id.pillar_id', 'in', user.bizdom_allowed_pillar_ids.ids)]</field>
+            <field name="groups" eval="[(4, ref('bizdom.group_bizdom_employee'))]"/>
+            <field name="perm_read" eval="1"/>
+            <field name="perm_write" eval="0"/>
+            <field name="perm_create" eval="0"/>
+            <field name="perm_unlink" eval="0"/>
+        </record>
+
+
     </data>
 </odoo>
 

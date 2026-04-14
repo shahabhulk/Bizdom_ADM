@@ -34,14 +34,16 @@ function fixPublicDashboardScrolling() {
             verticalsDashboard.style.setProperty('min-height', '100vh', 'important');
         }
         
-        // Ensure body and html allow scrolling
+        // Ensure body and html allow scrolling, prevent horizontal overflow on mobile
         if (body) {
             body.style.setProperty('overflow-y', 'auto', 'important');
+            body.style.setProperty('overflow-x', 'hidden', 'important');
             body.style.setProperty('height', 'auto', 'important');
         }
         
         if (html) {
             html.style.setProperty('overflow-y', 'auto', 'important');
+            html.style.setProperty('overflow-x', 'hidden', 'important');
             html.style.setProperty('height', 'auto', 'important');
         }
     };
@@ -657,18 +659,18 @@ window.handleLogin = handleLogin;
             loadingEl.style.display = 'flex';
             contentEl.style.display = 'none';
             
-            // Compute date range (used for label and for Custom/Today)
+            // Compute date range (used for label and for Custom)
             const dateRange = getDateRange(filterType);
 
             // Determine effective filter and URL parameters
             let effectiveFilter = filterType;
             let url = `${API_BASE}?favoritesOnly=true`;
-            // Today and Custom both use the backend "Custom" branch with explicit dates
-            if ((filterType === 'Today' || filterType === 'Custom') && dateRange) {
+            // Custom filter uses explicit dates, Today is sent directly to backend
+            if (filterType === 'Custom' && dateRange) {
                 effectiveFilter = 'Custom';
                 url += `&filterType=Custom&startDate=${encodeURIComponent(dateRange.startDate)}&endDate=${encodeURIComponent(dateRange.endDate)}`;
             } else {
-                // Fallback to standard filters (MTD/WTD/YTD)
+                // Send filterType directly (Today, MTD, WTD, YTD)
                 url += `&filterType=${encodeURIComponent(effectiveFilter)}`;
             }
 
@@ -755,12 +757,18 @@ window.handleLogin = handleLogin;
         
         const html = `
             <div class="verticals-dashboard" style="min-height: 100vh; background: #f5f7fa; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
-                <div class="dashboard-header" style="background: white; padding: 1.5rem 2rem; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 4px rgba(0,0,0,0.1); border-bottom: 1px solid #e9ecef; flex-wrap: wrap; gap: 1rem;">
-                    <div class="header-left" style="display: flex; flex-direction: column; gap: 0.5rem;">
-                        <h1 class="company-name" style="font-size: 1.5rem; font-weight: 700; color: #212529; margin: 0;">BIZDOM</h1>
-                        <div class="verticals-label" style="font-size: 0.9rem; color: #6c757d; font-weight: 600; text-transform: uppercase; letter-spacing: 1px;">YOUR BUSINESS AT A GLANCE</div>
+                <div class="dashboard-header" style="background: white; padding: 1.5rem 2rem; display: flex; flex-direction: column; gap: 1rem; box-shadow: 0 2px 4px rgba(0,0,0,0.1); border-bottom: 1px solid #e9ecef;">
+                    <div class="header-top" style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+                        <div class="header-left" style="display: flex; flex-direction: column; gap: 0.5rem;">
+                            <h1 class="company-name" style="font-size: 1.5rem; font-weight: 700; color: #212529; margin: 0;">BIZDOM</h1>
+                            <div class="verticals-label" style="font-size: 0.9rem; color: #6c757d; font-weight: 600; text-transform: uppercase; letter-spacing: 1px;">YOUR BUSINESS AT A GLANCE</div>
+                        </div>
+                        <button type="button" class="header-logout-btn" onclick="logout()" 
+                                style="padding: 0.5rem 1rem; background: #dc3545; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 0.9rem; font-weight: 500; transition: all 0.2s ease; flex-shrink: 0;">
+                            Logout
+                        </button>
                     </div>
-                    <div class="header-right" style="display: flex; align-items: center; gap: 1.5rem; flex-wrap: wrap;">
+                    <div class="header-controls" style="display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; width: 100%;">
                         ${dateLabel ? `
                             <div class="date-range-banner" style="background: #f0f4ff; color: #495057; padding: 0.5rem 1rem; border-radius: 6px; border: 1px solid #e0e7ff; display: flex; align-items: center; gap: 0.5rem; font-size: 0.9rem;">
                                 <i class="fa fa-calendar-alt" style="font-size: 0.85rem; color: #667eea;"></i>
@@ -790,10 +798,6 @@ window.handleLogin = handleLogin;
                                 <input type="date" id="custom-end-date" 
                                        style="padding: 0.25rem 0.5rem; border: 1px solid #ced4da; border-radius: 6px; font-size: 0.85rem;">
                             </div>
-                            <button type="button" onclick="logout()" 
-                                    style="padding: 0.5rem 1rem; background: #dc3545; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 0.9rem; font-weight: 500; transition: all 0.2s ease;">
-                                Logout
-                            </button>
                         </div>
                     </div>
                 </div>
@@ -806,6 +810,20 @@ window.handleLogin = handleLogin;
                 </div>
             </div>
             <style>
+                /* Prevent horizontal overflow on mobile */
+                #bizdom-public-dashboard-app,
+                #bizdom-public-dashboard-app .container-fluid,
+                .verticals-dashboard {
+                    max-width: 100%;
+                    overflow-x: hidden;
+                }
+                .dashboard-content {
+                    overflow-x: hidden;
+                }
+                .pillar-section {
+                    width: 280px;
+                    flex-shrink: 0;
+                }
                 .filter-btn:hover {
                     background: #f8f9fa !important;
                     border-color: #667eea !important;
@@ -814,6 +832,102 @@ window.handleLogin = handleLogin;
                     background: #667eea !important;
                     color: white !important;
                     border-color: #667eea !important;
+                }
+                .header-logout-btn {
+                    flex-shrink: 0;
+                }
+                .header-top {
+                    flex-wrap: nowrap;
+                }
+                @media (max-width: 768px) {
+                    .dashboard-header {
+                        padding: 1rem !important;
+                    }
+                    .header-controls {
+                        gap: 0.75rem !important;
+                    }
+                    .dashboard-content {
+                        padding: 1rem !important;
+                    }
+                    .pillar-row {
+                        flex-direction: column !important;
+                        align-items: stretch !important;
+                        margin-bottom: 1.5rem !important;
+                        padding: 1rem !important;
+                    }
+                    .pillar-section {
+                        width: 100% !important;
+                        max-width: 100% !important;
+                        flex-shrink: 1 !important;
+                    }
+                    .kpi-flow {
+                        width: 100% !important;
+                        min-width: 0 !important;
+                        padding-left: 1rem !important;
+                        padding-top: 1rem !important;
+                        gap: 1rem !important;
+                        min-height: auto !important;
+                    }
+                    .company-name {
+                        font-size: 1.25rem !important;
+                    }
+                    .verticals-label {
+                        font-size: 0.8rem !important;
+                    }
+                    .date-range-banner {
+                        font-size: 0.85rem !important;
+                    }
+                    .custom-range-container {
+                        width: 100% !important;
+                        margin-left: 0 !important;
+                        margin-top: 0.5rem !important;
+                    }
+                }
+                @media (max-width: 480px) {
+                    .dashboard-header {
+                        padding: 0.75rem !important;
+                    }
+                    .header-controls {
+                        gap: 0.5rem !important;
+                    }
+                    .dashboard-content {
+                        padding: 0.75rem !important;
+                    }
+                    .filter-btn {
+                        padding: 0.4rem 0.75rem !important;
+                        font-size: 0.8rem !important;
+                    }
+                    .filter-buttons {
+                        gap: 0.35rem !important;
+                    }
+                    .pillar-row {
+                        padding: 0.75rem !important;
+                        margin-bottom: 1.25rem !important;
+                    }
+                    .vertical-item {
+                        padding: 0.75rem !important;
+                    }
+                    .kpi-flow {
+                        gap: 0.75rem !important;
+                    }
+                    .kpi-circle {
+                        min-width: 80px !important;
+                    }
+                    .kpi-icon-wrapper {
+                        width: 50px !important;
+                        height: 50px !important;
+                        font-size: 1.2rem !important;
+                    }
+                    .kpi-label {
+                        font-size: 0.8rem !important;
+                        max-width: 80px !important;
+                    }
+                    .kpi-value {
+                        font-size: 0.85rem !important;
+                    }
+                    .company-name {
+                        font-size: 1.1rem !important;
+                    }
                 }
             </style>
         `;
@@ -946,13 +1060,13 @@ window.handleLogin = handleLogin;
         
         return `
             <div class="pillar-row" style="display: flex; align-items: center; margin-bottom: 2rem; background: white; border-radius: 12px; padding: 1.5rem; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);">
-                <div class="pillar-section" style="width: 280px; flex-shrink: 0;">
+                <div class="pillar-section">
                     <div class="vertical-item" style="display: flex; align-items: center; gap: 1rem; padding: 1rem; background: #1e3a5f; border-radius: 12px; transition: all 0.2s ease;">
                         <div class="vertical-orb" style="width: 16px; height: 16px; border-radius: 50%; flex-shrink: 0; background: radial-gradient(circle, ${color} 0%, ${darkerColor} 100%); box-shadow: 0 0 20px ${color};"></div>
                         <div class="vertical-name" style="color: white; font-weight: 600; font-size: 1rem;">${pillar.pillar_name}</div>
                     </div>
                 </div>
-                <div class="kpi-flow" style="flex: 1; padding-left: 2rem; display: flex; gap: 2rem; flex-wrap: wrap; align-items: center; min-height: 80px; border-left: 4px solid ${color};">
+                <div class="kpi-flow" style="flex: 1; padding-left: 2rem; display: flex; gap: 2rem; flex-wrap: wrap; align-items: center; min-height: 80px; border-left: 4px solid ${color}; min-width: 0;">
                     ${pillar.scores && pillar.scores.length > 0 ? 
                         pillar.scores.map(score => renderScore(score)).join('') 
                         : '<div class="no-scores" style="color: #6c757d; font-style: italic; padding: 1rem;">No scores available</div>'

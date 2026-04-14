@@ -11,8 +11,9 @@ function fixPublicScoreDashboardScrolling() {
         const html = document.documentElement;
         
         if (scoreDashboardContent) {
-            // Force scrolling on score dashboard content
+            // Force scrolling on score dashboard content, prevent horizontal overflow on mobile
             scoreDashboardContent.style.setProperty('overflow-y', 'auto', 'important');
+            scoreDashboardContent.style.setProperty('overflow-x', 'hidden', 'important');
             scoreDashboardContent.style.setProperty('height', 'auto', 'important');
             scoreDashboardContent.style.setProperty('min-height', '100%', 'important');
             scoreDashboardContent.style.setProperty('max-height', 'none', 'important');
@@ -27,14 +28,16 @@ function fixPublicScoreDashboardScrolling() {
             container.style.setProperty('max-height', 'none', 'important');
         }
         
-        // Ensure body and html allow scrolling
+        // Ensure body and html allow scrolling, prevent horizontal overflow on mobile
         if (body) {
             body.style.setProperty('overflow-y', 'auto', 'important');
+            body.style.setProperty('overflow-x', 'hidden', 'important');
             body.style.setProperty('height', 'auto', 'important');
         }
         
         if (html) {
             html.style.setProperty('overflow-y', 'auto', 'important');
+            html.style.setProperty('overflow-x', 'hidden', 'important');
             html.style.setProperty('height', 'auto', 'important');
         }
     };
@@ -115,14 +118,20 @@ let globalPublicScoreDashboardObserver = null;
     // Get URL parameters
     function getUrlParams() {
         const params = new URLSearchParams(window.location.search);
+        const filterType = (params.get('filterType') || 'MTD').toUpperCase();
         return {
             scoreId: params.get('scoreId'),
             scoreName: params.get('scoreName') || 'Score',
-            filterType: (params.get('filterType') || 'MTD').toUpperCase()
+            filterType: filterType,
+            startDate: params.get('startDate'),
+            endDate: params.get('endDate')
         };
     }
     
     // State management
+    // Store custom date range in YYYY-MM-DD (input[type="date"]) format
+    let customRange = { start: '', end: '' };
+    
     let state = {
         loading: true,
         score: null,
@@ -287,6 +296,31 @@ let globalPublicScoreDashboardObserver = null;
                 label = `Year to Date: ${formatRangeLabel(startDate, endDate)}`;
                 break;
             }
+            case "CUSTOM": {
+                // Custom range relies on customRange (YYYY-MM-DD)
+                if (!customRange.start || !customRange.end) {
+                    return null;
+                }
+                // Parse YYYY-MM-DD format explicitly to avoid timezone issues
+                const startParts = customRange.start.split('-');
+                const endParts = customRange.end.split('-');
+                if (startParts.length !== 3 || endParts.length !== 3) {
+                    return null;
+                }
+                startDate = new Date(parseInt(startParts[0]), parseInt(startParts[1]) - 1, parseInt(startParts[2]));
+                endDate = new Date(parseInt(endParts[0]), parseInt(endParts[1]) - 1, parseInt(endParts[2]));
+                if (!startDate || isNaN(startDate.getTime()) || !endDate || isNaN(endDate.getTime())) {
+                    return null;
+                }
+                if (startDate > endDate) {
+                    return null;
+                }
+                // Set time to start and end of day
+                startDate.setHours(0, 0, 0, 0);
+                endDate.setHours(23, 59, 59, 999);
+                label = `Custom: ${formatRangeLabel(startDate, endDate)}`;
+                break;
+            }
             default: { // MTD
                 startDate = new Date(today.getFullYear(), today.getMonth(), 1);
                 startDate.setHours(0, 0, 0, 0);
@@ -304,10 +338,28 @@ let globalPublicScoreDashboardObserver = null;
     }
     
     function ensureActiveRange() {
+        // For Custom filter, always recalculate if dates are available
+        // This ensures we get the latest customRange values
+        if (state.filterType === 'CUSTOM') {
+            const preset = getPresetRange(state.filterType);
+            if (preset && preset.start_date && preset.end_date) {
+                state.activeRange = { start: preset.start_date, end: preset.end_date };
+                state.dateRangeLabel = preset.label;
+                return state.activeRange;
+            }
+            // If Custom dates aren't set yet, return null or empty range
+            return null;
+        }
+        
+        // For other filters, use cached range if available
         if (state.activeRange?.start && state.activeRange?.end) {
             return state.activeRange;
         }
+        
         const preset = getPresetRange(state.filterType);
+        if (!preset) {
+            return null;
+        }
         state.activeRange = { start: preset.start_date, end: preset.end_date };
         state.dateRangeLabel = preset.label;
         return state.activeRange;
@@ -531,6 +583,8 @@ let globalPublicScoreDashboardObserver = null;
         const maxValue = allValues.length > 0 ? Math.max(...allValues, 0) : 0;
         const suggestedMax = maxValue > 0 ? maxValue * 1.1 : 100;
         const hasConversionValues = datasets.length > 1;
+        const isMobile = window.innerWidth < 768;
+        const isSmallMobile = window.innerWidth < 480;
         
         departmentChart = new Chart(canvas, {
             type: 'bar',
@@ -548,9 +602,9 @@ let globalPublicScoreDashboardObserver = null;
                         align: 'end',
                         labels: {
                             usePointStyle: true,
-                            padding: 15,
+                            padding: isMobile ? 8 : 15,
                             font: {
-                                size: 12
+                                size: isSmallMobile ? 10 : isMobile ? 11 : 12
                             }
                         }
                     },
@@ -573,7 +627,18 @@ let globalPublicScoreDashboardObserver = null;
                         ticks: {
                             color: '#111827',
                             font: {
-                                size: 11
+                                size: isSmallMobile ? 8 : isMobile ? 9 : 11
+                            },
+                            maxRotation: isMobile ? 45 : 0,
+                            minRotation: isMobile ? 45 : 0,
+                            autoSkip: isMobile,
+                            maxTicksLimit: isMobile ? (isSmallMobile ? 4 : 6) : undefined,
+                            callback: (value, index) => {
+                                const label = state.departmentChartData.labels[index];
+                                if (isMobile && typeof label === 'string' && label.length > 10) {
+                                    return label.substring(0, 9) + '…';
+                                }
+                                return label;
                             }
                         }
                     },
@@ -586,7 +651,7 @@ let globalPublicScoreDashboardObserver = null;
                         ticks: {
                             color: '#111827',
                             font: {
-                                size: 11
+                                size: isSmallMobile ? 9 : isMobile ? 10 : 11
                             },
                             callback: function(value) {
                                 const suffix = state.scoreType === 'percentage' ? '%' : '';
@@ -674,7 +739,7 @@ let globalPublicScoreDashboardObserver = null;
             
             const activeRange = ensureActiveRange();
             let url = `${DEPARTMENT_API}?scoreId=${state.scoreId}&filterType=${state.filterType}`;
-            if (state.filterType === 'Custom' && activeRange.start && activeRange.end) {
+            if (state.filterType === 'CUSTOM' && activeRange && activeRange.start && activeRange.end) {
                 url += `&startDate=${formatDateForQuadrantAPI(activeRange.start)}&endDate=${formatDateForQuadrantAPI(activeRange.end)}`;
             }
             
@@ -808,7 +873,7 @@ let globalPublicScoreDashboardObserver = null;
 
             const activeRange = ensureActiveRange();
             let url = `${EMPLOYEE_OVERVIEW_API}?scoreId=${state.scoreId}&departmentId=${departmentId}&filterType=${state.filterType}`;
-            if (state.filterType === 'Custom' && activeRange.start && activeRange.end) {
+            if (state.filterType === 'CUSTOM' && activeRange && activeRange.start && activeRange.end) {
                 url += `&startDate=${formatDateForQuadrantAPI(activeRange.start)}&endDate=${formatDateForQuadrantAPI(activeRange.end)}`;
             }
 
@@ -1148,6 +1213,8 @@ let globalPublicScoreDashboardObserver = null;
             const allValues = datasets.flatMap(dataset => (dataset.data || []));
             const maxValue = allValues.length > 0 ? Math.max(...allValues, 0) : 0;
             const suggestedMax = maxValue > 0 ? maxValue * 1.1 : 100;
+            const isMobile = window.innerWidth < 768;
+            const isSmallMobile = window.innerWidth < 480;
 
             employeeChart = new Chart(canvas, {
                 type: 'bar',
@@ -1166,8 +1233,8 @@ let globalPublicScoreDashboardObserver = null;
                             align: 'end',
                             labels: {
                                 usePointStyle: true,
-                                padding: 15,
-                                font: { size: 12 }
+                                padding: isMobile ? 8 : 15,
+                                font: { size: isSmallMobile ? 10 : isMobile ? 11 : 12 }
                             }
                         },
                         tooltip: {
@@ -1187,7 +1254,7 @@ let globalPublicScoreDashboardObserver = null;
                             grid: { color: 'rgba(0, 0, 0, 0.1)' },
                             ticks: {
                                 color: '#111827',
-                                font: { size: 11 },
+                                font: { size: isSmallMobile ? 9 : isMobile ? 10 : 11 },
                                 stepSize: isLabourScore ? undefined : 1, // Allow decimal steps for Labour
                                 maxTicksLimit: isLabourScore ? 10 : Math.ceil(suggestedMax) + 1,
                                 callback: (value) => {
@@ -1229,7 +1296,15 @@ let globalPublicScoreDashboardObserver = null;
                             grid: { display: false },
                             ticks: {
                                 color: '#111827',
-                                font: { size: 11 }
+                                font: { size: isSmallMobile ? 9 : isMobile ? 10 : 11 },
+                                maxTicksLimit: isMobile ? (isSmallMobile ? 8 : 12) : undefined,
+                                callback: (value, index) => {
+                                    const label = state.employeeChartData.labels[index];
+                                    if (isMobile && typeof label === 'string' && label.length > 12) {
+                                        return label.substring(0, 11) + '…';
+                                    }
+                                    return label;
+                                }
                             }
                         }
                     }
@@ -1304,11 +1379,13 @@ let globalPublicScoreDashboardObserver = null;
             
             const activeRange = ensureActiveRange();
             const preset = getPresetRange(state.filterType);
-            state.dateRangeLabel = preset.label;
+            if (preset) {
+                state.dateRangeLabel = preset.label;
+            }
             
             // Build URL - quadrant_api.py only needs dates for Custom filter
             let url = `${API_BASE}?scoreId=${state.scoreId}&filterType=${state.filterType}`;
-            if (state.filterType === 'Custom' && activeRange.start && activeRange.end) {
+            if (state.filterType === 'CUSTOM' && activeRange && activeRange.start && activeRange.end) {
                 url += `&startDate=${formatDateForQuadrantAPI(activeRange.start)}&endDate=${formatDateForQuadrantAPI(activeRange.end)}`;
             }
             
@@ -1707,21 +1784,21 @@ let globalPublicScoreDashboardObserver = null;
                         align: 'end',
                         labels: {
                             usePointStyle: true,
-                            padding: 15,
+                            padding: isMobile ? 8 : 15,
                             font: {
-                                size: 12
+                                size: isSmallMobile ? 10 : isMobile ? 11 : 12
                             }
                         }
                     },
                     tooltip: {
                         enabled: true,
                         backgroundColor: 'rgba(0, 0, 0, 0.8)',
-                        padding: 10,
+                        padding: isMobile ? 8 : 10,
                         titleFont: {
-                            size: isMobile ? 12 : 13
+                            size: isMobile ? 11 : 13
                         },
                         bodyFont: {
-                            size: isMobile ? 14 : 16,
+                            size: isMobile ? 13 : 16,
                             weight: 'bold'
                         },
                         callbacks: {
@@ -1808,19 +1885,18 @@ let globalPublicScoreDashboardObserver = null;
                         ticks: {
                             color: '#111827',
                             font: {
-                                size: isMobile ? 10 : 11
+                                size: isSmallMobile ? 8 : isMobile ? 9 : 11
                             },
-                            maxRotation: isMobile ? 45 : 0,
-                            minRotation: isMobile ? 45 : 0,
+                            maxRotation: isMobile ? 40 : 0,
+                            minRotation: isMobile ? 40 : 0,
                             autoSkip: isMobile,
                             maxTicksLimit: isSmallMobile ? 3 : isMobile ? 5 : undefined,
                             callback: (value, index) => {
                                 const label = chartData.labels[index];
                                 if (label && typeof label === 'object') {
-                                    // Truncate period label on small screens
                                     const period = label.period || '';
-                                    if (isSmallMobile && period.length > 8) {
-                                        return period.substring(0, 6) + '...';
+                                    if (isMobile && period.length > 8) {
+                                        return period.substring(0, 7) + '…';
                                     }
                                     return period;
                                 }
@@ -1840,7 +1916,7 @@ let globalPublicScoreDashboardObserver = null;
                         ticks: {
                             color: '#111827',
                             font: {
-                                size: 11
+                                size: isSmallMobile ? 9 : isMobile ? 10 : 11
                             },
                             callback: function(value) {
                                 const suffix = state.scoreType === 'percentage' ? '%' : '';
@@ -1901,8 +1977,25 @@ let globalPublicScoreDashboardObserver = null;
     
     // Switch filter
     function switchFilter(filterType) {
-        if (state.filterType === filterType.toUpperCase()) {
+        const upperFilterType = filterType.toUpperCase();
+        if (state.filterType === upperFilterType) {
             return;
+        }
+        
+        // Handle Custom filter - don't load data immediately, wait for valid dates
+        if (upperFilterType === 'CUSTOM') {
+            state.filterType = 'CUSTOM';
+            // Reset activeRange when switching to Custom to force recalculation
+            state.activeRange = null;
+            // Re-render to show date inputs
+            renderDashboard();
+            return;
+        }
+        
+        // When switching away from Custom, reset custom range and activeRange so we don't reuse stale dates
+        if (state.filterType === 'CUSTOM') {
+            customRange = { start: '', end: '' };
+            state.activeRange = null;
         }
         
         // Destroy chart immediately before changing state for smooth transition
@@ -1914,7 +2007,7 @@ let globalPublicScoreDashboardObserver = null;
         
         // Set loading state immediately for smooth transition
         state.loading = true;
-        state.filterType = filterType.toUpperCase();
+        state.filterType = upperFilterType;
         
         // Update loading overlay immediately without full re-render
         updateLoadingOverlay(true);
@@ -2011,13 +2104,13 @@ let globalPublicScoreDashboardObserver = null;
         const departmentPlaceholderText = getDepartmentPlaceholderMessage();
         
         const html = `
-            <div class="container" style="padding: 2rem; background: #f5f7fa; min-height: 100vh;">
-                <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
-                    <div class="d-flex align-items-center">
-                        <button class="btn btn-link me-3" onclick="window.navigateBack()" style="text-decoration: none;">
+            <div class="container score-dashboard-container" style="padding: 2rem; background: #f5f7fa; min-height: 100vh;">
+                <div class="score-dashboard-header d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
+                    <div class="d-flex align-items-center flex-wrap gap-2">
+                        <button class="btn btn-link btn-back me-2 me-md-3" onclick="window.navigateBack()" style="text-decoration: none;">
                             <i class="fa fa-arrow-left me-1"></i> Back to Dashboard
                         </button>
-                        <h2 class="mb-0">${state.scoreName} Dashboard</h2>
+                        <h2 class="score-dashboard-title mb-0">${state.scoreName} Dashboard</h2>
                     </div>
                     <div class="btn-group filter-group ms-auto">
                         <button type="button" 
@@ -2038,6 +2131,19 @@ let globalPublicScoreDashboardObserver = null;
                                 onclick="window.switchFilter('YTD')">
                             YTD
                         </button>
+                        <button type="button" 
+                                class="btn btn-sm ${state.filterType === 'CUSTOM' ? 'btn-primary text-white' : 'btn-outline-primary'}"
+                                ${state.loading ? 'disabled' : ''}
+                                onclick="window.switchFilter('CUSTOM')">
+                            Custom
+                        </button>
+                    </div>
+                    <div class="custom-range-container" style="display: ${state.filterType === 'CUSTOM' ? 'flex' : 'none'}; align-items: center; gap: 0.5rem; margin-left: 0.5rem; flex-wrap: wrap;">
+                        <input type="date" id="custom-start-date" 
+                               style="padding: 0.25rem 0.5rem; border: 1px solid #ced4da; border-radius: 6px; font-size: 0.85rem;">
+                        <span style="font-size: 0.85rem; color: #6c757d;">to</span>
+                        <input type="date" id="custom-end-date" 
+                               style="padding: 0.25rem 0.5rem; border: 1px solid #ced4da; border-radius: 6px; font-size: 0.85rem;">
                     </div>
                 </div>
                 
@@ -2159,6 +2265,14 @@ let globalPublicScoreDashboardObserver = null;
                 </div>
             </div>
             <style>
+                /* Prevent horizontal overflow on mobile */
+                #bizdom-score-dashboard-app,
+                #bizdom-score-dashboard-app .container-fluid,
+                #score-dashboard-content,
+                .score-dashboard-container {
+                    max-width: 100%;
+                    overflow-x: hidden;
+                }
                 .filter-group .btn {
                     min-width: 70px;
                     text-transform: uppercase;
@@ -2213,15 +2327,54 @@ let globalPublicScoreDashboardObserver = null;
                     }
                 }
                 @media (max-width: 768px) {
+                    .score-dashboard-container {
+                        padding: 1rem !important;
+                    }
+                    .score-dashboard-header {
+                        gap: 1rem !important;
+                        margin-bottom: 1rem !important;
+                    }
+                    .score-dashboard-title {
+                        font-size: 1.25rem !important;
+                    }
                     .chart-container {
                         padding: 5px !important;
                         min-height: 250px;
                     }
+                    .row.mb-4 {
+                        margin-bottom: 1rem !important;
+                    }
                 }
                 @media (max-width: 480px) {
+                    .score-dashboard-container {
+                        padding: 0.75rem !important;
+                    }
+                    .score-dashboard-header {
+                        gap: 0.5rem !important;
+                        margin-bottom: 0.75rem !important;
+                    }
+                    .btn-back {
+                        margin-right: 0 !important;
+                        padding: 0.25rem 0.5rem !important;
+                        font-size: 0.9rem !important;
+                    }
+                    .score-dashboard-title {
+                        font-size: 1.1rem !important;
+                    }
+                    .filter-group .btn {
+                        min-width: 60px !important;
+                        padding: 0.35rem 0.5rem !important;
+                        font-size: 0.8rem !important;
+                    }
                     .chart-container {
                         padding: 5px !important;
                         min-height: 220px;
+                    }
+                    .row.mb-4 {
+                        margin-bottom: 0.75rem !important;
+                    }
+                    .card .card-header .card-title {
+                        font-size: 0.95rem !important;
                     }
                 }
             </style>
@@ -2234,6 +2387,67 @@ let globalPublicScoreDashboardObserver = null;
             globalPublicScoreDashboardObserver = fixPublicScoreDashboardScrolling();
         } else {
             fixPublicScoreDashboardScrolling();
+        }
+        
+        // Initialize custom range inputs when Custom filter is active
+        if (state.filterType === 'CUSTOM') {
+            const startInput = container.querySelector('#custom-start-date');
+            const endInput = container.querySelector('#custom-end-date');
+            
+            if (startInput && endInput) {
+                // Restore previous values if available
+                startInput.value = customRange.start || '';
+                endInput.value = customRange.end || '';
+
+                const handleCustomChange = () => {
+                    const startVal = startInput.value;
+                    const endVal = endInput.value;
+
+                    customRange = { start: startVal, end: endVal };
+
+                    // Only load when both dates are present
+                    if (!startVal || !endVal) {
+                        // Reset activeRange when dates are cleared
+                        state.activeRange = null;
+                        return;
+                    }
+
+                    const startDate = new Date(startVal);
+                    const endDate = new Date(endVal);
+                    if (!startDate || isNaN(startDate.getTime()) || !endDate || isNaN(endDate.getTime())) {
+                        alert('Invalid date selection.');
+                        state.activeRange = null;
+                        return;
+                    }
+                    if (startDate > endDate) {
+                        alert('Start date cannot be after end date.');
+                        state.activeRange = null;
+                        return;
+                    }
+
+                    // Reset activeRange to force recalculation with new Custom dates
+                    state.activeRange = null;
+
+                    // Valid range: load score data with Custom filter
+                    // Destroy chart before loading new data
+                    if (chart) {
+                        chart.destroy();
+                        chart = null;
+                    }
+                    isRenderingChart = false;
+                    
+                    state.loading = true;
+                    updateLoadingOverlay(true);
+                    disableFilterButtons(true);
+                    
+                    resetDepartmentState();
+                    resetEmployeeState();
+                    loadScoreData();
+                };
+
+                startInput.addEventListener('change', handleCustomChange);
+                endInput.addEventListener('change', handleCustomChange);
+            }
         }
         
         // Don't render chart here - let loadScoreData handle it to avoid double rendering
@@ -2272,6 +2486,22 @@ let globalPublicScoreDashboardObserver = null;
         state.scoreId = params.scoreId;
         state.scoreName = params.scoreName;
         state.filterType = params.filterType;
+        
+        // Handle Custom filter dates from URL
+        if (state.filterType === 'CUSTOM' && params.startDate && params.endDate) {
+            // Convert from DD-MM-YYYY (API format) to YYYY-MM-DD (input format)
+            const startParts = params.startDate.split('-');
+            const endParts = params.endDate.split('-');
+            if (startParts.length === 3 && endParts.length === 3) {
+                // Assume format is DD-MM-YYYY
+                customRange.start = `${startParts[2]}-${startParts[1]}-${startParts[0]}`;
+                customRange.end = `${endParts[2]}-${endParts[1]}-${endParts[0]}`;
+            } else {
+                // Try YYYY-MM-DD format
+                customRange.start = params.startDate;
+                customRange.end = params.endDate;
+            }
+        }
         
         if (!state.scoreId) {
             console.error('Score ID is required');

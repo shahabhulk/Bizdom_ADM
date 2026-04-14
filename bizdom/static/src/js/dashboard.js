@@ -32,24 +32,13 @@ class BizdomDashboard extends Component {
     });
   }
 
-  onFilterChange(ev) {
-    const nextFilter = ev.target.value;
-    this.state.currentFilter = nextFilter;
-    if (nextFilter !== "Custom") {
-      this.state.customRange = { start: "", end: "" };
-      this.loadPillars();
-    } else {
-      this.state.dateRangeLabel = "Select start and end dates";
-      this.state.pillars = [];
-    }
-  }
-
+  
   onFilterClick(filter) {
     this.state.currentFilter = filter;
     if (filter !== "Custom") {
       this.state.customRange = { start: "", end: "" };
       this.loadPillars();
-    } else {
+    } else { 
       this.state.dateRangeLabel = "Select start and end dates";
       this.state.pillars = [];
     }
@@ -339,15 +328,16 @@ class BizdomDashboard extends Component {
 
   getScoreIcon(scoreName) {
     const iconMap = {
-      'Labour': 'fa-hard-hat',
-      'Customer Satisfaction': 'fa-smile',
-      'TAT': 'fa-clock',
-      'Leads': 'fa-bullseye',
-      'Revenue': 'fa-money-bill-wave',
-      'Productivity': 'fa-tachometer-alt',
-      'Quality': 'fa-award',
-      'Efficiency': 'fa-bolt',
-    };
+    'Labour': 'fa-wrench',              // or 'fa-industry'
+    'TAT': 'fa-clock-o',
+    'AOV': 'fa-line-chart',
+    'Leads': 'fa-bullseye',
+    'Customer Retention': 'fa-users',
+    'Conversion': 'fa-exchange',
+    'Income': 'fa-money',
+    'Expense': 'fa-credit-card',
+    'Cashflow': 'fa-tint', 
+   };
     return iconMap[scoreName] || 'fa-chart-bar';
   }
 
@@ -363,6 +353,29 @@ class BizdomDashboard extends Component {
       'Efficiency': '#6bcf7f',
     };
     return colorMap[scoreName] || '#95a5a6';
+  }
+
+  getScoreOverviewColor(score){
+    const actual=Number(score.context_total_score ?? score.total_score_value ??0);
+    const minVal = Number(score.min_value ?? 0);
+    const maxVal = Number(score.max_value ?? 0);
+    const tolerance = 0.01;
+    const isTATScore = score.score_name.toLowerCase() === 'tat';
+    if(minVal > 0 && maxVal > 0){
+      if(isTATScore){
+        if (actual <= minVal + tolerance) return '#198754';   // green
+        if (actual > maxVal + tolerance) return '#dc3545';     // red
+        return '#ffc107';   // yellow (between)
+      }
+      if(actual < minVal - tolerance){
+        return '#dc3545';
+      }
+      if(actual >= maxVal - tolerance){
+        return '#198754';
+      }
+      return '#ffc107';
+    }
+    return '#95a5a6';
   }
 }
 

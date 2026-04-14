@@ -20,6 +20,19 @@ class FleetLead(models.Model):
         help='Date when the lead was received. Can be set to previous months for historical data.'
     )
 
+    is_quality_lead_stage = fields.Boolean(
+        string='Is Quality Lead Stage',
+        compute='_compute_is_quality_lead_stage',
+        store=False
+    )
+
+    @api.depends('stage_id', 'stage_id.sequence')
+    def _compute_is_quality_lead_stage(self):
+        for lead in self:
+            lead.is_quality_lead_stage = (
+                    lead.stage_id and lead.stage_id.sequence == 1
+            )
+
 
     def def_action_quality_lead(self):
         """Move lead to Quality Lead stage (sequence 1)"""
@@ -31,10 +44,21 @@ class FleetLead(models.Model):
         stage = self._stage_find(domain=[('sequence', '=', 2)])
         self.stage_id = stage.id if stage else False
 
+    def action_set_won(self):
+        for lead in self:
+            current_stage=lead.stage_id
+            if not current_stage or current_stage.sequence!=1:
+                raise UserError(_(
+                    'You can only set won leads that are in Quality Lead Stage'
+                ))
+        return super(FleetLead, self).action_set_won()
+
     def def_reset_new_lead(self):
         """Reset lead to New Lead stage (sequence 0)"""
         stage = self._stage_find(domain=[('sequence', '=', 0)])
         self.stage_id = stage.id if stage else False
+
+
 
 
     @api.model
@@ -137,30 +161,31 @@ class FleetLead(models.Model):
         return answered_count
 
     def write(self, vals):
-        """Override write to validate questions before moving to Quality Lead stage"""
-        # Check if stage_id is being changed to Quality Lead
+        """Override write to validate questions before moving to Quality Lead stage
+        and prevent Quality Lead from moving to Converted or Won stages"""
+        # Check if stage_id is being changed
         if 'stage_id' in vals and vals.get('stage_id'):
-            quality_lead_stage = self.env['crm.stage'].browse(vals['stage_id'])
-            
-            if quality_lead_stage.exists() and quality_lead_stage.name == 'Quality Lead':
+            new_stage = self.env['crm.stage'].browse(vals['stage_id'])
+            if new_stage.name == 'Quality Lead':
                 # Get question_line_ids commands from vals if present
                 question_line_ids_vals = vals.get('question_line_ids')
-                
+
                 # Validate each lead being updated
                 for lead in self:
                     # Count answers considering both existing and incoming values
                     answered_count = lead._count_answered_questions(question_line_ids_vals)
                     min_required = 2
-                    
+
                     if answered_count < min_required:
                         raise UserError(_(
                             'Before proceeding to Quality Lead stage, please answer at least %d question(s).\n\n'
                             'Currently, you have answered %d question(s).\n\n'
                             'Please answer at least %d question(s) before moving to Quality Lead stage.'
                         ) % (min_required, answered_count, min_required))
-        
-        return super(FleetLead, self).write(vals)
 
+                # Validate questions before moving to Quality Lead stage
+
+        return super(FleetLead, self).write(vals)
 
 class FleetLeadQuestionLine(models.Model):
     _name = 'fleet.lead.question.line'
@@ -179,7 +204,6 @@ class FleetLeadQuestionLine(models.Model):
         ('no', 'No')
     ], string='Answer')
     comment = fields.Text(string='Comment')
-
 
 
 class FleetLeadQuestion(models.Model):

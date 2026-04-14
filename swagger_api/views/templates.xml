@@ -2,7 +2,7 @@
 <odoo>
     <template id="swagger_ui_template" name="Swagger UI">
         <t t-call="web.layout">
-            <t t-set="title">API Documentation</t>
+            <t t-set="title">Bizdom API Documentation</t>
 
             <div id="wrap" class="oe_structure">
                 <div class="container mt-4">
@@ -34,28 +34,6 @@
                             ],
                             layout: "StandaloneLayout",
 
-                            requestInterceptor: function (request) {
-                                var token = sessionStorage.getItem("jwt_token");
-                                if (token) {
-                                    request.headers["Authorization"] = "Bearer " + token;
-                                }
-                                return request;
-                            },
-
-                            responseInterceptor: function (response) {
-                                try {
-                                    if (response.url.indexOf("/api/login") !== -1 && response.status === 200) {
-                                        var body = JSON.parse(response.data);
-                                        if (body.token) {
-                                            sessionStorage.setItem("jwt_token", body.token);
-                                            console.log("✅ JWT token updated automatically");
-                                        }
-                                    }
-                                } catch (e) {
-                                    console.error("Token parse error:", e);
-                                }
-                                return response;
-                            }
                         });
 
                         window.ui = ui;

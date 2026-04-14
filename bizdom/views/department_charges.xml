@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<odoo>
+    <record id="view_department_charges_list" model="ir.ui.view">
+        <field name="name">department.charges.list</field>
+        <field name="model">department.charges</field>
+        <field name="arch" type="xml">
+            <list>
+                <field name="invoice_number"/>
+                <field name="date"/>
+                <field name="car_number"/>
+                <field name="service_description"/>
+                <field name="department_id"/>
+                <field name="employee_name"/>
+                <field name="charge_amount"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="action_department_charges" model="ir.actions.act_window">
+        <field name="name">Department Charges</field>
+        <field name="res_model">department.charges</field>
+        <field name="view_mode">list,form</field>
+         <field name="domain">[('invoice_id.payment_state', '=', 'paid')]</field>
+    </record>
+
+    <menuitem id="menu_department_charges" name="Department Charges" parent="menu_bizdom_data" action="action_department_charges"/>
+</odoo>

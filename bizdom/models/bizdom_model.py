@@ -11,7 +11,10 @@ class BizdomPillar(models.Model):
     _inherit = ['mail.thread']
 
     name = fields.Char(string="Name")
+    pillar_identifier = fields.Char(string="Pillar Identifier")
     company_id = fields.Many2one('res.company', string='Company', index=True, default=lambda self: self.env.company)
+    sequence = fields.Integer(string="Sequence", default=10)
+    _order = "sequence, id"
     # department_biz_ids = fields.One2many('bizdom.pillar.line', 'pillar_id')
     # score_name_id = fields.Many2one('bizdom.score', string='Score')
     from_date = fields.Date(default=lambda self: date.today().replace(day=1), string='From Date')

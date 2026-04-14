@@ -10,25 +10,51 @@
                     </button>
                     <h2 class="mb-0" t-esc="state.scoreName + ' Dashboard'"/>
                 </div>
-                <div class="btn-group filter-group ms-auto">
-                    <button type="button"
-                            t-att-class="'btn btn-sm ' + (state.filterType === 'WTD' ? 'btn-primary text-white' : 'btn-outline-primary')"
-                            t-att-disabled="state.loading"
-                            t-on-click="() => this.switchFilter('WTD')">
-                        WTD
-                    </button>
-                    <button type="button"
-                            t-att-class="'btn btn-sm ' + (state.filterType === 'MTD' ? 'btn-primary text-white' : 'btn-outline-primary')"
-                            t-att-disabled="state.loading"
-                            t-on-click="() => this.switchFilter('MTD')">
-                        MTD
-                    </button>
-                    <button type="button"
-                            t-att-class="'btn btn-sm ' + (state.filterType === 'YTD' ? 'btn-primary text-white' : 'btn-outline-primary')"
-                            t-att-disabled="state.loading"
-                            t-on-click="() => this.switchFilter('YTD')">
-                        YTD
-                    </button>
+                <div class="d-flex align-items-center gap-2 flex-wrap">
+                    <div class="btn-group filter-group">
+                        <button type="button"
+                                t-att-class="'btn btn-sm ' + (state.filterType === 'WTD' ? 'btn-primary text-white' : 'btn-outline-primary')"
+                                t-att-disabled="state.loading"
+                                t-on-click="() => this.switchFilter('WTD')">
+                            WTD
+                        </button>
+                        <button type="button"
+                                t-att-class="'btn btn-sm ' + (state.filterType === 'MTD' ? 'btn-primary text-white' : 'btn-outline-primary')"
+                                t-att-disabled="state.loading"
+                                t-on-click="() => this.switchFilter('MTD')">
+                            MTD
+                        </button>
+                        <button type="button"
+                                t-att-class="'btn btn-sm ' + (state.filterType === 'YTD' ? 'btn-primary text-white' : 'btn-outline-primary')"
+                                t-att-disabled="state.loading"
+                                t-on-click="() => this.switchFilter('YTD')">
+                            YTD
+                        </button>
+                        <button type="button"
+                                t-att-class="'btn btn-sm ' + (state.filterType === 'CUSTOM' ? 'btn-primary text-white' : 'btn-outline-primary')"
+                                t-att-disabled="state.loading"
+                                t-on-click="() => this.switchFilter('CUSTOM')">
+                            Custom
+                        </button>
+                    </div>
+                    <t t-if="state.filterType === 'CUSTOM'">
+                        <div class="d-flex align-items-center gap-2">
+                            <div class="input-group input-group-sm" style="width: auto;">
+                                <span class="input-group-text">From</span>
+                                <input type="date" class="form-control form-control-sm"
+                                       t-att-value="state.customRange.start"
+                                       t-on-change="(ev) => this.onCustomDateChange('start', ev)"
+                                       style="min-width: 150px;"/>
+                            </div>
+                            <div class="input-group input-group-sm" style="width: auto;">
+                                <span class="input-group-text">To</span>
+                                <input type="date" class="form-control form-control-sm"
+                                       t-att-value="state.customRange.end"
+                                       t-on-change="(ev) => this.onCustomDateChange('end', ev)"
+                                       style="min-width: 150px;"/>
+                            </div>
+                        </div>
+                    </t>
                 </div>
             </div>
 
@@ -39,8 +65,15 @@
                     <!-- Quadrant 1 -->
                     <div class="col-md-6">
                         <div class="card h-100">
-                            <div class="card-header bg-primary text-white">
+                            <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center flex-wrap gap-2">
                                 <h5 class="card-title mb-0" t-esc="state.quadrants.q1.title"/>
+                                <select class="form-select form-select-sm chart-type-select"
+                                        t-att-value="state.chartTypeQ1"
+                                        t-on-change="(ev) => this.onChartTypeChange('q1', ev)"
+                                        style="width: auto; min-width: 100px;">
+                                    <option value="bar">Bar</option>
+                                    <option value="line">Line</option>
+                                </select>
                             </div>
                             <div class="card-body position-relative">
                                 <t t-if="state.loading">
@@ -67,10 +100,21 @@
                     <!-- Quadrant 2 -->
                     <div class="col-md-6">
                         <div class="card h-100">
-                            <div class="card-header bg-success text-white">
-                                <div class="d-flex justify-content-between align-items-center">
+                            <div class="card-header bg-primary text-white">
+                                <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
                                     <h5 class="card-title mb-0" t-esc="state.quadrants.q2.title"/>
-                                    <small class="text-white-50" t-esc="state.departmentChartLabel"/>
+                                    <div class="d-flex align-items-center gap-2">
+                                        <small class="text-white-50" t-esc="state.departmentChartLabel"/>
+                                        <t t-if="state.departmentChartData">
+                                            <select class="form-select form-select-sm chart-type-select"
+                                                    t-att-value="state.chartTypeQ2"
+                                                    t-on-change="(ev) => this.onChartTypeChange('q2', ev)"
+                                                    style="width: auto; min-width: 100px;">
+                                                <option value="bar">Bar</option>
+                                                <option value="line">Line</option>
+                                            </select>
+                                        </t>
+                                    </div>
                                 </div>
                             </div>
                             <div class="card-body">
@@ -94,17 +138,32 @@
                     <!-- Quadrant 3 -->
                     <div class="col-md-6">
                         <div class="card h-100">
-                            <div class="card-header bg-warning text-dark">
-                                <div class="d-flex justify-content-between align-items-center">
+                            <div class="card-header bg-primary text-white">
+                                <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
                                     <h5 class="card-title mb-0">
                                         <t t-if="isLabourScore()">Employee Labour</t>
                                         <t t-if="isLeadsScore()">Leads by Source</t>
                                         <t t-if="isConversionScore()">Conversions by Salesperson</t>
-                                        <t t-if="!isLabourScore() and !isLeadsScore() and !isConversionScore()" t-esc="state.quadrants.q3.title"/>
+                                        <t t-if="isCustomerRetentionScore()">Questions by Rating</t>
+                                        <t t-if="isIncomeScore()">Income by Product</t>
+                                        <t t-if="isExpenseScore()">Expense by Product</t>
+                                        <t t-if="isAOVScore()">AOV by Car Brand</t>
+                                        <t t-if="!isLabourScore() and !isLeadsScore() and !isConversionScore() and !isCustomerRetentionScore() and !isIncomeScore() and !isExpenseScore() and !isAOVScore()" t-esc="state.quadrants.q3.title"/>
                                     </h5>
-                                    <t t-if="isLabourScore() or isLeadsScore() or isConversionScore()">
-                                        <small class="text-dark-50" t-esc="state.employeeChartLabel"/>
-                                    </t>
+                                    <div class="d-flex align-items-center gap-2">
+                                        <t t-if="isLabourScore() or isLeadsScore() or isConversionScore() or isCustomerRetentionScore() or isIncomeScore() or isExpenseScore() or isAOVScore()">
+                                            <small class="text-dark-50" t-esc="state.employeeChartLabel"/>
+                                        </t>
+                                        <t t-if="state.employeeChartData">
+                                            <select class="form-select form-select-sm chart-type-select"
+                                                    t-att-value="state.chartTypeQ3"
+                                                    t-on-change="(ev) => this.onChartTypeChange('q3', ev)"
+                                                    style="width: auto; min-width: 100px;">
+                                                <option value="bar">Bar</option>
+                                                <option value="line">Line</option>
+                                            </select>
+                                        </t>
+                                    </div>
                                 </div>
                             </div>
                             <div class="card-body">
@@ -144,7 +203,55 @@
                                         </div>
                                     </t>
                                 </t>
-                                <t t-if="!isLabourScore() and !isLeadsScore() and !isConversionScore()">
+                                <t t-if="isCustomerRetentionScore()">
+                                    <t t-if="state.employeeDataLoading or state.employeeError or !state.employeeChartData">
+                                        <div class="text-muted text-center p-4">
+                                            <t t-esc="getEmployeePlaceholderMessage()"/>
+                                        </div>
+                                    </t>
+                                    <t t-if="state.employeeChartData">
+                                        <div class="chart-container">
+                                            <canvas t-ref="employeeChartCanvas"></canvas>
+                                        </div>
+                                    </t>
+                                </t>
+                                <t t-if="isIncomeScore()">
+                                    <t t-if="state.employeeDataLoading or state.employeeError or !state.employeeChartData">
+                                        <div class="text-muted text-center p-4">
+                                            <t t-esc="getEmployeePlaceholderMessage()"/>
+                                        </div>
+                                    </t>
+                                    <t t-if="state.employeeChartData">
+                                        <div class="chart-container">
+                                            <canvas t-ref="employeeChartCanvas"></canvas>
+                                        </div>
+                                    </t>
+                                </t>
+                                 <t t-if="isExpenseScore()">
+                                    <t t-if="state.employeeDataLoading or state.employeeError or !state.employeeChartData">
+                                        <div class="text-muted text-center p-4">
+                                            <t t-esc="getEmployeePlaceholderMessage()"/>
+                                        </div>
+                                    </t>
+                                    <t t-if="state.employeeChartData">
+                                        <div class="chart-container">
+                                            <canvas t-ref="employeeChartCanvas"></canvas>
+                                        </div>
+                                    </t>
+                                </t>
+                                <t t-if="isAOVScore()">
+                                    <t t-if="state.employeeDataLoading or state.employeeError or !state.employeeChartData">
+                                        <div class="text-muted text-center p-4">
+                                            <t t-esc="getEmployeePlaceholderMessage()"/>
+                                        </div>
+                                    </t>
+                                    <t t-if="state.employeeChartData">
+                                        <div class="chart-container">
+                                            <canvas t-ref="employeeChartCanvas"></canvas>
+                                        </div>
+                                    </t>
+                                </t>
+                                <t t-if="!isLabourScore() and !isLeadsScore() and !isConversionScore() and !isCustomerRetentionScore() and !isIncomeScore() and !isExpenseScore() and !isAOVScore()">
                                     <t t-foreach="state.quadrants.q3.data" t-as="item" t-key="item.id">
                                         <div class="mb-2">
                                             <span t-esc="item.label"/>: <span t-esc="item.value"/>
@@ -160,7 +267,7 @@
                     <!-- Quadrant 4 -->
                     <div class="col-md-6">
                         <div class="card h-100">
-                            <div class="card-header bg-danger text-white">
+                            <div class="card-header bg-primary text-white">
                                 <h5 class="card-title mb-0" t-esc="state.quadrants.q4.title"/>
                             </div>
                             <div class="card-body">

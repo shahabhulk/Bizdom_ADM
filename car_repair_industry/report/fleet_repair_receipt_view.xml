@@ -108,8 +108,8 @@
                                         </td>
                                         <td style="padding-right:10px;">
                                             :
-                                            <span t-if="o.fleet_id.model_id.brand_id.name"
-                                                  t-field="o.fleet_id.model_id.brand_id.name"/>
+                                            <span t-if="o.fleet_id.name"
+                                                  t-field="o.fleet_id.name"/>
                                         </td>
                                     </tr>
                                     <tr>

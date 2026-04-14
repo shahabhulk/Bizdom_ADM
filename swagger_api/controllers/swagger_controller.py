@@ -633,6 +633,135 @@ class SwaggerController(http.Controller):
                         },
                         "security": [{"bearerAuth": []}]
                     }
+                },
+                "/api/todos": {
+                    "post": {
+                        "tags": ["Todos"],
+                        "summary": "Create a Bizdom todo",
+                        "description": (
+                            "Creates a `project.task` (todo) for the authenticated user. "
+                            "Assignees (`user_ids`) are set from the JWT user. Optional `pillar_id` must exist on `bizdom.pillar`. "
+                            "`date_deadline` must be `YYYY-MM-DD`."
+                        ),
+                        "requestBody": {
+                            "required": True,
+                            "content": {
+                                "application/json": {
+                                    "schema": {
+                                        "type": "object",
+                                        "properties": {
+                                            "name": {
+                                                "type": "string",
+                                                "description": "Todo title (required)",
+                                                "example": "Review Q1 dashboard"
+                                            },
+                                            "pillar_id": {
+                                                "type": "integer",
+                                                "description": "Optional Bizdom pillar",
+                                                "example": 1
+                                            },
+                                            "description": {
+                                                "type": "string",
+                                                "description": "Optional HTML/plain description",
+                                                "example": "Check figures before Monday"
+                                            },
+                                            "date_deadline": {
+                                                "type": "string",
+                                                "format": "date",
+                                                "description": "Optional deadline (YYYY-MM-DD)",
+                                                "example": "2026-04-15"
+                                            }
+                                        },
+                                        "required": ["name"]
+                                    }
+                                }
+                            }
+                        },
+                        "responses": {
+                            "201": {
+                                "description": "Todo created",
+                                "content": {
+                                    "application/json": {
+                                        "schema": {
+                                            "type": "object",
+                                            "properties": {
+                                                "statusCode": {"type": "integer", "example": 201},
+                                                "message": {
+                                                    "type": "string",
+                                                    "example": "Todo created successfully"
+                                                },
+                                                "data": {
+                                                    "type": "object",
+                                                    "properties": {
+                                                        "id": {"type": "integer", "example": 42},
+                                                        "name": {"type": "string", "example": "Review Q1 dashboard"},
+                                                        "pillar_id": {
+                                                            "type": "integer",
+                                                            "nullable": True,
+                                                            "example": 1
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            },
+                            "400": {
+                                "description": "Invalid JSON, missing name, or invalid date_deadline",
+                                "content": {
+                                    "application/json": {
+                                        "schema": {
+                                            "type": "object",
+                                            "properties": {
+                                                "statusCode": {"type": "integer", "example": 400},
+                                                "message": {"type": "string"}
+                                            }
+                                        }
+                                    }
+                                }
+                            },
+                            "401": {
+                                "description": "Missing, expired, or invalid JWT",
+                                "content": {
+                                    "application/json": {
+                                        "schema": {
+                                            "type": "object",
+                                            "properties": {
+                                                "statusCode": {"type": "integer", "example": 401},
+                                                "message": {
+                                                    "type": "string",
+                                                    "enum": [
+                                                        "Token missing",
+                                                        "Token expired",
+                                                        "Invalid token"
+                                                    ]
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            },
+                            "404": {
+                                "description": "pillar_id provided but pillar not found",
+                                "content": {
+                                    "application/json": {
+                                        "schema": {
+                                            "type": "object",
+                                            "properties": {
+                                                "statusCode": {"type": "integer", "example": 404},
+                                                "message": {"type": "string", "example": "Pillar not found"}
+                                            }
+                                        }
+                                    }
+                                }
+                            },
+                            "500": {
+                                "description": "Internal server error"
+                            }
+                        },
+                        "security": [{"bearerAuth": []}]
+                    }
                 }
             },
             "components": {

@@ -17,7 +17,9 @@
 <!--                    <widget name="group_by" string="Group By" groups="base.group_no_one"/>-->
 
                 </header>
+                <field name="sequence" widget="handle"/>
                 <field name="score_name"/>
+                <field name="score_identifier"/>
                 <field name="pillar_id"/>
                 <field name="favorite"/>
                 <field name="total_score_value" string="Score Value"/>
@@ -42,6 +44,7 @@
                     <group>
                         <group>
                             <field name="score_name"/>
+                            <field name="score_identifier"/>
                             <field name="pillar_id"/>
                             <field name="type"/>
                             <field name="start_date" string="Start Date"/>

@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 from datetime import date, timedelta
+from calendar import monthrange
 from dateutil.relativedelta import relativedelta
 import calendar
 
@@ -26,13 +27,14 @@ class Q1Helpers:
         """
         today = date.today()
         
-        if filter_type == "Custom" and start_date_str and end_date_str:
+        # Normalize filter_type to handle case variations
+        normalized_filter_type = filter_type.upper() if filter_type else None
+        
+        if normalized_filter_type == "CUSTOM" and start_date_str and end_date_str:
             return Q1Helpers._get_custom_ranges(start_date_str, end_date_str)
-        elif filter_type == "WTD":
+        elif normalized_filter_type == "WTD":
             return Q1Helpers._get_week_ranges(today)
-        elif filter_type == "MTD" or not filter_type:
-            return Q1Helpers._get_month_ranges(today)
-        elif filter_type == "YTD":
+        elif normalized_filter_type == "YTD":
             return Q1Helpers._get_year_ranges(today)
         else:
             # Default to MTD
@@ -48,6 +50,18 @@ class Q1Helpers:
         
         if start_date > end_date:
             raise ValueError("Start date should be less than end date")
+
+        if start_date == end_date:
+            ranges = []
+            # Generate in order: oldest first (i=2), middle (i=1), current last (i=0)
+            for i in range(2, -1, -1):
+                day_date = start_date - timedelta(days=i)
+                ranges.append((
+                    day_date,
+                    day_date,
+                    f"{day_date.strftime('%d-%m-%Y')} "
+                ))
+            return ranges
         
         delta = relativedelta(end_date, start_date)
         total_months = delta.years * 12 + delta.months
@@ -56,10 +70,11 @@ class Q1Helpers:
         
         if total_months > 3:
             # For date ranges > 3 months, show yearly segments (last 3 years)
+            # Generate in order: oldest first, current last (third)
             current_year = start_date.year
             end_year = end_date.year
             
-            for year in range(3):
+            for year in range(2, -1, -1):  # Start from 2 (oldest) down to 0 (current)
                 year_start = date(current_year - year, start_date.month, start_date.day)
                 year_end = date(end_year - year, end_date.month, end_date.day)
                 
@@ -69,14 +84,41 @@ class Q1Helpers:
                     f"{year_start.strftime('%d-%m-%Y')} to {year_end.strftime('%d-%m-%Y')}"
                 ))
         else:
-            # For date ranges ≤ 3 months, show 3 periods going backwards
+            # For date ranges ≤ 3 months, show 3 periods
+            # Generate in order: oldest first, current last (third)
             duration = end_date - start_date
+
+            is_full_month = (
+                    start_date.day == 1 and
+                    end_date == date(end_date.year, end_date.month, monthrange(end_date.year, end_date.month)[1]) and
+                    start_date.year == end_date.year and
+                    start_date.month == end_date.month
+            )
+
+            if is_full_month:
+                ranges = []
+                for i in range(2, -1, -1):  # 2 months ago, 1 month ago, current month
+                    month_start = (start_date - relativedelta(months=i)).replace(day=1)
+                    last_day = monthrange(month_start.year, month_start.month)[1]
+                    month_end = date(month_start.year, month_start.month, last_day)
+                    ranges.append((month_start, month_end, f"{month_start:%d-%m-%Y} to {month_end:%d-%m-%Y}"))
+                return ranges
             
-            for i in range(3):
-                period_end = end_date - (duration * i)
-                period_start = period_end - duration
-                # Don't go before an arbitrary early date
-                period_start = max(period_start, date(2000, 1, 1))
+            
+            # Generate periods: oldest (i=2), middle (i=1), current (i=0)
+            for i in range(2, -1, -1):  # Start from 2 (oldest) down to 0 (current)
+                if i == 0:
+                    # Current period: use the actual start_date and end_date
+                    period_start = start_date
+                    period_end = end_date
+                else:
+                    # Previous periods: go backwards from current period start
+                    # Middle period (i=1): ends at start_date, starts at start_date - duration
+                    # Oldest period (i=2): ends at start_date - duration, starts at start_date - 2*duration
+                    period_end = start_date - (duration * (i - 1))- timedelta(days=1)
+                    period_start = period_end - duration
+                    # Don't go before an arbitrary early date
+                    period_start = max(period_start, date(2000, 1, 1))
                 
                 ranges.append((
                     period_start,
@@ -192,7 +234,7 @@ class Q1Helpers:
             if score_record.type == "percentage":
                 daily_min = score_record.min_score_percentage / days_in_month
                 daily_max = score_record.max_score_percentage / days_in_month
-            elif score_record.type == "value":
+            elif score_record.type in ("value", "currency_inr"):
                 daily_min = score_record.min_score_number / days_in_month
                 daily_max = score_record.max_score_number / days_in_month
             else:
@@ -216,7 +258,7 @@ class Q1Helpers:
             if score_record.type == "percentage":
                 daily_min = score_record.min_score_percentage / days_in_month
                 daily_max = score_record.max_score_percentage / days_in_month
-            elif score_record.type == "value":
+            elif score_record.type in ("value", "currency_inr"):
                 daily_min = score_record.min_score_number / days_in_month
                 daily_max = score_record.max_score_number / days_in_month
             else:
@@ -243,7 +285,7 @@ class Q1Helpers:
             if score_record.type == "percentage":
                 monthly_min_base = score_record.min_score_percentage or 0
                 monthly_max_base = score_record.max_score_percentage or 0
-            elif score_record.type == "value":
+            elif score_record.type in ("value", "currency_inr"):
                 monthly_min_base = score_record.min_score_number or 0
                 monthly_max_base = score_record.max_score_number or 0
             else:

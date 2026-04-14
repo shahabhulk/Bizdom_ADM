@@ -5,5 +5,7 @@
 <!--    <menuitem id="menu_bizdom_pillar" name="Pillars" parent="menu_bizdom_root" action="action_bizdom_pillar"/>-->
 <!--    <menuitem id="menu_operation" name="Operations" parent="menu_bizdom_root"/>-->
     <menuitem id="menu_bizdom_data" name="Data Hub" parent="menu_bizdom_root" sequence="100"/>
+    <menuitem id="menu_bizdom_todo" name="Bizdom Todo" parent="menu_bizdom_root"
+              action="project_todo.project_task_preload_action_todo" sequence="110"/>
 
 </odoo>

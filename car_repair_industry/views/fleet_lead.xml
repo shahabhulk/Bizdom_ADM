@@ -22,12 +22,12 @@
         <field name="arch" type="xml">
             <xpath expr="//header">
                 <button name="def_action_quality_lead" string="Quality Lead" type="object" class="oe_highlight"/>
-                <button name="def_action_convert" string="Convert" type="object" class="oe_highlight"/>
-                <button name="def_reset_new_lead" string="Reset" type="object" class="oe_highlight"/>
+                <button name="def_action_convert" string="Convert" type="object" class="oe_highlight" invisible="not is_quality_lead_stage" />
+                <button name="def_reset_new_lead" string="Reset" type="object" class="oe_highlight" />
             </xpath>
             <!-- Modify statusbar to exclude duplicate "New Lead" stage -->
-            <xpath expr="//field[@name='stage_id'][@widget='statusbar_duration']" position="attributes">
-                <attribute name="statusbar_visible">New,Qualified,Proposition,Won</attribute>
+             <xpath expr="//field[@name='stage_id'][@widget='statusbar_duration']" position="attributes">
+                   <attribute name="options">{'clickable': False, 'fold_field': 'fold'}</attribute>
             </xpath>
             <xpath expr="//field[@name='tag_ids']" position="after">
                 <field name="vehicle_brand_id"/>
