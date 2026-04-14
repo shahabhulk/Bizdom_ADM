@@ -13,6 +13,7 @@
                             <field name="name"/>
                             <field name="pillar_identifier"/>
                             <field name="company_id"/>
+                            <field name="token"/>
                             <!--                            <field name="score_name_id"/>-->
                         </group>
                         <!--                        <group>-->
