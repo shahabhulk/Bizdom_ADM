@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<odoo>
+    <record id="view_project_task_form_bizdom_pillar" model="ir.ui.view">
+        <field name="name">project.task.form.bizdom.pillar</field>
+        <field name="model">project.task</field>
+        <field name="inherit_id" ref="project_todo.project_task_view_todo_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='user_ids']" position="after">
+                <field name="pillar_id"/>
+            </xpath>
+        </field>
+    </record>
+</odoo>

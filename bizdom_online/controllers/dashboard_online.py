@@ -14,7 +14,7 @@ class BizdomOnlineDashboard(http.Controller):
     def public_dashboard_page(self, **kw):
         """
         Public dashboard page (no login required)
-        Accessible at: http://localhost:8070/bizdom/dashboard/public
+        Accessible at: http://13.233.223.127/bizdom/dashboard/public
         """
         html_content = """<!DOCTYPE html>
 <html>

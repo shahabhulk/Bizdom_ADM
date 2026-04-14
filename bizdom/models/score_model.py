@@ -31,8 +31,12 @@ class BizdomScore(models.Model):
 
     type = fields.Selection([
         ('percentage', 'Percentage'),
-        ('value', 'Value')
+        ('value', 'Value'),
+        ('currency_inr', 'Indian Rupee (₹)'),
     ])
+    sequence = fields.Integer(string="Sequence", default=10)
+    score_identifier = fields.Char(string="Score Identifier")
+    _order = "sequence, id"
     # formatted_max_score = fields.Char(
     #     string="Max Score",
     #     compute="_compute_formatted_scores",
@@ -240,11 +244,11 @@ class BizdomScore(models.Model):
                 continue
 
             if rec.pillar_id.name == "Operations":
-                print("lkjasfdlkja")
                 if rec.score_name == "Labour":
                     records = self.env['labour.billing'].search([
                         ('date', '>=', start_date),
-                        ('date', '<=', end_date)
+                        ('date', '<=', end_date),
+                        ('invoice_id.payment_state', '=', 'paid')
                     ])
                     rec.context_total_score = sum(records.mapped('charge_amount'))
                 elif rec.score_name == "TAT":
@@ -252,7 +256,8 @@ class BizdomScore(models.Model):
                         ('invoice_order_id', '!=', False),
                         ('invoice_order_id.invoice_date', '!=', False),
                         ('invoice_order_id.invoice_date', '>=', start_date),
-                        ('invoice_order_id.invoice_date', '<=', end_date)
+                        ('invoice_order_id.invoice_date', '<=', end_date),
+                        ('invoice_order_id.state', '=', 'posted')
                     ])
                     repair_pending_records = self.env['fleet.repair'].search([
                         ('receipt_date', '>=', start_date),
@@ -307,18 +312,14 @@ class BizdomScore(models.Model):
                                                     valid_pending_records + valid_delivered_records + valid_pre_pending_records) if valid_pending_records + valid_delivered_records + valid_pre_pending_records > 0 else 0.0
                     rec.context_total_score = rec.total_score_value
                 elif rec.score_name == "AOV":
-                    labour_records = self.env['labour.billing'].search([
+                    dept_records = self.env['department.charges'].search([
                         ('date', '>=', start_date),
-                        ('date', '<=', end_date)
+                        ('date', '<=', end_date),
+                        ('invoice_id.payment_state', '=', 'paid')
                     ])
-                    customer_records = self.env['fleet.repair.feedback'].search([
-                        ('feedback_date', '>=', start_date),
-                        ('feedback_date', '<=', end_date),
-                        ('customer_id', '!=', False)
-                    ])
-                    total_labour_charges = sum(labour_records.mapped('charge_amount'))
-                    total_customers = len(set(customer_records.mapped('customer_id.id')))
-                    rec.context_total_score = total_labour_charges / total_customers if total_customers > 0 else 0.0
+                    total_dept_charges = sum(dept_records.mapped('charge_amount'))
+                    total_cars = len(set(dept_records.mapped('car_number')))
+                    rec.context_total_score = total_dept_charges / total_cars if total_cars > 0 else 0.0
 
             elif rec.pillar_id.name == "Sales and Marketing":
                 if rec.score_name == "Leads":
@@ -373,21 +374,35 @@ class BizdomScore(models.Model):
                         ('date', '<=', end_date),
                         ('move_id.move_type', 'in', ['out_invoice', 'out_refund']),
                         ('move_id.state', 'in', ['posted']),
+                        ('move_id.payment_state', '=', 'paid'),
                         ('company_id', '=', rec.company_id.id),
                         ('account_id.account_type', 'in', ['income', 'income_direct_cost']),
                         ('move_id.fleet_repair_invoice_id', '!=', False)
                     ])
                     rec.context_total_score = -sum(records.mapped('balance'))
                 elif rec.score_name == "Expense":
-                    records = self.env['account.move.line'].search([
+                    vendor_bills = self.env['account.move'].search([
                         ('date', '>=', start_date),
                         ('date', '<=', end_date),
-                        ('move_id.move_type', 'in', ['in_invoice', 'in_refund']),
-                        ('move_id.state', 'in', ['draft', 'posted']),
+                        ('move_type', 'in', ['in_invoice', 'in_refund']),
+                        ('state', 'in', ['posted']),
+                        ('payment_state', '=', 'paid'),
                         ('company_id', '=', rec.company_id.id),
-                        ('account_id.account_type', 'in', ['expense', 'expense_depreciation', 'expense_direct_cost'])
                     ])
-                    rec.context_total_score = sum(records.mapped('balance'))
+                    vendor_bill_total = -sum(vendor_bills.mapped('amount_total_signed'))
+
+                    # 2. Company-paid HR expenses (these create payments, not vendor bills)
+                    hr_expenses = self.env['hr.expense'].search([
+                        ('date', '>=', start_date),
+                        ('date', '<=', end_date),
+                        ('payment_mode', '=', 'company_account'),
+                        ('sheet_id.state', '=', 'done'),
+                        ('company_id', '=', rec.company_id.id),
+                    ])
+                    hr_expense_total = sum(hr_expenses.mapped('total_amount'))
+
+                    rec.context_total_score = vendor_bill_total + hr_expense_total
+
 
 
 
@@ -398,108 +413,57 @@ class BizdomScore(models.Model):
                         balance = line.balance
                         move = line.move_id
 
-                        # Get invoice/document information for debugging
+                        if move.move_type in ('out_invoice', 'out_refund', 'in_invoice', 'in_refund'):
+                            if move.payment_state not in ('paid', 'in_payment'):
+                                return None
+
                         move_name = move.name or 'N/A'
                         move_type = move.move_type or 'N/A'
                         partner_name = move.partner_id.name if move.partner_id else 'N/A'
                         account_name = line.account_id.name or 'N/A'
                         account_code = line.account_id.code or 'N/A'
 
-                        # TAX LINES: Include tax in cash flow (part of actual payment/receipt)
-                        # MUST CHECK THIS FIRST before the name-based filter below
-                        # Tax is part of the total amount paid/received
                         if line.display_type == 'tax' or line.tax_line_id:
                             if move_type == 'in_invoice':
-                                # Vendor bill: Tax is part of cash outflow (you pay tax with the bill)
                                 tax_amount = abs(balance) if balance < 0 else balance
-                                print(
-                                    f"📊 OPERATING OUTFLOW (Tax) - Invoice: {move_name} | Type: {move_type} | Partner: {partner_name} | Account: {account_code} {account_name} | Amount: ₹{tax_amount:,.2f}")
                                 return ('operating', 'out', tax_amount)
                             elif move_type == 'out_invoice':
-                                # Customer invoice: Tax is part of cash inflow (you receive tax with payment)
                                 tax_amount = abs(balance)
-                                print(
-                                    f"📊 OPERATING INFLOW (Tax) - Invoice: {move_name} | Type: {move_type} | Partner: {partner_name} | Account: {account_code} {account_name} | Amount: ₹{tax_amount:,.2f}")
                                 return ('operating', 'in', tax_amount)
-                            # For other move types, skip tax (not part of operating cash flow)
                             return None
 
-                        # Skip tax accounts (GST/VAT) - but only if NOT a tax line (already handled above)
-                        # This catches any remaining tax-related accounts that aren't actual tax lines
                         if 'GST' in account_name or 'TAX' in account_name or 'SGST' in account_name or 'CGST' in account_name or 'IGST' in account_name:
                             return None
 
-                        # Skip bank/payment accounts (they're just transfers, not cash flow)
                         if account_type in ['asset_cash', 'liability_credit_card']:
                             return None
 
-                        # Skip current assets that are not receivables (like Outstanding Payments)
                         if account_type == 'asset_current' and account_type != 'asset_receivable':
                             if 'outstanding' in account_name.lower() or 'payment' in account_name.lower() or 'bank' in account_name.lower():
                                 return None
 
-                        # Operating Activities
                         if account_type in ['income', 'income_direct_cost']:
-                            print(
-                                f"📊 OPERATING INFLOW - Invoice: {move_name} | Type: {move_type} | Partner: {partner_name} | Account: {account_code} {account_name} | Amount: ₹{abs(balance):,.2f}")
                             return ('operating', 'in', abs(balance))
                         elif account_type in ['expense', 'expense_depreciation', 'expense_direct_cost']:
-                            print(
-                                f"📊 OPERATING OUTFLOW - Invoice: {move_name} | Type: {move_type} | Partner: {partner_name} | Account: {account_code} {account_name} | Amount: ₹{balance:,.2f}")
                             return ('operating', 'out', balance)
                         elif account_type == 'asset_receivable' and balance > 0:
-                            # CRITICAL FIX: Skip receivable lines from customer invoices
-                            # These are accrual entries, not actual cash received
                             if move_type == 'out_invoice':
-                                return None  # Don't count - no cash received yet
-                            print(
-                                f"📊 OPERATING INFLOW (Advance) - Invoice: {move_name} | Type: {move_type} | Partner: {partner_name} | Account: {account_code} {account_name} | Amount: ₹{balance:,.2f}")
+                                return None
                             return ('operating', 'in', balance)
                         elif account_type == 'liability_payable' and balance < 0:
-                            # CRITICAL FIX: Skip payable lines from vendor bills
-                            # These are accrual entries, not actual cash paid
                             if move_type == 'in_invoice':
-                                return None  # Don't count - no cash paid yet
-                            # Only count negative payables from actual payments (not bills)
-                            print(
-                                f"📊 OPERATING OUTFLOW (Advance) - Invoice: {move_name} | Type: {move_type} | Partner: {partner_name} | Account: {account_code} {account_name} | Amount: ₹{abs(balance):,.2f}")
+                                return None
                             return ('operating', 'out', abs(balance))
 
-                        # Investing Activities
-                        elif account_type == 'asset_fixed':
+                        elif account_type in ['asset_fixed', 'asset_non_current']:
                             direction = 'out' if balance < 0 else 'in'
-                            direction_label = 'OUTFLOW' if balance < 0 else 'INFLOW'
-                            print(
-                                f"💼 INVESTING {direction_label} - Invoice: {move_name} | Type: {move_type} | Partner: {partner_name} | Account: {account_code} {account_name} | Amount: ₹{abs(balance):,.2f}")
-                            return ('investing', direction, abs(balance))
-                        elif account_type == 'asset_non_current':
-                            direction = 'out' if balance < 0 else 'in'
-                            direction_label = 'OUTFLOW' if balance < 0 else 'INFLOW'
-                            print(
-                                f"💼 INVESTING {direction_label} - Invoice: {move_name} | Type: {move_type} | Partner: {partner_name} | Account: {account_code} {account_name} | Amount: ₹{abs(balance):,.2f}")
                             return ('investing', direction, abs(balance))
 
-                        # Financing Activities
-                        elif account_type in ['equity', 'equity_unaffected']:
+                        elif account_type in ['equity', 'equity_unaffected', 'liability_non_current']:
                             direction = 'in' if balance > 0 else 'out'
-                            direction_label = 'INFLOW' if balance > 0 else 'OUTFLOW'
-                            print(
-                                f"💰 FINANCING {direction_label} - Invoice: {move_name} | Type: {move_type} | Partner: {partner_name} | Account: {account_code} {account_name} | Amount: ₹{abs(balance):,.2f}")
-                            return ('financing', direction, abs(balance))
-                        elif account_type == 'liability_non_current':
-                            direction = 'in' if balance > 0 else 'out'
-                            direction_label = 'INFLOW' if balance > 0 else 'OUTFLOW'
-                            print(
-                                f"💰 FINANCING {direction_label} - Invoice: {move_name} | Type: {move_type} | Partner: {partner_name} | Account: {account_code} {account_name} | Amount: ₹{abs(balance):,.2f}")
                             return ('financing', direction, abs(balance))
 
                         return None
-
-                    # Get all records
-                    print(f"\n{'=' * 80}")
-                    print(f"🔍 CASH FLOW CALCULATION - {rec.company_id.name}")
-                    print(f"📅 Period: {start_date} to {end_date}")
-                    print(f"{'=' * 80}\n")
 
                     records = self.env['account.move.line'].search([
                         ('date', '>=', start_date),
@@ -508,20 +472,13 @@ class BizdomScore(models.Model):
                         ('company_id', '=', rec.company_id.id),
                     ])
 
-                    print(f"📋 Total Transactions Found: {len(records)}\n")
-
-                    # Categorize
                     operating_in = operating_out = 0.0
                     financing_in = financing_out = 0.0
                     investing_in = investing_out = 0.0
 
-                    categorized_count = 0
-                    uncategorized_count = 0
-
                     for line in records:
                         result = _categorize_cash_flow(line)
                         if result:
-                            categorized_count += 1
                             category, direction, amount = result
                             if category == 'operating':
                                 if direction == 'in':
@@ -538,44 +495,102 @@ class BizdomScore(models.Model):
                                     investing_in += amount
                                 else:
                                     investing_out += amount
-                        else:
-                            uncategorized_count += 1
-                            move = line.move_id
-                            print(
-                                f"⚠️  UNCATEGORIZED - Invoice: {move.name or 'N/A'} | Type: {move.move_type or 'N/A'} | Account: {line.account_id.code or 'N/A'} {line.account_id.name or 'N/A'} | Type: {line.account_id.account_type} | Balance: ₹{line.balance:,.2f}")
 
-                    # Calculate net cash flows
                     net_operating = operating_in - operating_out
                     net_financing = financing_in - financing_out
                     net_investing = investing_in - investing_out
 
-                    # Print summary
-                    print(f"\n{'=' * 80}")
-                    print(f"📊 CASH FLOW SUMMARY")
-                    print(f"{'=' * 80}")
-                    print(f"✅ Categorized Transactions: {categorized_count}")
-                    print(f"⚠️  Un categorized Transactions: {uncategorized_count}")
-                    print(f"\n{'─' * 80}")
-                    print(f"OPERATING ACTIVITIES:")
-                    print(f"  💰 Cash Inflow:  ₹{operating_in:,.2f}")
-                    print(f"  💸 Cash Outflow: ₹{operating_out:,.2f}")
-                    print(f"  📈 Net Operating: ₹{net_operating:,.2f}")
-                    print(f"\n{'─' * 80}")
-                    print(f"INVESTING ACTIVITIES:")
-                    print(f"  💰 Cash Inflow:  ₹{investing_in:,.2f}")
-                    print(f"  💸 Cash Outflow: ₹{investing_out:,.2f}")
-                    print(f"  📈 Net Investing: ₹{net_investing:,.2f}")
-                    print(f"\n{'─' * 80}")
-                    print(f"FINANCING ACTIVITIES:")
-                    print(f"  💰 Cash Inflow:  ₹{financing_in:,.2f}")
-                    print(f"  💸 Cash Outflow: ₹{financing_out:,.2f}")
-                    print(f"  📈 Net Financing: ₹{net_financing:,.2f}")
-                    print(f"\n{'─' * 80}")
-                    print(f"TOTAL NET CASH FLOW: ₹{net_operating + net_financing + net_investing:,.2f}")
-                    print(f"{'=' * 80}\n")
+                    rec.context_total_score = net_operating + net_financing + net_investing
 
-                    # Total cash flow
-                    rec.context_total_score = net_operating
+    def get_cashflow_breakdown(self, start_date, end_date):
+        """Returns operating, financing, investing net cash values for a period."""
+        self.ensure_one()
+
+        def _categorize_cash_flow(line):
+            account_type = line.account_id.account_type
+            balance = line.balance
+            move = line.move_id
+            move_type = move.move_type or 'N/A'
+            account_name = line.account_id.name or 'N/A'
+
+            if move.move_type in ('out_invoice', 'out_refund', 'in_invoice', 'in_refund'):
+                if move.payment_state not in ('paid', 'in_payment'):
+                    return None
+
+            if line.display_type == 'tax' or line.tax_line_id:
+                if move_type == 'in_invoice':
+                    return ('operating', 'out', abs(balance) if balance < 0 else balance)
+                elif move_type == 'out_invoice':
+                    return ('operating', 'in', abs(balance))
+                return None
+
+            if any(tag in account_name for tag in ('GST', 'TAX', 'SGST', 'CGST', 'IGST')):
+                return None
+
+            if account_type in ['asset_cash', 'liability_credit_card']:
+                return None
+
+            if account_type == 'asset_current' and account_type != 'asset_receivable':
+                if any(kw in account_name.lower() for kw in ('outstanding', 'payment', 'bank')):
+                    return None
+
+            if account_type in ['income', 'income_direct_cost']:
+                return ('operating', 'in', abs(balance))
+            elif account_type in ['expense', 'expense_depreciation', 'expense_direct_cost']:
+                return ('operating', 'out', balance)
+            elif account_type == 'asset_receivable' and balance > 0:
+                if move_type == 'out_invoice':
+                    return None
+                return ('operating', 'in', balance)
+            elif account_type == 'liability_payable' and balance < 0:
+                if move_type == 'in_invoice':
+                    return None
+                return ('operating', 'out', abs(balance))
+            elif account_type in ['asset_fixed', 'asset_non_current']:
+                direction = 'out' if balance < 0 else 'in'
+                return ('investing', direction, abs(balance))
+            elif account_type in ['equity', 'equity_unaffected', 'liability_non_current']:
+                direction = 'in' if balance > 0 else 'out'
+                return ('financing', direction, abs(balance))
+
+            return None
+
+        records = self.env['account.move.line'].search([
+            ('date', '>=', start_date),
+            ('date', '<=', end_date),
+            ('move_id.state', '=', 'posted'),
+            ('company_id', '=', self.company_id.id),
+        ])
+
+        operating_in = operating_out = 0.0
+        financing_in = financing_out = 0.0
+        investing_in = investing_out = 0.0
+
+        for line in records:
+            result = _categorize_cash_flow(line)
+            if result:
+                category, direction, amount = result
+                if category == 'operating':
+                    if direction == 'in':
+                        operating_in += amount
+                    else:
+                        operating_out += amount
+                elif category == 'financing':
+                    if direction == 'in':
+                        financing_in += amount
+                    else:
+                        financing_out += amount
+                elif category == 'investing':
+                    if direction == 'in':
+                        investing_in += amount
+                    else:
+                        investing_out += amount
+
+        return {
+            'operating_cash': round(operating_in - operating_out, 2),
+            'financing_cash': round(financing_in - financing_out, 2),
+            'investment_cash': round(investing_in - investing_out, 2),
+        }
 
     # @api.model
     # def get_scores_for_dates(self, domain=None, **kwargs):
@@ -722,7 +737,7 @@ class BizdomScore(models.Model):
                 if score.type == "percentage":
                     min_value = (score.min_score_percentage or 0) / days_in_month
                     max_value = (score.max_score_percentage or 0) / days_in_month
-                elif score.type == "value":
+                elif score.type in ("value", "currency_inr"):
                     min_value = (score.min_score_number or 0) / days_in_month
                     max_value = (score.max_score_number or 0) / days_in_month
 
@@ -740,7 +755,7 @@ class BizdomScore(models.Model):
                 if score.type == "percentage":
                     min_value = (score.min_score_percentage or 0) / days_in_month
                     max_value = (score.max_score_percentage or 0) / days_in_month
-                elif score.type == "value":
+                elif score.type in ("value", "currency_inr"):
                     min_value = (score.min_score_number or 0) / days_in_month
                     max_value = (score.max_score_number or 0) / days_in_month
 
@@ -758,7 +773,7 @@ class BizdomScore(models.Model):
                 if score.type == "percentage":
                     monthly_min_base = score.min_score_percentage or 0
                     monthly_max_base = score.max_score_percentage or 0
-                elif score.type == "value":
+                elif score.type in ("value", "currency_inr"):
                     monthly_min_base = score.min_score_number or 0
                     monthly_max_base = score.max_score_number or 0
                 else:
@@ -776,7 +791,7 @@ class BizdomScore(models.Model):
                 if score.type == "percentage":
                     min_value = (score.min_score_percentage or 0) / days_in_month
                     max_value = (score.max_score_percentage or 0) / days_in_month
-                elif score.type == "value":
+                elif score.type in ("value", "currency_inr"):
                     min_value = (score.min_score_number or 0) / days_in_month
                     max_value = (score.max_score_number or 0) / days_in_month
 
@@ -984,10 +999,11 @@ class BizdomScore(models.Model):
             if rec.pillar_id.name == "Operations":
                 if rec.score_name == "Labour":
 
-                    # Check if we have any records in the date range
+                    # Check if we have any records in the date range with paid invoices
                     records = self.env['labour.billing'].search([
                         ('date', '>=', start_date),
-                        ('date', '<=', end_date)
+                        ('date', '<=', end_date),
+                        ('invoice_id.payment_state', '=', 'paid'),
                     ])
                     total = sum(records.mapped('charge_amount'))
                     rec.total_score_value = total
@@ -998,7 +1014,8 @@ class BizdomScore(models.Model):
                         ('invoice_order_id', '!=', False),
                         ('invoice_order_id.invoice_date', '!=', False),
                         ('invoice_order_id.invoice_date', '>=', start_date),
-                        ('invoice_order_id.invoice_date', '<=', end_date)
+                        ('invoice_order_id.invoice_date', '<=', end_date),
+                        ('invoice_order_id.state', '=', 'posted')
                     ])
                     repair_pending_records = self.env['fleet.repair'].search([
                         ('receipt_date', '>=', start_date),
@@ -1055,18 +1072,15 @@ class BizdomScore(models.Model):
                     # rec.total_score_value_percentage = rec.total_score_value
 
                 elif rec.score_name == "AOV":
-                    labour_records = self.env['labour.billing'].search([
+                    dept_records = self.env['department.charges'].search([
                         ('date', '>=', start_date),
-                        ('date', '<=', end_date)
+                        ('date', '<=', end_date),
+                        ('invoice_id.payment_state', '=', 'paid')
                     ])
-                    customer_records = self.env['fleet.repair.feedback'].search([
-                        ('feedback_date', '>=', start_date),
-                        ('feedback_date', '<=', end_date),
-                        ('customer_id', '!=', False)
-                    ])
-                    total_labour_charges=sum(labour_records.mapped('charge_amount'))
-                    total_customers=len(set(customer_records.mapped('customer_id.id')))
-                    rec.total_score_value = total_labour_charges / total_customers if total_customers > 0 else 0.0
+                    total_dept_charges = sum(dept_records.mapped('charge_amount'))
+                    total_cars = len(set(dept_records.mapped('car_number')))
+                    # total_customers=len(set(customer_records.mapped('customer_id.id')))
+                    rec.total_score_value = total_dept_charges / total_cars if total_cars > 0 else 0.0
 
 
 
@@ -1089,17 +1103,13 @@ class BizdomScore(models.Model):
                     ])
                     rec.total_score_value = len(records)
 
-                elif rec.score_name=="Customer Retention":
-                    records=self.env['fleet.repair.feedback'].search([
-                        ('feedback_date','>=',start_date),
-                        ('feedback_date','<=',end_date),
-                        ('customer_id','!=',False)
+                elif rec.score_name == "Customer Retention":
+                    records = self.env['fleet.repair.feedback'].search([
+                        ('feedback_date', '>=', start_date),
+                        ('feedback_date', '<=', end_date),
+                        ('customer_id', '!=', False)
                     ])
-                    rec.total_score_value=len(set(records.mapped('customer_id.id')))
-
-
-
-
+                    rec.total_score_value = len(set(records.mapped('customer_id.id')))
 
                 # elif rec.score_name == "RCR":
                 #     print("helloooooo")
@@ -1123,23 +1133,36 @@ class BizdomScore(models.Model):
                         ('date', '<=', end_date),
                         ('move_id.move_type', 'in', ['out_invoice', 'out_refund']),
                         ('move_id.state', 'in', ['posted']),
+                        ('move_id.payment_state', '=', 'paid'),
                         ('company_id', '=', rec.company_id.id),
                         ('account_id.account_type', 'in', ['income', 'income_direct_cost']),
                         # ('move_id.fleet_repair_invoice_id', '!=', False)
                     ])
                     rec.total_score_value = -sum(records.mapped('balance'))
                 elif rec.score_name == "Expense":
-                    records = self.env['account.move.line'].search([
+                    vendor_bills = self.env['account.move'].search([
                         ('date', '>=', start_date),
                         ('date', '<=', end_date),
-                        ('move_id.move_type', 'in', ['in_invoice', 'in_refund']),
-                        ('move_id.state', 'in', ['posted']),
-                        #  \\ currently also includes pending expense in draft state and also includes posted  ,
+                        ('move_type', 'in', ['in_invoice', 'in_refund']),
+                        ('state', 'in', ['posted']),
+                        ('payment_state', '=', 'paid'),
                         ('company_id', '=', rec.company_id.id),
-                        ('account_id.account_type', 'in', ['expense', 'expense_depreciation', 'expense_direct_cost'])
                     ])
-                    # Use 'balance' instead of 'amount' - balance is positive for expenses, negative for refunds
-                    rec.total_score_value = sum(records.mapped('balance'))
+                    vendor_bill_total = -sum(vendor_bills.mapped('amount_total_signed'))
+
+                    # 2. Company-paid HR expenses (these create payments, not vendor bills)
+                    hr_expenses = self.env['hr.expense'].search([
+                        ('date', '>=', start_date),
+                        ('date', '<=', end_date),
+                        ('payment_mode', '=', 'company_account'),
+                        ('sheet_id.state', '=', 'done'),
+                        ('company_id', '=', rec.company_id.id),
+                    ])
+                    hr_expense_total = sum(hr_expenses.mapped('total_amount'))
+
+                    rec.total_score_value = vendor_bill_total + hr_expense_total
+
+
                 elif rec.score_name == "Cashflow":
 
                     def _categorize_cash_flow(line):
@@ -1148,108 +1171,54 @@ class BizdomScore(models.Model):
                         balance = line.balance
                         move = line.move_id
 
-                        # Get invoice/document information for debugging
-                        move_name = move.name or 'N/A'
-                        move_type = move.move_type or 'N/A'
-                        partner_name = move.partner_id.name if move.partner_id else 'N/A'
-                        account_name = line.account_id.name or 'N/A'
-                        account_code = line.account_id.code or 'N/A'
+                        if move.move_type in ('out_invoice', 'out_refund', 'in_invoice', 'in_refund'):
+                            if move.payment_state not in ('paid', 'in_payment'):
+                                return None
 
-                        # TAX LINES: Include tax in cash flow (part of actual payment/receipt)
-                        # MUST CHECK THIS FIRST before the name-based filter below
-                        # Tax is part of the total amount paid/received
+                        move_type = move.move_type or 'N/A'
+                        account_name = line.account_id.name or 'N/A'
+
                         if line.display_type == 'tax' or line.tax_line_id:
                             if move_type == 'in_invoice':
-                                # Vendor bill: Tax is part of cash outflow (you pay tax with the bill)
                                 tax_amount = abs(balance) if balance < 0 else balance
-                                print(
-                                    f"📊 OPERATING OUTFLOW (Tax) - Invoice: {move_name} | Type: {move_type} | Partner: {partner_name} | Account: {account_code} {account_name} | Amount: ₹{tax_amount:,.2f}")
                                 return ('operating', 'out', tax_amount)
                             elif move_type == 'out_invoice':
-                                # Customer invoice: Tax is part of cash inflow (you receive tax with payment)
                                 tax_amount = abs(balance)
-                                print(
-                                    f"📊 OPERATING INFLOW (Tax) - Invoice: {move_name} | Type: {move_type} | Partner: {partner_name} | Account: {account_code} {account_name} | Amount: ₹{tax_amount:,.2f}")
                                 return ('operating', 'in', tax_amount)
-                            # For other move types, skip tax (not part of operating cash flow)
                             return None
 
-                        # Skip tax accounts (GST/VAT) - but only if NOT a tax line (already handled above)
-                        # This catches any remaining tax-related accounts that aren't actual tax lines
                         if 'GST' in account_name or 'TAX' in account_name or 'SGST' in account_name or 'CGST' in account_name or 'IGST' in account_name:
                             return None
 
-                        # Skip bank/payment accounts (they're just transfers, not cash flow)
                         if account_type in ['asset_cash', 'liability_credit_card']:
                             return None
 
-                        # Skip current assets that are not receivables (like Outstanding Payments)
                         if account_type == 'asset_current' and account_type != 'asset_receivable':
                             if 'outstanding' in account_name.lower() or 'payment' in account_name.lower() or 'bank' in account_name.lower():
                                 return None
 
-                        # Operating Activities
                         if account_type in ['income', 'income_direct_cost']:
-                            print(
-                                f"📊 OPERATING INFLOW - Invoice: {move_name} | Type: {move_type} | Partner: {partner_name} | Account: {account_code} {account_name} | Amount: ₹{abs(balance):,.2f}")
                             return ('operating', 'in', abs(balance))
                         elif account_type in ['expense', 'expense_depreciation', 'expense_direct_cost']:
-                            print(
-                                f"📊 OPERATING OUTFLOW - Invoice: {move_name} | Type: {move_type} | Partner: {partner_name} | Account: {account_code} {account_name} | Amount: ₹{balance:,.2f}")
                             return ('operating', 'out', balance)
                         elif account_type == 'asset_receivable' and balance > 0:
-                            # CRITICAL FIX: Skip receivable lines from customer invoices
-                            # These are accrual entries, not actual cash received
                             if move_type == 'out_invoice':
-                                return None  # Don't count - no cash received yet
-                            print(
-                                f"📊 OPERATING INFLOW (Advance) - Invoice: {move_name} | Type: {move_type} | Partner: {partner_name} | Account: {account_code} {account_name} | Amount: ₹{balance:,.2f}")
+                                return None
                             return ('operating', 'in', balance)
                         elif account_type == 'liability_payable' and balance < 0:
-                            # CRITICAL FIX: Skip payable lines from vendor bills
-                            # These are accrual entries, not actual cash paid
                             if move_type == 'in_invoice':
-                                return None  # Don't count - no cash paid yet
-                            # Only count negative payables from actual payments (not bills)
-                            print(
-                                f"📊 OPERATING OUTFLOW (Advance) - Invoice: {move_name} | Type: {move_type} | Partner: {partner_name} | Account: {account_code} {account_name} | Amount: ₹{abs(balance):,.2f}")
+                                return None
                             return ('operating', 'out', abs(balance))
 
-                        # Investing Activities
-                        elif account_type == 'asset_fixed':
+                        elif account_type in ['asset_fixed', 'asset_non_current']:
                             direction = 'out' if balance < 0 else 'in'
-                            direction_label = 'OUTFLOW' if balance < 0 else 'INFLOW'
-                            print(
-                                f"💼 INVESTING {direction_label} - Invoice: {move_name} | Type: {move_type} | Partner: {partner_name} | Account: {account_code} {account_name} | Amount: ₹{abs(balance):,.2f}")
-                            return ('investing', direction, abs(balance))
-                        elif account_type == 'asset_non_current':
-                            direction = 'out' if balance < 0 else 'in'
-                            direction_label = 'OUTFLOW' if balance < 0 else 'INFLOW'
-                            print(
-                                f"💼 INVESTING {direction_label} - Invoice: {move_name} | Type: {move_type} | Partner: {partner_name} | Account: {account_code} {account_name} | Amount: ₹{abs(balance):,.2f}")
                             return ('investing', direction, abs(balance))
 
-                        # Financing Activities
-                        elif account_type in ['equity', 'equity_unaffected']:
+                        elif account_type in ['equity', 'equity_unaffected', 'liability_non_current']:
                             direction = 'in' if balance > 0 else 'out'
-                            direction_label = 'INFLOW' if balance > 0 else 'OUTFLOW'
-                            print(
-                                f"💰 FINANCING {direction_label} - Invoice: {move_name} | Type: {move_type} | Partner: {partner_name} | Account: {account_code} {account_name} | Amount: ₹{abs(balance):,.2f}")
-                            return ('financing', direction, abs(balance))
-                        elif account_type == 'liability_non_current':
-                            direction = 'in' if balance > 0 else 'out'
-                            direction_label = 'INFLOW' if balance > 0 else 'OUTFLOW'
-                            print(
-                                f"💰 FINANCING {direction_label} - Invoice: {move_name} | Type: {move_type} | Partner: {partner_name} | Account: {account_code} {account_name} | Amount: ₹{abs(balance):,.2f}")
                             return ('financing', direction, abs(balance))
 
                         return None
-
-                    # Get all records
-                    print(f"\n{'=' * 80}")
-                    print(f"🔍 CASH FLOW CALCULATION - {rec.company_id.name}")
-                    print(f"📅 Period: {start_date} to {end_date}")
-                    print(f"{'=' * 80}\n")
 
                     records = self.env['account.move.line'].search([
                         ('date', '>=', start_date),
@@ -1258,20 +1227,13 @@ class BizdomScore(models.Model):
                         ('company_id', '=', rec.company_id.id),
                     ])
 
-                    print(f"📋 Total Transactions Found: {len(records)}\n")
-
-                    # Categorize
                     operating_in = operating_out = 0.0
                     financing_in = financing_out = 0.0
                     investing_in = investing_out = 0.0
 
-                    categorized_count = 0
-                    uncategorized_count = 0
-
                     for line in records:
                         result = _categorize_cash_flow(line)
                         if result:
-                            categorized_count += 1
                             category, direction, amount = result
                             if category == 'operating':
                                 if direction == 'in':
@@ -1288,44 +1250,12 @@ class BizdomScore(models.Model):
                                     investing_in += amount
                                 else:
                                     investing_out += amount
-                        else:
-                            uncategorized_count += 1
-                            move = line.move_id
-                            print(
-                                f"⚠️  UNCATEGORIZED - Invoice: {move.name or 'N/A'} | Type: {move.move_type or 'N/A'} | Account: {line.account_id.code or 'N/A'} {line.account_id.name or 'N/A'} | Type: {line.account_id.account_type} | Balance: ₹{line.balance:,.2f}")
 
-                    # Calculate net cash flows
                     net_operating = operating_in - operating_out
                     net_financing = financing_in - financing_out
                     net_investing = investing_in - investing_out
 
-                    # Print summary
-                    print(f"\n{'=' * 80}")
-                    print(f"📊 CASH FLOW SUMMARY")
-                    print(f"{'=' * 80}")
-                    print(f"✅ Categorized Transactions: {categorized_count}")
-                    print(f"⚠️  Un categorized Transactions: {uncategorized_count}")
-                    print(f"\n{'─' * 80}")
-                    print(f"OPERATING ACTIVITIES:")
-                    print(f"  💰 Cash Inflow:  ₹{operating_in:,.2f}")
-                    print(f"  💸 Cash Outflow: ₹{operating_out:,.2f}")
-                    print(f"  📈 Net Operating: ₹{net_operating:,.2f}")
-                    print(f"\n{'─' * 80}")
-                    print(f"INVESTING ACTIVITIES:")
-                    print(f"  💰 Cash Inflow:  ₹{investing_in:,.2f}")
-                    print(f"  💸 Cash Outflow: ₹{investing_out:,.2f}")
-                    print(f"  📈 Net Investing: ₹{net_investing:,.2f}")
-                    print(f"\n{'─' * 80}")
-                    print(f"FINANCING ACTIVITIES:")
-                    print(f"  💰 Cash Inflow:  ₹{financing_in:,.2f}")
-                    print(f"  💸 Cash Outflow: ₹{financing_out:,.2f}")
-                    print(f"  📈 Net Financing: ₹{net_financing:,.2f}")
-                    print(f"\n{'─' * 80}")
-                    print(f"TOTAL NET CASH FLOW: ₹{net_operating + net_financing + net_investing:,.2f}")
-                    print(f"{'=' * 80}\n")
-
-                    # Total cash flow
-                    rec.total_score_value = net_operating
+                    rec.total_score_value = net_operating + net_financing + net_investing
 
 
 class BizdomScoreLine(models.Model):
@@ -1430,6 +1360,7 @@ class BizdomScoreLine(models.Model):
                         ('department_id', '=', rec.department_id.id),
                         ('move_id.move_type', 'in', ['out_invoice', 'out_refund']),  # Customer invoices and refunds
                         ('move_id.state', 'in', ['posted']),  # Only posted invoices
+                        ('move_id.payment_state', '=', 'paid'),  # Only paid invoices
                         ('company_id', '=', rec.score_id.company_id.id),
                         ('account_id.account_type', 'in', ['income', 'income_direct_cost'])
                     ]
@@ -1444,6 +1375,7 @@ class BizdomScoreLine(models.Model):
                         ('department_id', '=', rec.department_id.id),
                         ('move_id.move_type', 'in', ['in_invoice', 'in_refund']),  # Vendor bills and refunds
                         ('move_id.state', 'in', ['posted']),  # Include both draft and posted
+                        ('move_id.payment_state', '=', 'paid'),
                         ('company_id', '=', rec.score_id.company_id.id),
                         ('account_id.account_type', 'in', ['expense', 'expense_depreciation', 'expense_direct_cost'])
                     ]

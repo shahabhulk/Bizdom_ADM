@@ -136,6 +136,35 @@
                         </div>
                     </a>
                 </div>
+                <div class="col-12 mt-5"></div>
+                <div class="col-md-3" t-on-click="clickPartsPurchase">
+                    <a class="PartsPurchase">
+                        <div class="activity_block">
+                            <div class="activity_block_left" style="background-color: #E67E22;">
+                                <i class="fa fa-shopping-cart"></i>
+                            </div>
+                            <div class="activity_block_right">
+                                <span class="a_name" t-esc="parts_purchase_count || 0"/>
+                                <br/>
+                                <div class="a_name" data-activity_type="Parts Purchase">Parts Purchase</div>
+                            </div>
+                        </div>
+                    </a>
+                </div>
+                <div class="col-md-3" t-on-click="clickCompanyExpense">
+                    <a class="CompanyExpense">
+                        <div class="activity_block">
+                            <div class="activity_block_left" style="background-color: #C0392B;">
+                                <i class="fa fa-money"></i>
+                            </div>
+                            <div class="activity_block_right">
+                                <span class="a_name" t-esc="company_expense_count || 0"/>
+                                <br/>
+                                <div class="a_name" data-activity_type="Company Expenses">Company Expenses</div>
+                            </div>
+                        </div>
+                    </a>
+                </div>
 
             </div>
         </div>

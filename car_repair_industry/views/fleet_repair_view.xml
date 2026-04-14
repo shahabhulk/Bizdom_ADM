@@ -112,7 +112,7 @@
                                 <group string="Client Info">
                                     <group>
                                         <field name="client_id" context="{'show_address': 1}"
-                                               options='{"always_reload": True}' readonly="state != 'draft'"
+                                               options='{"always_reload": True,"no_create_edit":True}' readonly="state != 'draft'"
                                                string="Client"/>
                                         <field name="contact_name" string="Driver"/>
                                     </group>
@@ -230,11 +230,13 @@
                 <list>
                     <field name="sequence" string="Number"/>
                     <field name="client_id"/>
-                    <field name="client_mobile"/>
+                    <field name="client_phone"/>
                     <field name="receipt_date"/>
                     <field name="user_id"/>
                     <field name="currency_id" column_invisible="1"/>
                     <field name="amount_total" string="Parts Total" readonly="1"/>
+                    <field name="invoice_paid_amount" string="Paid Amount" widget="monetary"
+                           options="{'currency_field': 'currency_id'}"/>
                     <field name="state" widget="badge" decoration-success="state == 'done'"/>
                     <field name="promised_date" widget="remaining_days" invisible="state == 'done'"/>
                     <field name="delivery_status_color" widget="delivery_status" string="Signal"/>

@@ -4,7 +4,7 @@
 from odoo import fields, models, api, _
 from datetime import date, time, datetime
 from odoo.tools import float_is_zero, float_compare, DEFAULT_SERVER_DATETIME_FORMAT
-from zeep.exceptions import ValidationError
+from odoo.exceptions import ValidationError
 
 
 class SaleOrder(models.Model):
@@ -141,13 +141,14 @@ class AccountInvoice(models.Model):
     create_form_fleet = fields.Boolean(string='Fleet')
     fleet_repair_invoice_id = fields.Many2one('fleet.repair')
     license_plate = fields.Char(related='fleet_repair_invoice_id.license_plate', store=True)
-    model_name = fields.Char(related='fleet_repair_invoice_id.model_name', store=True)
+    model_name = fields.Char(related='fleet_repair_invoice_id.model_name.name', store=True)
     vin_sn = fields.Char(related='fleet_repair_invoice_id.vin_sn', store=True)
     fleet_feedback_count = fields.Integer(compute='_compute_feedback_count', string='Feedback Count')
     fleet_feedback_ids = fields.One2many('fleet.repair.feedback', 'account_move_id', string='Service Feedbacks')
     fleet_repair_id = fields.Many2one('fleet.repair', string='Repair Order')
     # job_card_name = fields.Char(string='Job Card No', compute='_compute_job_card_name')
     job_card_name = fields.Char(string='Job Card No', related='fleet_repair_invoice_id.sequence')
+    car_name=fields.Char(string='Car name', related='fleet_repair_invoice_id.fleet_id.name')
 
     # @api.depends('fleet_repair_invoice_id.job_card_display')
     # def _compute_job_card_name(self):
@@ -167,9 +168,7 @@ class AccountInvoice(models.Model):
 
     def action_post(self):
         res = super(AccountInvoice, self).action_post()
-        print("helllooooo")
         for invoice in self:
-            print("hei jbksfdj")
             print("fleet", invoice.fleet_repair_invoice_id.id)
             if invoice.fleet_repair_invoice_id.id:
                 # Check if feedback already exists to prevent duplicates
@@ -184,6 +183,11 @@ class AccountInvoice(models.Model):
                         'customer_id': invoice.partner_id.id,
                         'feedback_date': invoice.invoice_date
                     })
+            # for line in invoice.invoice_line_ids:
+            #     if line.display_type == 'product' and line.product_id and not line.department_id:
+            #         raise ValidationError('Please select a department before proceeding.')
+
+
         return res
 
     @api.model_create_multi
@@ -235,48 +239,28 @@ class AccountInvoice(models.Model):
         if vals.get('state'):
             if vals.get('state') == 'posted':
                 for move in self:
-                    sale_obj = self.env['sale.order'].search([('name', '=', move.invoice_origin)])
-                    if sale_obj and sale_obj.workorder_id and sale_obj.workorder_id.fleet_repair_id:
-                        repair_obj = self.env['fleet.repair'].search(
-                            [('id', '=', sale_obj.workorder_id.fleet_repair_id.id)])
+                    repair_obj = False
+                    # Path 1: Invoice created from Job Card (has fleet_repair_invoice_id)
+                    if move.fleet_repair_invoice_id:
+                        repair_obj = move.fleet_repair_invoice_id
+                    # Path 2: Invoice created from Sale Order (has invoice_origin)
+                    elif move.invoice_origin:
+                        sale_obj = self.env['sale.order'].search([('name', '=', move.invoice_origin)], limit=1)
+                        if sale_obj and sale_obj.workorder_id and sale_obj.workorder_id.fleet_repair_id:
+                            repair_obj = sale_obj.workorder_id.fleet_repair_id
+                    if repair_obj:
                         repair_obj.write({'state': 'done'})
                         template_id = self.env.ref('car_repair_industry.car_repair_service_done').id
                         template = self.env['mail.template'].browse(template_id)
                         template.send_mail(repair_obj.id, force_send=True)
+                        
+            elif vals.get('state') == 'draft':
+                for move in self:
+                    if move.fleet_repair_invoice_id:
+                        move.fleet_repair_invoice_id.write({'state': 'draft'})
         return super(AccountInvoice, self).write(vals)
 
-    # def action_view_service_feedback(self):
-    #     self.ensure_one()
-    #     return {
-    #         'name': 'Service Feedback',
-    #         'type': 'ir.actions.act_window',
-    #         'res_model': 'fleet.repair.feedback',
-    #         'view_mode': 'form',
-    #         'context': {
-    #             'default_name': self.name,
-    #             'default_account_move_id': self.id,
-    #             'default_fleet_repair_id': self.fleet_repair_id.id if self.fleet_repair_id else False,
-    #             'default_customer_id': self.partner_id.id,
-    #             'default_feedback_date': fields.Date.today(),
-    #             'default_fleet_repair_invoice_id': self.id,
-    #         }
-    #     }
 
-    # def button_view_service_feedback(self):
-    #     self.ensure_one()
-    #     return {
-    #         'name': 'Service Feedbacks',
-    #         'type': 'ir.actions.act_window',
-    #         'res_model': 'fleet.repair.feedback',
-    #         'view_mode': 'list,form',
-    #         'domain': [('account_move_id', '=', self.id)],
-    #         'context': {
-    #             'default_account_move_id': self.id,
-    #             'default_fleet_repair_id': self.fleet_repair_id.id if self.fleet_repair_id else False,
-    #             'default_customer_id': self.partner_id.id,
-    #             'default_fleet_repair_invoice_id': self.id,
-    #         }
-    #     }
 
 
 class MailComposeMessage(models.TransientModel):
@@ -346,6 +330,8 @@ class AccountInvoiceLine(models.Model):
         store=True,
         readonly=False  #
     )
+
+
 
     @api.onchange('department_id')
     def _onchange_department_id(self):

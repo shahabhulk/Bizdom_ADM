@@ -21,7 +21,7 @@ class CustomAuthController(http.Controller):
                 headers=[
                     ('Access-Control-Allow-Origin', '*'),
                     ('Access-Control-Allow-Methods', 'POST, OPTIONS'),
-                    ('Access-Control-Allow-Headers', 'Content-Type'),
+                    ('Access-Control-Allow-Headers', 'Content-Type, Authorization'),
                 ]
             )
 
@@ -57,8 +57,7 @@ class CustomAuthController(http.Controller):
                         "message": f"Unknown host: {host}, cannot select DB"
                     }),
                     content_type='application/json',
-                    status=400,
-                    headers=[('Access-Control-Allow-Origin', '*')]
+                    status=400
                 )
 
             credentials = {
@@ -74,13 +73,18 @@ class CustomAuthController(http.Controller):
                         "message": "Invalid username or password"
                     }),
                     content_type='application/json',
-                    status=401,
-                    headers=[('Access-Control-Allow-Origin', '*')]
+                    status=401
                 )
 
             try:
-                uid = request.session.authenticate(db, credentials)
+                auth_info = request.session.authenticate(db, credentials)
+                uid = auth_info.get('uid')
                 if uid:
+                    user = request.env['res.users'].sudo().browse(uid)
+                    base_url = request.httprequest.host_url.rstrip('/')
+                    profile_photo_url = f"{base_url}/web/image/res.users/{user.id}/image_1920"
+                    company = user.company_id
+                    company_logo_url = f"{base_url}/web/image/res.company/{company.id}/logo"
                     # Generate JWT token
                     payload = {
                         'uid': uid,
@@ -93,12 +97,15 @@ class CustomAuthController(http.Controller):
                             "statusCode": 200,
                             "message": "Login successful",
                             "uid": uid,
-                            "token": token
+                            "token": token,
+                            "name": user.name,
+                            "email": user.email,
+                            "profile_photo": profile_photo_url,
+                            "company_logo": company_logo_url,
 
                         }),
                         content_type='application/json',
-                        status=200,
-                        headers=[('Access-Control-Allow-Origin', '*')]
+                        status=200
                     )
             except Exception as e:
                 return http.Response(
@@ -107,8 +114,7 @@ class CustomAuthController(http.Controller):
                         "message": "Invalid username or password"
                     }),
                     content_type='application/json',
-                    status=401,
-                    headers=[('Access-Control-Allow-Origin', '*')]
+                    status=401
                 )
 
 
@@ -131,8 +137,7 @@ class CustomAuthController(http.Controller):
                     "message": "Internal Server Error"
                 }),
                 content_type='application/json',
-                status=500,
-                headers=[('Access-Control-Allow-Origin', '*')]
+                status=500
             )
 
     @http.route('/api/change_password', type='http', auth='none', methods=['POST'], csrf=False)

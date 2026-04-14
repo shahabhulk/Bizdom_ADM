@@ -62,23 +62,11 @@ class Q2Helpers:
         if score_type == 'percentage':
             min_base = category_record.min_category_percentage_lvl1 or 0
             max_base = category_record.max_category_percentage_lvl1 or 0
-            print(f"Q2 calculate_department_min_max: category_id={category_record.id}, category_name={category_record.name}, score_type={score_type}")
-            print(f"  - Raw values: min_category_percentage_lvl1={category_record.min_category_percentage_lvl1}, max_category_percentage_lvl1={category_record.max_category_percentage_lvl1}")
         else:
             min_base = category_record.min_category_value_lvl1 or 0
             max_base = category_record.max_category_value_lvl1 or 0
-            print(f"Q2 calculate_department_min_max: category_id={category_record.id}, category_name={category_record.name}, score_type={score_type}")
-            print(f"  - Raw values: min_category_value_lvl1={category_record.min_category_value_lvl1}, max_category_value_lvl1={category_record.max_category_value_lvl1}")
         
-        print(f"  - After 'or 0' fallback: min_base={min_base}, max_base={max_base}, filter_type={filter_type}")
-        
-        # Check if values are actually None/False (which would become 0)
-        if score_type == 'percentage':
-            if not category_record.min_category_percentage_lvl1 and not category_record.max_category_percentage_lvl1:
-                print(f"  WARNING: Both min and max are None/False/0 for percentage type!")
-        else:
-            if not category_record.min_category_value_lvl1 and not category_record.max_category_value_lvl1:
-                print(f"  WARNING: Both min and max are None/False/0 for value type!")
+
         
         if filter_type == "WTD":
             # Calculate days in week (including start and end)
@@ -219,6 +207,7 @@ class Q2Helpers:
                     stage_domain = [('stage_id.sequence', 'in', [1, 2])]
                 
                 quality_lead_count = lead_model.search_count([
+
                     ('lead_date', '>=', start_date),
                     ('lead_date', '<=', end_date),
                 ] + stage_domain + [

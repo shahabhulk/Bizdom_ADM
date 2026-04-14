@@ -164,8 +164,8 @@ class ScoreDashboard extends Component {
             quadrants: {
                 q1: { title: "Score Overview", data: [], filter_type: filterType },
                 q2: { title: "Department Breakdown", data: [] },
-                q3: { title: "Trend Analysis", data: [] },
-                q4: { title: "Time Period Analysis", data: [] },
+                q3: { title: "Level 2 Breakdown", data: [] },
+                q4: { title: "Analysis", data: [] },
             },
             departmentData: [],
             departmentDataLoaded: false,
@@ -181,6 +181,9 @@ class ScoreDashboard extends Component {
             selectedDepartmentId: null,
             selectedDepartmentName: null,
             selectedPeriodInfo: null, // Store period info (startDate, endDate, period) for filtering employees
+            chartTypeQ1: 'bar',
+            chartTypeQ2: 'bar',
+            chartTypeQ3: 'bar',
         });
 
         onWillStart(async () => {
@@ -304,9 +307,17 @@ class ScoreDashboard extends Component {
             this.state.loading = true;
             const activeRange = this.ensureActiveRange();
             
-            // Update date range label using preset (which creates it correctly with Date objects)
-            const preset = this.getPresetRange(this.state.filterType);
-            this.state.dateRangeLabel = preset.label;
+            // Update date range label - handle CUSTOM separately
+            if (this.state.filterType === 'CUSTOM' && this.state.customRange?.start && this.state.customRange?.end) {
+                const startDate = this.parseDateString(this.state.customRange.start);
+                const endDate = this.parseDateString(this.state.customRange.end);
+                if (startDate && endDate) {
+                    this.state.dateRangeLabel = `Custom: ${this.formatRangeLabel(startDate, endDate)}`;
+                }
+            } else {
+                const preset = this.getPresetRange(this.state.filterType);
+                this.state.dateRangeLabel = preset.label;
+            }
             
             // Build API URL
             let url = `${SCORE_OVERVIEW_API}?scoreId=${this.state.scoreId}&filterType=${this.state.filterType}`;
@@ -408,21 +419,33 @@ class ScoreDashboard extends Component {
         if (this.state.filterType === normalizedFilter) {
             return;
         }
-        // Set loading state immediately for smooth transition
-        this.state.loading = true;
         
         let nextRange;
         if (normalizedFilter === 'CUSTOM') {
-            if (!(this.state.customRange.start && this.state.customRange.end)) {
-                console.warn("Custom range not available for this score dashboard");
+            // Allow switching to CUSTOM even if dates aren't set yet
+            // User can then select dates, which will trigger loadScoreData
+            if (this.state.customRange.start && this.state.customRange.end) {
+                nextRange = { ...this.state.customRange };
+                const start = this.parseDateString(nextRange.start);
+                const end = this.parseDateString(nextRange.end);
+                if (start && end) {
+                    this.state.dateRangeLabel = `Custom: ${this.formatRangeLabel(start, end)}`;
+                    this.state.activeRange = {
+                        start: this.formatDateForServer(start),
+                        end: this.formatDateForServer(end),
+                    };
+                } else {
+                    this.state.dateRangeLabel = "Select start and end dates";
+                    this.state.loading = false;
+                    this.state.filterType = normalizedFilter;
+                    return;
+                }
+            } else {
+                // No dates selected yet, just switch to CUSTOM filter
+                this.state.dateRangeLabel = "Select start and end dates";
+                this.state.filterType = normalizedFilter;
                 this.state.loading = false;
                 return;
-            }
-            nextRange = { ...this.state.customRange };
-            const start = this.parseDateString(nextRange.start);
-            const end = this.parseDateString(nextRange.end);
-            if (start && end) {
-                this.state.dateRangeLabel = this.formatRangeLabel(start, end);
             }
         } else {
             const preset = this.getPresetRange(normalizedFilter);
@@ -430,6 +453,10 @@ class ScoreDashboard extends Component {
             // Use the preset label directly (it's already correctly formatted with Date objects)
             this.state.dateRangeLabel = preset.label;
         }
+        
+        // Set loading state immediately for smooth transition
+        this.state.loading = true;
+        
         // Destroy chart before changing filter to prevent rendering issues
         if (this.chart) {
             this.chart.destroy();
@@ -446,18 +473,133 @@ class ScoreDashboard extends Component {
         return this.onFilterSelect(filterType);
     }
 
+    onChartTypeChange(quadrant, ev) {
+        const value = ev.target.value;
+        if (quadrant === 'q1') {
+            this.state.chartTypeQ1 = value;
+            this.renderChart();
+        } else if (quadrant === 'q2') {
+            this.state.chartTypeQ2 = value;
+            this.renderDepartmentChart();
+        } else if (quadrant === 'q3') {
+            this.state.chartTypeQ3 = value;
+            this.renderEmployeeChart();
+        }
+    }
+
+    onCustomDateChange(field, ev) {
+        this.state.customRange = {
+            ...this.state.customRange,
+            [field]: ev.target.value,
+        };
+
+        const { start, end } = this.state.customRange;
+        if (start && end) {
+            const startDate = this.parseDateString(start);
+            const endDate = this.parseDateString(end);
+            
+            if (startDate && endDate && startDate > endDate) {
+                console.warn("Start date cannot be after end date");
+                this.state.dateRangeLabel = "Start date cannot be after end date";
+                return;
+            }
+            
+            // Update date range label and active range
+            if (startDate && endDate) {
+                this.state.dateRangeLabel = `Custom: ${this.formatRangeLabel(startDate, endDate)}`;
+                this.state.activeRange = {
+                    start: this.formatDateForServer(startDate),
+                    end: this.formatDateForServer(endDate),
+                };
+                // Automatically load data when both dates are selected and filter is CUSTOM
+                if (this.state.filterType === 'CUSTOM') {
+                    this.loadScoreData();
+                }
+            }
+        } else {
+            this.state.dateRangeLabel = "Select start and end dates";
+        }
+    }
+
     getMaxValue(data) {
         if (!data || data.length === 0) return 100;
         return Math.max(...data.map(item => item.actual_value || 0), 100);
     }
 
     getPeriodLabel(item, filterType) {
-        return item?.month || item?.period || item?.year || '';
+        // Check if this is a custom period format (contains "to" separator)
+        // API returns period as "DD-MM-YYYY to DD-MM-YYYY" for custom filters
+        const normalizedFilterType = filterType ? String(filterType).toUpperCase().trim() : '';
+        const isCustomFilter = normalizedFilterType === 'CUSTOM';
+        const hasCustomPeriodFormat = item?.period && item.period.includes(' to ');
+        
+        // If it's a custom filter OR the period has the custom format, format it
+        if (isCustomFilter || hasCustomPeriodFormat) {
+            if (item?.period) {
+                try {
+                    // Parse the period string "DD-MM-YYYY to DD-MM-YYYY"
+                    const periodParts = item.period.split(' to ');
+                    if (periodParts.length === 2) {
+                        const startStr = periodParts[0].trim();
+                        const endStr = periodParts[1].trim();
+                        
+                        // Parse DD-MM-YYYY format
+                        const startParts = startStr.split('-');
+                        const endParts = endStr.split('-');
+                        
+                        if (startParts.length === 3 && endParts.length === 3) {
+                            // Format as "DD MMM YYYY to DD MMM YYYY"
+                            const startFormatted = `${parseInt(startParts[0])} ${this.getMonthName(parseInt(startParts[1]))} ${startParts[2]}`;
+                            const endFormatted = `${parseInt(endParts[0])} ${this.getMonthName(parseInt(endParts[1]))} ${endParts[2]}`;
+                            return `${startFormatted} to ${endFormatted}`;
+                        }
+                    }
+                } catch (error) {
+                    console.warn('Error formatting custom period:', error, item.period);
+                }
+                // Fallback to raw period string if formatting fails
+                return item.period;
+            }
+            // If period is missing, try to construct from start_date and end_date
+            if (item?.start_date && item?.end_date) {
+                try {
+                    const startParts = item.start_date.split('-');
+                    const endParts = item.end_date.split('-');
+                    if (startParts.length === 3 && endParts.length === 3) {
+                        const startFormatted = `${parseInt(startParts[0])} ${this.getMonthName(parseInt(startParts[1]))} ${startParts[2]}`;
+                        const endFormatted = `${parseInt(endParts[0])} ${this.getMonthName(parseInt(endParts[1]))} ${endParts[2]}`;
+                        return `${startFormatted} to ${endFormatted}`;
+                    }
+                } catch (error) {
+                    console.warn('Error constructing period from dates:', error);
+                }
+                return `${item.start_date} to ${item.end_date}`;
+            }
+            return '';
+        }
+        // For other filters, prioritize period field, then month/year
+        // This ensures we use the period string from API when available
+        return item?.period || item?.month || item?.year || '';
     }
 
     formatValue(value) {
         const numericValue = Number(value || 0);
         return numericValue.toFixed(1);
+    }
+
+    /**
+     * Format a numeric value for display based on score type (percentage, currency_inr, value).
+     */
+    formatScoreValue(value) {
+        const num = Number(value || 0);
+        const scoreType = this.state.scoreType || 'value';
+        if (scoreType === 'percentage') {
+            return num.toFixed(2) + '%';
+        }
+        if (scoreType === 'currency_inr') {
+            return '₹' + num.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        }
+        return num.toFixed(2);
     }
 
     hasPositiveValue(item) {
@@ -479,6 +621,22 @@ class ScoreDashboard extends Component {
         if (this.state.activeRange?.start && this.state.activeRange?.end) {
             return this.state.activeRange;
         }
+        
+        // For CUSTOM filter, try to use customRange from state
+        if (this.state.filterType === 'CUSTOM' && this.state.customRange?.start && this.state.customRange?.end) {
+            const startDate = this.parseDateString(this.state.customRange.start);
+            const endDate = this.parseDateString(this.state.customRange.end);
+            if (startDate && endDate) {
+                this.state.activeRange = {
+                    start: this.formatDateForServer(startDate),
+                    end: this.formatDateForServer(endDate),
+                };
+                this.state.dateRangeLabel = `Custom: ${this.formatRangeLabel(startDate, endDate)}`;
+                return this.state.activeRange;
+            }
+        }
+        
+        // Fallback to preset range
         const fallback = this.getPresetRange(this.state.filterType === 'CUSTOM' ? 'MTD' : this.state.filterType);
         this.state.activeRange = { start: fallback.start_date, end: fallback.end_date };
         this.state.dateRangeLabel = fallback.label;
@@ -536,6 +694,20 @@ class ScoreDashboard extends Component {
                 endDate.setHours(23, 59, 59, 999);
                 label = `Year to Date: ${this.formatRangeLabel(startDate, endDate)}`;
                 break;
+            }
+            case "CUSTOM": {
+                // For custom, use the state's customRange if available
+                if (this.state?.customRange?.start && this.state?.customRange?.end) {
+                    const start = this.parseDateString(this.state.customRange.start);
+                    const end = this.parseDateString(this.state.customRange.end);
+                    if (start && end) {
+                        startDate = start;
+                        endDate = end;
+                        label = `Custom: ${this.formatRangeLabel(startDate, endDate)}`;
+                        break;
+                    }
+                }
+                // Fall through to MTD if custom range not set
             }
             default: { // MTD fallback
                 startDate = new Date(today.getFullYear(), today.getMonth(), 1);
@@ -724,9 +896,9 @@ class ScoreDashboard extends Component {
         this.updateDepartmentChartState(matchingEntry, fallbackPeriod, periodItem);
         
         // Auto-update Q3 (employee chart) by selecting the first department from Q2
-        // Only for Labour, Leads, and Conversion scores (which have Q3 data)
+        // Only for Labour, Leads, Conversion, and Customer Retention scores (which have Q3 data)
         const scoreNameLower = (this.state.scoreName || '').toLowerCase();
-        if (scoreNameLower === 'labour' || scoreNameLower === 'leads' || scoreNameLower === 'conversion') {
+        if (scoreNameLower === 'labour' || scoreNameLower === 'leads' || scoreNameLower === 'conversion' || scoreNameLower === 'customer retention'  || scoreNameLower === 'income'||scoreNameLower === 'expense'|| scoreNameLower === 'aov') {
             // Wait for department chart data to be set, then auto-select first department
             setTimeout(async () => {
                 if (this.state.departmentChartData && 
@@ -911,8 +1083,9 @@ class ScoreDashboard extends Component {
             const isPercentage = scoreType === 'percentage';
             const hasConversionValues = datasets.length > 1;
 
+        const chartTypeQ2 = this.state.chartTypeQ2 || 'bar';
         this.departmentChart = new Chart(canvas, {
-            type: 'bar',
+            type: chartTypeQ2,
             data: {
                 labels: this.state.departmentChartData.labels,
                 datasets: datasets
@@ -936,10 +1109,11 @@ class ScoreDashboard extends Component {
                     tooltip: {
                         callbacks: {
                             label: (context) => {
+                                // For both bar and line charts, x-axis has categories, y-axis has values
                                 const value = context.parsed.y || 0;
                                 const datasetLabel = context.dataset.label || 'Value';
-                                const suffix = isPercentage ? '%' : '';
-                                const tooltipLines = [`${datasetLabel}: ${value.toFixed(2)}${suffix}`];
+                                const formattedValue = this.formatScoreValue(value);
+                                const tooltipLines = [`${datasetLabel}: ${formattedValue}`];
                                 
                                 // Add min/max values for Labour scores on separate lines
                                 if (isLabourScore && this.state.departmentChartData.minValues && this.state.departmentChartData.maxValues) {
@@ -951,8 +1125,8 @@ class ScoreDashboard extends Component {
                                         minValue !== undefined && maxValue !== undefined &&
                                         !isNaN(minValue) && !isNaN(maxValue) &&
                                         !(minValue === 0 && maxValue === 0)) {
-                                        tooltipLines.push(`Min: ${minValue.toFixed(2)}${suffix}`);
-                                        tooltipLines.push(`Max: ${maxValue.toFixed(2)}${suffix}`);
+                                        tooltipLines.push(`Min: ${this.formatScoreValue(minValue)}`);
+                                        tooltipLines.push(`Max: ${this.formatScoreValue(maxValue)}`);
                                     }
                                 }
                                 
@@ -962,6 +1136,7 @@ class ScoreDashboard extends Component {
                     }
                 },
                 scales: {
+                    // For both bar and line charts, x-axis has categories, y-axis has values
                     x: {
                         grid: { display: false },
                         ticks: {
@@ -979,11 +1154,13 @@ class ScoreDashboard extends Component {
                             color: '#111827',
                             font: { size: 11 },
                             callback: (value) => {
-                                const suffix = isPercentage ? '%' : '';
-                                if (value >= 1000) {
-                                    return (value / 1000).toFixed(2) + 'k' + suffix;
+                                if (this.state.scoreType === 'currency_inr' && value >= 1000) {
+                                    return '₹' + (value / 1000).toFixed(2) + 'k';
                                 }
-                                return value.toFixed(2) + suffix;
+                                if (value >= 1000 && this.state.scoreType !== 'currency_inr') {
+                                    return (value / 1000).toFixed(2) + 'k' + (isPercentage ? '%' : '');
+                                }
+                                return this.formatScoreValue(value);
                             }
                         }
                     }
@@ -1263,9 +1440,9 @@ class ScoreDashboard extends Component {
     async handleDepartmentClick(departmentId, departmentName, periodInfo = null) {
         const scoreNameLower = (this.state.scoreName || '').toLowerCase();
         
-        // Handle for Labour, Leads, and Conversion scores
-        if (scoreNameLower !== 'labour' && scoreNameLower !== 'leads' && scoreNameLower !== 'conversion') {
-            console.log('Employee/Source overview only available for Labour, Leads, and Conversion scores');
+        // Handle for Labour, Leads, Conversion, Customer Retention, Income, and AOV scores
+        if (scoreNameLower !== 'labour' && scoreNameLower !== 'leads' && scoreNameLower !== 'conversion' && scoreNameLower !== 'customer retention' && scoreNameLower !== 'income' && scoreNameLower !== 'expense' && scoreNameLower !== 'aov') {
+            console.log('Employee/Source/Question/Category overview only available for Labour, Leads, Conversion, Customer Retention, Income, and AOV scores');
             return;
         }
 
@@ -1347,6 +1524,49 @@ class ScoreDashboard extends Component {
                         this.state.employeeError = null;
                         // Build conversion chart data (similar to leads but for salespersons)
                         this.buildConversionChartData();
+                    }
+                } else if (scoreNameLower === 'customer retention') {
+                    // For Customer Retention score, use overview_employee (contains questions)
+                    this.state.employeeData = empData.overview_employee || [];
+                    if (!this.state.employeeData.length) {
+                        this.state.employeeError = 'No question data available for this department.';
+                    } else {
+                        this.state.employeeError = null;
+                        // Build chart data from question data
+                        this.buildCustomerRetentionChartData();
+                    }
+                } else if (scoreNameLower === 'income') {
+                    // For Income score, use overview_category (contains product categories)
+                    this.state.employeeData = empData.overview_category || empData.overview_product || [];
+                    if (!this.state.employeeData.length) {
+                        this.state.employeeError = 'No category data available for this department.';
+                    } else {
+                        this.state.employeeError = null;
+                        // Build chart data from category data
+                        this.buildIncomeChartData();
+                    }
+                }
+                else if (scoreNameLower === 'expense') {
+                    // For Income score, use overview_category (contains product categories)
+                    this.state.employeeData = empData.overview_category || empData.overview_product || [];
+                    if (!this.state.employeeData.length) {
+                        this.state.employeeError = 'No category data available for this department.';
+                    } else {
+                        this.state.employeeError = null;
+                        // Build chart data from category data
+                        this.buildIncomeChartData();
+                    }
+                }
+
+
+                else if (scoreNameLower === 'aov') {
+                    // For AOV score, use overview_employee (contains car brands; same structure as Labour)
+                    this.state.employeeData = empData.overview_employee || [];
+                    if (!this.state.employeeData.length) {
+                        this.state.employeeError = 'No car brand data available for this department.';
+                    } else {
+                        this.state.employeeError = null;
+                        this.buildEmployeeChartData();
                     }
                 } else {
                     // For Labour score, use overview_employee
@@ -1718,6 +1938,194 @@ class ScoreDashboard extends Component {
         };
     }
 
+    buildCustomerRetentionChartData() {
+        if (!this.state.employeeData || this.state.employeeData.length === 0) {
+            this.state.employeeChartData = null;
+            return;
+        }
+
+        // Filter to show only questions from the selected period
+        let selectedPeriodData = null;
+        
+        if (this.state.selectedPeriodInfo && (this.state.selectedPeriodInfo.startDate || this.state.selectedPeriodInfo.endDate)) {
+            // Find the matching period in employee data
+            const periodStart = String(this.state.selectedPeriodInfo.startDate || '').trim();
+            const periodEnd = String(this.state.selectedPeriodInfo.endDate || '').trim();
+            
+            // Normalize dates for comparison - ensure both are strings in DD-MM-YYYY format
+            const normalizeDate = (dateStr) => {
+                if (!dateStr) return null;
+                const str = String(dateStr).trim();
+                if (str.match(/^\d{2}-\d{2}-\d{4}$/)) {
+                    return str;
+                }
+                return str;
+            };
+            
+            const normalizedStart = normalizeDate(periodStart);
+            const normalizedEnd = normalizeDate(periodEnd);
+            
+            // Try exact match first - both start and end dates must match
+            selectedPeriodData = this.state.employeeData.find(period => {
+                const periodStartNorm = normalizeDate(period.start_date);
+                const periodEndNorm = normalizeDate(period.end_date);
+                
+                if (normalizedStart && normalizedEnd && periodStartNorm && periodEndNorm) {
+                    return periodStartNorm === normalizedStart && periodEndNorm === normalizedEnd;
+                }
+                return false;
+            });
+            
+            // If exact match not found, try matching by start date only
+            if (!selectedPeriodData && normalizedStart) {
+                selectedPeriodData = this.state.employeeData.find(period => {
+                    const periodStartNorm = normalizeDate(period.start_date);
+                    return periodStartNorm === normalizedStart;
+                });
+            }
+            
+            // Final fallback: match by period label if available
+            if (!selectedPeriodData && this.state.selectedPeriodInfo.period) {
+                selectedPeriodData = this.state.employeeData.find(period => {
+                    return period.period && period.period === this.state.selectedPeriodInfo.period;
+                });
+            }
+        }
+        
+        // If no specific period selected or not found, show empty
+        if (!selectedPeriodData) {
+            this.state.employeeChartData = {
+                labels: [],
+                values: []
+            };
+            return;
+        }
+        
+        // Process questions from the selected period
+        const questions = [];
+        
+        if (selectedPeriodData.questions && Array.isArray(selectedPeriodData.questions)) {
+            selectedPeriodData.questions.forEach(q => {
+                // Only include questions with actual_value (not empty string)
+                if (q.actual_value !== "" && q.actual_value !== null && q.actual_value !== undefined) {
+                    questions.push({
+                        question_id: q.question_id,
+                        question: q.question || 'N/A',
+                        actual_value: Number(q.actual_value || 0)
+                    });
+                }
+            });
+        }
+
+        // Sort by actual_value descending
+        questions.sort((a, b) => b.actual_value - a.actual_value);
+
+        this.state.employeeChartData = {
+            labels: questions.map(q => q.question),
+            values: questions.map(q => q.actual_value)
+        };
+    }
+
+    buildIncomeChartData() {
+        if (!this.state.employeeData || this.state.employeeData.length === 0) {
+            this.state.employeeChartData = null;
+            return;
+        }
+
+        // Filter to show only products from the selected period
+        let selectedPeriodData = null;
+        
+        if (this.state.selectedPeriodInfo && (this.state.selectedPeriodInfo.startDate || this.state.selectedPeriodInfo.endDate)) {
+            const periodStart = String(this.state.selectedPeriodInfo.startDate || '').trim();
+            const periodEnd = String(this.state.selectedPeriodInfo.endDate || '').trim();
+            
+            const normalizeDate = (dateStr) => {
+                if (!dateStr) return null;
+                const str = String(dateStr).trim();
+                if (str.match(/^\d{2}-\d{2}-\d{4}$/)) {
+                    return str;
+                }
+                return str;
+            };
+            
+            const normalizedStart = normalizeDate(periodStart);
+            const normalizedEnd = normalizeDate(periodEnd);
+            
+            // Try exact match first
+            selectedPeriodData = this.state.employeeData.find(period => {
+                const periodStartNorm = normalizeDate(period.start_date);
+                const periodEndNorm = normalizeDate(period.end_date);
+                
+                if (normalizedStart && normalizedEnd && periodStartNorm && periodEndNorm) {
+                    return periodStartNorm === normalizedStart && periodEndNorm === normalizedEnd;
+                }
+                return false;
+            });
+            
+            // If exact match not found, try matching by start date only
+            if (!selectedPeriodData && normalizedStart) {
+                selectedPeriodData = this.state.employeeData.find(period => {
+                    const periodStartNorm = normalizeDate(period.start_date);
+                    return periodStartNorm === normalizedStart;
+                });
+            }
+            
+            // Final fallback: match by period label if available
+            if (!selectedPeriodData && this.state.selectedPeriodInfo.period) {
+                selectedPeriodData = this.state.employeeData.find(period => {
+                    return period.period && period.period === this.state.selectedPeriodInfo.period;
+                });
+            }
+        }
+        
+        // If no specific period selected or not found, show empty
+        if (!selectedPeriodData) {
+            console.error('❌ No matching period found - showing empty chart');
+            this.state.employeeChartData = {
+                labels: [],
+                values: []
+            };
+            return;
+        }
+
+        // Process categories (or products for backward compatibility) from the selected period
+        const items = [];
+
+        if (selectedPeriodData.categories && Array.isArray(selectedPeriodData.categories)) {
+            selectedPeriodData.categories.forEach(cat => {
+                items.push({
+                    id: cat.category_id,
+                    name: cat.category_name || 'N/A',
+                    actual_value: Number(cat.actual_value || 0)
+                });
+            });
+        } else if (selectedPeriodData.products && Array.isArray(selectedPeriodData.products)) {
+            selectedPeriodData.products.forEach(product => {
+                items.push({
+                    id: product.product_id || product.category_id,
+                    name: product.product_name || product.category_name || 'N/A',
+                    actual_value: Number(product.actual_value || 0)
+                });
+            });
+        } else if (selectedPeriodData.employees && Array.isArray(selectedPeriodData.employees)) {
+            selectedPeriodData.employees.forEach(product => {
+                items.push({
+                    id: product.product_id || product.category_id || product.employee_id,
+                    name: product.product_name || product.category_name || product.employee_name || 'N/A',
+                    actual_value: Number(product.actual_value || 0)
+                });
+            });
+        }
+
+        // Sort by actual_value descending
+        items.sort((a, b) => b.actual_value - a.actual_value);
+
+        this.state.employeeChartData = {
+            labels: items.map(p => p.name),
+            values: items.map(p => p.actual_value)
+        };
+    }
+
     renderEmployeeChart() {
         try {
             const canvas = this.employeeChartRef.el;
@@ -1744,6 +2152,11 @@ class ScoreDashboard extends Component {
             const isLeadsScore = scoreNameLower === 'leads';
             const isConversionScore = scoreNameLower === 'conversion';
             const isLabourScore = scoreNameLower === 'labour';
+            const isCustomerRetentionScore = scoreNameLower === 'customer retention';
+            const isIncomeScore = scoreNameLower === 'income';
+            const isExpenseScore = scoreNameLower === 'expense';
+            const isAOVScore = scoreNameLower === 'aov';
+
 
             // Build datasets based on score type
             const datasets = [];
@@ -1792,7 +2205,39 @@ class ScoreDashboard extends Component {
                         borderRadius: 4
                     });
                 }
-            } else {
+            } else if (isCustomerRetentionScore) {
+                // For Customer Retention score: single dataset with Average Rating label
+                datasets.push({
+                    label: 'Average Rating',
+                    data: this.state.employeeChartData.values,
+                    backgroundColor: '#0d6efd',
+                    borderColor: '#0d6efd',
+                    borderWidth: 1,
+                    borderRadius: 4
+                });
+            } else if (isIncomeScore) {
+                // For Income score: single dataset with Income label
+                datasets.push({
+                    label: 'Income',
+                    data: this.state.employeeChartData.values,
+                    backgroundColor: '#0d6efd',
+                    borderColor: '#0d6efd',
+                    borderWidth: 1,
+                    borderRadius: 4
+                });
+            }
+            else if (isExpenseScore) {
+                // For Expense score: single dataset with Expense label
+                datasets.push({
+                    label: 'Expense',
+                    data: this.state.employeeChartData.values,
+                    backgroundColor: '#0d6efd',
+                    borderColor: '#0d6efd',
+                    borderWidth: 1,
+                    borderRadius: 4
+                });
+            }
+            else {
                 // For Labour score: single dataset
                 datasets.push({
                     label: 'Labour',
@@ -1808,86 +2253,145 @@ class ScoreDashboard extends Component {
             const allValues = datasets.flatMap(dataset => (dataset.data || []));
             const maxValue = allValues.length > 0 ? Math.max(...allValues, 0) : 0;
             const suggestedMax = maxValue > 0 ? maxValue * 1.1 : 100;
+            
+            // Capture labels for tooltip callback
+            const chartLabels = this.state.employeeChartData.labels || [];
+            
+            // Custom plugin to ensure minimum bar visibility - lightweight
+            const minBarVisibilityPlugin = {
+                id: 'minBarVisibilityPlugin',
+                afterDatasetsDraw: (chart) => {
+                    if (!chart.scales?.x) return;
+                    
+                    const ctx = chart.ctx;
+                    const x0 = chart.scales.x.getPixelForValue(0);
+                    const minBarWidth = 4;
+                    
+                    ctx.save();
+                    
+                    // Process datasets efficiently
+                    const datasets = chart.data.datasets;
+                    for (let d = 0; d < datasets.length; d++) {
+                        const dataset = datasets[d];
+                        const meta = chart.getDatasetMeta(d);
+                        if (!meta?.data) continue;
+                        
+                        ctx.fillStyle = dataset.backgroundColor || '#0d6efd';
+                        const bars = meta.data;
+                        
+                        for (let i = 0; i < bars.length; i++) {
+                            const bar = bars[i];
+                            if (bar && !bar.hidden && bar.width) {
+                                const value = bar.parsed?.x || 0;
+                                if (value > 0 && bar.width < minBarWidth) {
+                                    ctx.fillRect(x0, bar.y - (bar.height / 2), minBarWidth, bar.height);
+                                }
+                            }
+                        }
+                    }
+                    
+                    ctx.restore();
+                }
+            };
 
+            const chartTypeQ3 = this.state.chartTypeQ3 || 'bar';
+            const optionsQ3 = {
+                maintainAspectRatio: false,
+                responsive: true,
+                ...(chartTypeQ3 === 'bar' ? { indexAxis: 'y' } : {}), // Horizontal bars only
+                animation: {
+                    duration: 600,
+                    easing: 'easeOutQuart'
+                },
+                interaction: {
+                    intersect: false,
+                    mode: 'nearest'
+                },
+                plugins: {
+                    legend: {
+                        display: isLeadsScore || isConversionScore,
+                        position: 'top',
+                        align: 'end',
+                        labels: {
+                            usePointStyle: true,
+                            padding: 15,
+                            font: { size: 12 }
+                        }
+                    },
+                    tooltip: {
+                        enabled: true,
+                        intersect: false,
+                        mode: 'nearest',
+                        animation: { duration: 200 },
+                        callbacks: {
+                            label: (context) => {
+                                const value = chartTypeQ3 === 'bar' ? (context.parsed?.x ?? 0) : (context.parsed?.y ?? 0);
+                                const datasetLabel = context.dataset.label || 'Value';
+                                const decimals = (isCustomerRetentionScore || isLabourScore || isIncomeScore || isExpenseScore || isAOVScore) ? 2 : 0;
+                                return `${datasetLabel}: ${value.toFixed(decimals)}`;
+                            },
+                            title: (tooltipItems) => {
+                                if (!tooltipItems || tooltipItems.length === 0) return '';
+                                const index = tooltipItems[0].dataIndex;
+                                return chartLabels[index] || '';
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        beginAtZero: true,
+                        suggestedMax: suggestedMax,
+                        grid: {
+                            color: 'rgba(0, 0, 0, 0.1)'
+                        },
+                        ticks: {
+                            color: '#111827',
+                            font: { size: 11 },
+                            stepSize: isCustomerRetentionScore ? 0.5 : 1,
+                            maxTicksLimit: Math.ceil(suggestedMax) + 1,
+                            callback: (value) => {
+                                if (isCustomerRetentionScore) {
+                                    return value.toFixed(1);
+                                }
+                                const useTwoDecimals = isLabourScore || isAOVScore;
+                                const intValue = Math.round(value);
+                                if (Math.abs(value - intValue) > 0.01) {
+                                    return '';
+                                }
+                                if (intValue >= 1000) {
+                                    return (intValue / 1000).toFixed(useTwoDecimals ? 2 : 1) + 'k';
+                                }
+                                return intValue.toFixed(useTwoDecimals ? 2 : 0);
+                            },
+                            afterBuildTicks: (axis) => {
+                                const seen = new Set();
+                                axis.ticks = axis.ticks.filter(tick => {
+                                    const rounded = Math.round(tick.value);
+                                    if (seen.has(rounded)) return false;
+                                    seen.add(rounded);
+                                    return true;
+                                });
+                            }
+                        }
+                    },
+                    y: {
+                        grid: { display: false },
+                        ticks: {
+                            color: '#111827',
+                            font: { size: 11 }
+                        }
+                    }
+                }
+            };
             this.employeeChart = new Chart(canvas, {
-                type: 'bar',
+                type: chartTypeQ3,
                 data: {
                     labels: this.state.employeeChartData.labels,
                     datasets: datasets
                 },
-                options: {
-                    indexAxis: 'y', // Horizontal bar chart
-                    maintainAspectRatio: false,
-                    responsive: true,
-                    plugins: {
-                        legend: {
-                            display: isLeadsScore || isConversionScore, // Show legend for Leads and Conversion scores (multiple datasets)
-                            position: 'top',
-                            align: 'end',
-                            labels: {
-                                usePointStyle: true,
-                                padding: 15,
-                                font: {
-                                    size: 12
-                                }
-                            }
-                        },
-                        tooltip: {
-                            callbacks: {
-                                label: (context) => {
-                                    const value = context.parsed.x || 0;
-                                    const datasetLabel = context.dataset.label || 'Value';
-                                    return `${datasetLabel}: ${value.toFixed(isLabourScore ? 2 : 0)}`;
-                                }
-                            }
-                        }
-                    },
-                    scales: {
-                        x: {
-                            beginAtZero: true,
-                            suggestedMax: suggestedMax,
-                            grid: {
-                                color: 'rgba(0, 0, 0, 0.1)'
-                            },
-                            ticks: {
-                                color: '#111827',
-                                font: { size: 11 },
-                                stepSize: 1, // Ensure ticks increment by 1
-                                maxTicksLimit: Math.ceil(suggestedMax) + 1, // Limit based on max value
-                                callback: (value) => {
-                                    // Only show integer values to avoid duplicates
-                                    const intValue = Math.round(value);
-                                    if (Math.abs(value - intValue) > 0.01) {
-                                        return '';
-                                    }
-                                    if (intValue >= 1000) {
-                                        return (intValue / 1000).toFixed(isLabourScore ? 2 : 1) + 'k';
-                                    }
-                                    return intValue.toFixed(isLabourScore ? 2 : 0);
-                                },
-                                afterBuildTicks: (axis) => {
-                                    // Filter out duplicate ticks
-                                    const seen = new Set();
-                                    axis.ticks = axis.ticks.filter(tick => {
-                                        const rounded = Math.round(tick.value);
-                                        if (seen.has(rounded)) {
-                                            return false;
-                                        }
-                                        seen.add(rounded);
-                                        return true;
-                                    });
-                                }
-                            }
-                        },
-                        y: {
-                            grid: { display: false },
-                            ticks: {
-                                color: '#111827',
-                                font: { size: 11 }
-                            }
-                        }
-                    }
-                }
+                plugins: chartTypeQ3 === 'bar' ? [minBarVisibilityPlugin] : [],
+                options: optionsQ3
             });
         } catch (error) {
             console.error('Error rendering employee chart:', error);
@@ -1917,6 +2421,9 @@ class ScoreDashboard extends Component {
             if (scoreNameLower === 'conversion') {
                 return 'Select a medium in the Department Breakdown to view conversions by salesperson.';
             }
+            if (scoreNameLower === 'aov') {
+                return 'Select a department in the Department Breakdown to view AOV by car brand.';
+            }
             return 'Select a department in the Department Breakdown to view employee labour.';
         }
         if (scoreNameLower === 'leads') {
@@ -1929,6 +2436,16 @@ class ScoreDashboard extends Component {
                 return 'Select a medium in the Department Breakdown to view conversions by salesperson.';
             }
             return 'No salesperson data available for this medium.';
+        } else if (this.isIncomeScore()) {
+            if (this.state.employeeData && this.state.employeeData.length > 0 && !this.state.employeeChartData) {
+                return 'Select a department in the Department Breakdown to view income by category.';
+            }
+            return 'No category data available for this department.';
+        } else if (scoreNameLower === 'aov') {
+            if (this.state.employeeData && this.state.employeeData.length > 0 && !this.state.employeeChartData) {
+                return 'Select a department in the Department Breakdown to view AOV by car brand.';
+            }
+            return 'No car brand data available for this department.';
         } else {
             if (this.state.employeeData && this.state.employeeData.length > 0 && !this.state.employeeChartData) {
                 return 'Select a department in the Department Breakdown to view employee labour.';
@@ -1952,6 +2469,26 @@ class ScoreDashboard extends Component {
         return scoreNameLower === 'labour';
     }
 
+    isCustomerRetentionScore() {
+        const scoreNameLower = (this.state.scoreName || '').toLowerCase();
+        return scoreNameLower === 'customer retention';
+    }
+
+    isIncomeScore() {
+        const scoreNameLower = (this.state.scoreName || '').toLowerCase();
+        return scoreNameLower === 'income';
+    }
+
+    isExpenseScore() {
+        const scoreNameLower = (this.state.scoreName || '').toLowerCase();
+        return scoreNameLower === 'expense';
+    }
+
+    isAOVScore() {
+        const scoreNameLower = (this.state.scoreName || '').toLowerCase();
+        return scoreNameLower === 'aov';
+    }
+
     /**
      * Transforms the quadrant data into Chart.js format
      */
@@ -1967,43 +2504,72 @@ class ScoreDashboard extends Component {
             this.originalChartData = data;
 
         // Create labels with period and date range
-        const labels = data.map(item => {
-            const periodLabel = this.getPeriodLabel(item, this.state.quadrants.q1.filter_type);
+        const labels = data.map((item, index) => {
+            // For custom filters, ensure we use the period field from API
+            const filterType = this.state.quadrants.q1.filter_type || this.state.filterType || '';
+            const periodLabel = this.getPeriodLabel(item, filterType);
             let dateRange = '';
             
-            // Always try to create date range if we have dates
-            if (item.start_date && item.end_date) {
-                try {
-                    const startDate = this.formatDateForTooltip(item.start_date);
-                    const endDate = this.formatDateForTooltip(item.end_date);
-                    
-                    // Use formatted dates if they're valid
-                    if (startDate && endDate && 
-                        !startDate.includes('Invalid') && 
-                        !endDate.includes('Invalid') &&
-                        startDate !== '' && 
-                        endDate !== '') {
-                        dateRange = `${startDate} - ${endDate}`;
-                    } else {
-                        // If formatting fails, try to use the raw dates
+            // Check if this is a custom date range filter
+            const isCustomFilter = filterType && filterType.toUpperCase() === 'CUSTOM';
+            
+            if (isCustomFilter) {
+                // For custom filters, use Period 1, Period 2, Period 3
+                dateRange = `Period ${index + 1}`;
+            } else {
+                // Always try to create date range if we have dates from API response
+                // API returns dates in DD-MM-YYYY format
+                if (item.start_date && item.end_date) {
+                    try {
+                        // Parse DD-MM-YYYY format from API
+                        const startDate = this.formatDateForTooltip(item.start_date);
+                        const endDate = this.formatDateForTooltip(item.end_date);
+                        
+                        // Use formatted dates if they're valid
+                        if (startDate && endDate && 
+                            !startDate.includes('Invalid') && 
+                            !endDate.includes('Invalid') &&
+                            startDate !== '' && 
+                            endDate !== '') {
+                            dateRange = `${startDate} - ${endDate}`;
+                        } else {
+                            // If formatting fails, try to parse DD-MM-YYYY manually
+                            const startParts = item.start_date.split('-');
+                            const endParts = item.end_date.split('-');
+                            if (startParts.length === 3 && endParts.length === 3) {
+                                // Assume DD-MM-YYYY format
+                                const startFormatted = `${startParts[0]} ${this.getMonthName(parseInt(startParts[1]))} ${startParts[2]}`;
+                                const endFormatted = `${endParts[0]} ${this.getMonthName(parseInt(endParts[1]))} ${endParts[2]}`;
+                                dateRange = `${startFormatted} - ${endFormatted}`;
+                            } else {
+                                // Fallback to raw dates
+                                dateRange = `${item.start_date} - ${item.end_date}`;
+                            }
+                        }
+                    } catch (error) {
+                        console.warn('Error formatting date range:', error, item.start_date, item.end_date);
+                        // Fallback to raw dates if formatting fails
                         dateRange = `${item.start_date} - ${item.end_date}`;
                     }
-                } catch (error) {
-                    // Fallback to raw dates if formatting fails
-                    dateRange = `${item.start_date} - ${item.end_date}`;
-                }
-            } else if (item.start_date || item.end_date) {
-                // If only one date is available, use it
-                const singleDate = item.start_date || item.end_date;
-                try {
-                    const formattedDate = this.formatDateForTooltip(singleDate);
-                    if (formattedDate && !formattedDate.includes('Invalid') && formattedDate !== '') {
-                        dateRange = formattedDate;
-                    } else {
+                } else if (item.start_date || item.end_date) {
+                    // If only one date is available, use it
+                    const singleDate = item.start_date || item.end_date;
+                    try {
+                        const formattedDate = this.formatDateForTooltip(singleDate);
+                        if (formattedDate && !formattedDate.includes('Invalid') && formattedDate !== '') {
+                            dateRange = formattedDate;
+                        } else {
+                            // Try parsing DD-MM-YYYY manually
+                            const parts = singleDate.split('-');
+                            if (parts.length === 3) {
+                                dateRange = `${parts[0]} ${this.getMonthName(parseInt(parts[1]))} ${parts[2]}`;
+                            } else {
+                                dateRange = singleDate;
+                            }
+                        }
+                    } catch (error) {
                         dateRange = singleDate;
                     }
-                } catch (error) {
-                    dateRange = singleDate;
                 }
             }
             
@@ -2020,7 +2586,12 @@ class ScoreDashboard extends Component {
         const isLeadsScore = scoreNameToCheck && scoreNameToCheck.toLowerCase().includes('lead') && !scoreNameToCheck.toLowerCase().includes('conversion');
         const isConversionScore = scoreNameToCheck && scoreNameToCheck.toLowerCase().includes('conversion');
         const isLabourScore = scoreNameToCheck && scoreNameToCheck.toLowerCase() === 'labour';
-        
+        const isIncomeScore = scoreNameToCheck && scoreNameToCheck.toLowerCase() === 'income';
+        const isAOVScore = scoreNameToCheck && scoreNameToCheck.toLowerCase() === 'aov';
+        const isCustomerRetentionScore = scoreNameToCheck && scoreNameToCheck.toLowerCase() === 'customer retention';
+        const isTATScore = scoreNameToCheck && scoreNameToCheck.toLowerCase() === 'tat';
+        const isCashflowScore = scoreNameToCheck && scoreNameToCheck.toLowerCase() === 'cashflow';
+
         // Check for quality_lead field - for Leads and Conversion scores, show it even if values are 0
         const hasConversionValues = (isLeadsScore || isConversionScore) && data.some(item => {
             const convValue = item.quality_lead;
@@ -2045,7 +2616,7 @@ class ScoreDashboard extends Component {
         let backgroundColor = '#0d6efd'; // Default blue
         let borderColor = '#0d6efd';
         
-        if (isLabourScore) {
+        if (isLabourScore  || isAOVScore|| isIncomeScore || isCustomerRetentionScore || isTATScore) {
             // Create array of colors for each bar based on comparison with min/max
             backgroundColor = data.map(item => {
                 const actualVal = Number(item.actual_value || 0);
@@ -2057,21 +2628,17 @@ class ScoreDashboard extends Component {
                 
                 // Compare actual value with this item's min/max values
                 if (itemMinVal > 0 && itemMaxVal > 0) {
-                    // Below min → Red
-                    if (actualVal < itemMinVal - tolerance) {
-                        return '#dc3545'; // Red
+                    if (isTATScore) {
+                        // TAT: lower is better → below min = green, above max = red, between = yellow
+                        if (actualVal <= itemMinVal + tolerance) return '#198754';   // green
+                        if (actualVal > itemMaxVal + tolerance) return '#dc3545';     // red
+                        return '#ffc107';   // yellow (between)
                     }
-                    // At or above max → Green
-                    if (actualVal >= itemMaxVal - tolerance) {
-                        return '#198754'; // Green
-                    }
-                    // Between min and max → Yellow
-                    if (actualVal >= itemMinVal - tolerance && actualVal < itemMaxVal - tolerance) {
-                        return '#ffc107'; // Yellow
-                    }
+                    // Labour/AOV/Income/Customer Retention: higher is better
+                    if (actualVal < itemMinVal - tolerance) return '#dc3545';  // red
+                    if (actualVal >= itemMaxVal - tolerance) return '#198754';  // green
+                    return '#ffc107';   // yellow
                 }
-                
-                // Fallback: use default blue if we can't determine
                 return '#0d6efd';
             });
             
@@ -2079,48 +2646,67 @@ class ScoreDashboard extends Component {
             borderColor = backgroundColor;
         }
         
-        const datasets = [{
-            label: isLeadsScore ? 'Leads' : (isConversionScore ? 'Conversions' : (scoreNameToCheck || 'Total')),
-            data: values,
-            backgroundColor: backgroundColor,
-            borderColor: borderColor,
-            borderWidth: 1,
-            borderRadius: 4
-        }];
-        
-        // Add quality leads dataset if this is Leads or Conversion score and has conversion values
-        // hasConversionValues already checks for isLeadsScore or isConversionScore
-        if (hasConversionValues) {
-            const conversionValues = data.map(item => {
-                const convValue = item.quality_lead;
-                // Handle both string and number conversion values
-                if (typeof convValue === 'string') {
-                    return Number(convValue) || 0;
+        let datasets;
+
+        if (isCashflowScore) {
+            const operatingValues = data.map(item => Number(item.operating_cash || 0));
+            const financingValues = data.map(item => Number(item.financing_cash || 0));
+            const investmentValues = data.map(item => Number(item.investment_cash || 0));
+
+            datasets = [
+                {
+                    label: 'Operating',
+                    data: operatingValues,
+                    backgroundColor: '#0d6efd',
+                    borderColor: '#0d6efd',
+                    borderWidth: 1,
+                    borderRadius: 4
+                },
+                {
+                    label: 'Financing',
+                    data: financingValues,
+                    backgroundColor: '#198754',
+                    borderColor: '#198754',
+                    borderWidth: 1,
+                    borderRadius: 4
+                },
+                {
+                    label: 'Investment',
+                    data: investmentValues,
+                    backgroundColor: '#ffc107',
+                    borderColor: '#ffc107',
+                    borderWidth: 1,
+                    borderRadius: 4
                 }
-                return Number(convValue || 0);
-            });
-            
-            console.log('Adding quality leads dataset:', {
-                conversionValues: conversionValues,
-                length: conversionValues.length,
-                isLeadsScore: isLeadsScore,
-                isConversionScore: isConversionScore
-            });
-            
-            datasets.push({
-                label: 'Quality Leads',
-                data: conversionValues,
-                backgroundColor: '#198754',
-                borderColor: '#198754',
+            ];
+        } else {
+            datasets = [{
+                label: isLeadsScore ? 'Leads' : (isConversionScore ? 'Conversions' : (scoreNameToCheck || 'Total')),
+                data: values,
+                backgroundColor: backgroundColor,
+                borderColor: borderColor,
                 borderWidth: 1,
                 borderRadius: 4
-            });
-        } else {
-            console.log('Not adding quality leads dataset:', {
-                isLeadsScore: isLeadsScore,
-                isConversionScore: isConversionScore,
-                hasConversionValues: hasConversionValues
-            });
+            }];
+
+            if (hasConversionValues) {
+                const conversionValues = data.map(item => {
+                    const convValue = item.quality_lead;
+                    if (typeof convValue === 'string') {
+                        return Number(convValue) || 0;
+                    }
+                    return Number(convValue || 0);
+                });
+
+                datasets.push({
+                    label: 'Quality Leads',
+                    data: conversionValues,
+                    backgroundColor: '#198754',
+                    borderColor: '#198754',
+                    borderWidth: 1,
+                    borderRadius: 4
+                });
+            }
         }
         
             return {
@@ -2199,6 +2785,16 @@ class ScoreDashboard extends Component {
             console.warn('Error formatting date for tooltip:', dateString, error);
             return String(dateString); // Return original string on error
         }
+    }
+
+    getMonthName(monthNumber) {
+        // monthNumber is 1-based (1 = January, 12 = December)
+        const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", 
+                           "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+        if (monthNumber >= 1 && monthNumber <= 12) {
+            return monthNames[monthNumber - 1];
+        }
+        return String(monthNumber).padStart(2, '0');
     }
 
     /**
@@ -2387,6 +2983,13 @@ class ScoreDashboard extends Component {
         const capturedMinValueLine = minValueLine;
         const capturedIsLabourScore = isLabourScore;
         const capturedisRcrScore = isRcrScore;
+        const capturedFilterType = this.state.quadrants.q1.filter_type || this.state.filterType || '';
+        const capturedScoreType = this.state.scoreType || 'value';
+        const formatLineLabel = (v) => {
+            if (capturedScoreType === 'percentage') return (Number(v) || 0).toFixed(2) + '%';
+            if (capturedScoreType === 'currency_inr') return '₹' + (Number(v) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            return (Number(v) || 0).toFixed(2);
+        };
         
         const dateRangePlugin = {
             id: 'dateRangePlugin',
@@ -2444,7 +3047,7 @@ class ScoreDashboard extends Component {
                             ctx.font = '11px Arial';
                             ctx.textAlign = 'right';
                             ctx.textBaseline = 'bottom'; // Position text above the line
-                            ctx.fillText(`${capturedMaxValueLine.toFixed(2)}`, chartArea.right - 5, clampedY - 3);
+                            ctx.fillText(formatLineLabel(capturedMaxValueLine), chartArea.right - 5, clampedY - 3);
                         } else {
                             console.warn('Max line not drawn - value outside y-axis range:', {
                                 maxValueLine: capturedMaxValueLine,
@@ -2477,7 +3080,7 @@ class ScoreDashboard extends Component {
                             ctx.font = '11px Arial';
                             ctx.textAlign = 'right';
                             ctx.textBaseline = 'bottom'; // Position text above the line
-                            ctx.fillText(`${capturedMinValueLine.toFixed(2)}`, chartArea.right - 5, clampedY - 3);
+                            ctx.fillText(formatLineLabel(capturedMinValueLine), chartArea.right - 5, clampedY - 3);
                         }
                     }
                     
@@ -2485,23 +3088,37 @@ class ScoreDashboard extends Component {
                     ctx.setLineDash([]);
                 }
                 
-                // Draw date ranges below x-axis labels
+                // Draw labels below x-axis
                 ctx.font = '10px Arial';
                 ctx.fillStyle = '#6c757d';
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'top';
                 
+                const filterType = capturedFilterType.toUpperCase();
+                const isWtdMtdYtd = filterType === 'WTD' || filterType === 'MTD' || filterType === 'YTD';
+                
                 labels.forEach((label, index) => {
-                    if (label && typeof label === 'object' && label.dateRange && label.dateRange.trim() !== '') {
+                    if (label && typeof label === 'object') {
                         try {
                             // Get the pixel position for this tick
                             const x = xAxis.getPixelForTick(index);
                             if (!isNaN(x)) {
                                 const y = chartArea.bottom + 25; // Position below the axis
-                                ctx.fillText(label.dateRange, x, y);
+                                
+                                if (isWtdMtdYtd) {
+                                    // For WTD/MTD/YTD: draw period below (since dateRange is on x-axis)
+                                    if (label.period && label.period.trim() !== '') {
+                                        ctx.fillText(label.period, x, y);
+                                    }
+                                } else {
+                                    // For Custom and others: draw dateRange below (since period is on x-axis)
+                                    if (label.dateRange && label.dateRange.trim() !== '') {
+                                        ctx.fillText(label.dateRange, x, y);
+                                    }
+                                }
                             }
                         } catch (error) {
-                            console.warn('Error drawing date range for bar', index, error);
+                            console.warn('Error drawing label for bar', index, error);
                         }
                     }
                 });
@@ -2510,8 +3127,9 @@ class ScoreDashboard extends Component {
             }
         };
 
+        const chartTypeQ1 = this.state.chartTypeQ1 || 'bar';
         const config = {
-            type: 'bar',
+            type: chartTypeQ1,
             data: chartData,
             plugins: [dateRangePlugin],
             options: {
@@ -2519,7 +3137,7 @@ class ScoreDashboard extends Component {
                 responsive: true,
                 layout: {
                     padding: {
-                        bottom: 40 // Add padding at bottom for date ranges
+                        bottom: capturedFilterType && capturedFilterType.toUpperCase() === 'WTD' ? 60 : 40 // Extra padding for WTD to accommodate date ranges above x-axis
                     }
                 },
                 plugins: {
@@ -2555,12 +3173,10 @@ class ScoreDashboard extends Component {
                                 return '';
                             },
                             label: (context) => {
-                                const value = context.parsed.y;
+                                const value = context.parsed.y || 0;
                                 const datasetLabel = context.dataset.label || 'Value';
-                                // Show exact value with 2 decimal places
-                                const formattedValue = value.toFixed(2);
-                                const suffix = this.state.scoreType === 'percentage' ? '%' : '';
-                                return `${datasetLabel}: ${formattedValue}${suffix}`;
+                                const formattedValue = this.formatScoreValue(value);
+                                return `${datasetLabel}: ${formattedValue}`;
                             },
                             afterLabel: (context) => {
                                 // Show period/title after the value
@@ -2638,7 +3254,13 @@ class ScoreDashboard extends Component {
                             callback: (value, index) => {
                                 const label = chartData.labels[index];
                                 if (label && typeof label === 'object') {
-                                    return label.period;
+                                    // For WTD, MTD, YTD: show dateRange on x-axis, period below
+                                    // For Custom and others: show period on x-axis, dateRange below
+                                    const filterType = capturedFilterType.toUpperCase();
+                                    if (filterType === 'WTD' || filterType === 'MTD' || filterType === 'YTD') {
+                                        return label.dateRange || label.period || '';
+                                    }
+                                    return label.period || '';
                                 }
                                 return label || '';
                             }
@@ -2658,11 +3280,15 @@ class ScoreDashboard extends Component {
                             font: {
                                 size: 11
                             },
-                            callback: function(value) {
-                                if (value >= 1000) {
-                                    return (value / 1000).toFixed(2) + 'k';
+                            callback: (value) => {
+                                const scoreType = this.state.scoreType || 'value';
+                                if (value >= 1000 && scoreType === 'currency_inr') {
+                                    return '₹' + (value / 1000).toFixed(2) + 'k';
                                 }
-                                return value.toFixed(2);
+                                if (value >= 1000) {
+                                    return (value / 1000).toFixed(2) + 'k' + (scoreType === 'percentage' ? '%' : '');
+                                }
+                                return this.formatScoreValue(value);
                             }
                         },
                         suggestedMax: suggestedMax

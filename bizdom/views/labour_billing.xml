@@ -24,6 +24,7 @@
         <field name="name">Labour Billing</field>
         <field name="res_model">labour.billing</field>
         <field name="view_mode">list,form</field>
+        <field name="domain">[('invoice_id.payment_state', '=', 'paid')]</field>
     </record>
 
 

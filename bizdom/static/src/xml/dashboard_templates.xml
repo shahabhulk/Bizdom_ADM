@@ -82,11 +82,11 @@
                                 <t t-if="pillar.scores and pillar.scores.length">
                                     <t t-foreach="pillar.scores" t-as="score" t-key="score.id">
                                         <div class="kpi-circle" t-on-click="(ev) => this.openScoreDashboard(ev, score)">
-                                            <div class="kpi-icon-wrapper" t-att-style="'background-color: ' + this.getScoreColor(score.score_name) + ';'">
+                                            <div class="kpi-icon-wrapper" t-att-style="'background-color: ' + this.getScoreOverviewColor(score) + ';'">
                                                 <i t-att-class="'fa ' + this.getScoreIcon(score.score_name)"></i>
                                             </div>
                                             <div class="kpi-label" t-esc="score.score_name"/>
-                                            <div class="kpi-value" t-esc="(score.context_total_score || 0).toFixed(1) + (score.type === 'percentage' ? '%' : '')"/>
+                                            <div class="kpi-value" t-esc="score.type === 'percentage' ? (score.context_total_score || 0).toFixed(1) + '%' : score.type === 'currency_inr' ? '₹' + (score.context_total_score || 0).toLocaleString('en-IN', { maximumFractionDigits: 1, minimumFractionDigits: 1 }) : (score.context_total_score || 0).toFixed(1)"/>
                                         </div>
                                     </t>
                                 </t>
