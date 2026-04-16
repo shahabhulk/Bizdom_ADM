@@ -207,11 +207,11 @@ class BizdomQuadrant(http.Controller):
             )
 
         # Calculate min/max values (for Labour scores with WTD/MTD/YTD)
-        min_value, max_value = Q1Helpers.calculate_min_max(
-            score_record, filter_type,
-            date_ranges[0][0] if date_ranges else date.today(),
-            date_ranges[0][1] if date_ranges else date.today()
-        )
+        # min_value, max_value = Q1Helpers.calculate_min_max(
+        #     score_record, filter_type,
+        #     date_ranges[0][0] if date_ranges else date.today(),
+        #     date_ranges[0][1] if date_ranges else date.today()
+        # )
 
         # Build overview list using computed method
         overview_list = []
@@ -242,10 +242,18 @@ class BizdomQuadrant(http.Controller):
                 period_data["investment_cash"] = breakdown['investment_cash']
 
             # Add min/max for Labour scores with WTD/MTD/YTD
-            if min_value is not None and max_value is not None:
-                if score_record.score_name == "Labour":
-                    period_data["min_value"] = min_value
-                    period_data["max_value"] = max_value
+            # if min_value is not None and max_value is not None:
+            if score_record.score_name == "Labour":
+                if score_record.type == "percentage":
+                    period_data["min_value"] = score_record.min_score_percentage or 0
+                    period_data["max_value"] = score_record.max_score_percentage or 0
+                else:
+                    period_data["min_value"] = score_record.min_score_number or 0
+                    period_data["max_value"] = score_record.max_score_number or 0
+
+                    # period_data["min_value"] = min_value
+                    # period_data["max_value"] = max_value
+
 
             if score_record.score_name == "TAT":
                 if score_record.type == "percentage":

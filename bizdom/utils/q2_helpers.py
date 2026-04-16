@@ -178,24 +178,30 @@ class Q2Helpers:
             
             # Add min/max for Labour scores with WTD/MTD/YTD using category_lvl1 values
             if score_record.score_name == "Labour" and filter_type in ["WTD", "MTD", "YTD", "CUSTOM"]:
-                print(f"Q2 Processing Labour department: {dept.name}, category_lvl1: {single_rec.name} (ID: {single_rec.id})")
-                print(f"Q2 Category record fields - min_category_value_lvl1: {single_rec.min_category_value_lvl1}, max_category_value_lvl1: {single_rec.max_category_value_lvl1}")
-                print(f"Q2 Category record fields - min_category_percentage_lvl1: {single_rec.min_category_percentage_lvl1}, max_category_percentage_lvl1: {single_rec.max_category_percentage_lvl1}")
-                print(f"Q2 Score type: {score_record.type}")
-                min_value, max_value = Q2Helpers.calculate_department_min_max(
-                    single_rec, score_record, filter_type, start_date, end_date
-                )
-                dept_data['min_value'] = min_value
-                dept_data['max_value'] = max_value
-                dept_data['category_name'] = single_rec.name  # Include category name for debugging
-                print(f"Q2 dept_data for {dept.name} (category: {single_rec.name}): actual_value={dept_actual_value}, min_value={min_value}, max_value={max_value}")
-                
-                # If min/max are 0, warn that they might not be set in category_lvl1
-                if min_value == 0 and max_value == 0:
-                    print(f"WARNING: Q2 min/max are both 0 for {dept.name} (category: {single_rec.name}). Check if min/max values are set in category_lvl1 record!")
+                if score_record.type == 'percentage':
+                    dept_data['min_value'] = single_rec.min_category_percentage_lvl1 or 0
+                    dept_data['max_value'] = single_rec.max_category_percentage_lvl1 or 0
+                else:
+                    dept_data['min_value'] = single_rec.min_category_value_lvl1 or 0
+                    dept_data['max_value'] = single_rec.max_category_value_lvl1 or 0
             else:
                 dept_data['min_value'] = ''
                 dept_data['max_value'] = ''
+
+                # min_value, max_value = Q2Helpers.calculate_department_min_max(
+                #     single_rec, score_record, filter_type, start_date, end_date
+                # )
+            #     dept_data['min_value'] = min_value
+            #     dept_data['max_value'] = max_value
+            #     dept_data['category_name'] = single_rec.name  # Include category name for debugging
+            #     print(f"Q2 dept_data for {dept.name} (category: {single_rec.name}): actual_value={dept_actual_value}, min_value={min_value}, max_value={max_value}")
+            #
+            #     # If min/max are 0, warn that they might not be set in category_lvl1
+            #     if min_value == 0 and max_value == 0:
+            #         print(f"WARNING: Q2 min/max are both 0 for {dept.name} (category: {single_rec.name}). Check if min/max values are set in category_lvl1 record!")
+            # else:
+            #     dept_data['min_value'] = ''
+            #     dept_data['max_value'] = ''
             
             # Special handling for Leads/Conversion - add quality_lead
             if score_record.score_name in ["Leads", "Conversion"]:
