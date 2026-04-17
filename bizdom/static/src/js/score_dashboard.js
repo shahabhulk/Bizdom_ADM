@@ -952,7 +952,7 @@ class ScoreDashboard extends Component {
             const isConversionScore = scoreNameLower.includes('conversion');
             const isLabourScore = scoreNameLower === 'labour';
             
-            // Determine colors for Labour scores based on min/max values
+            // Determine colors based on min/max values
             let backgroundColor = '#0d6efd'; // Default blue
             let borderColor = '#0d6efd';
             
@@ -971,7 +971,7 @@ class ScoreDashboard extends Component {
             });
             
             // Check if we have valid min/max arrays with at least one non-null value
-            const hasValidMinMax = isLabourScore && 
+            const hasValidMinMax =
                 this.state.departmentChartData.minValues && 
                 this.state.departmentChartData.maxValues &&
                 Array.isArray(this.state.departmentChartData.minValues) &&
@@ -1064,7 +1064,8 @@ class ScoreDashboard extends Component {
             }];
             
             // Add quality leads dataset if available (for Leads and Conversion scores)
-            if (this.state.departmentChartData.conversionValues && Array.isArray(this.state.departmentChartData.conversionValues)) {
+            if (Array.isArray(this.state.departmentChartData.conversionValues) &&
+                this.state.departmentChartData.conversionValues.length > 0) {
                 datasets.push({
                     label: 'Quality Leads',
                     data: this.state.departmentChartData.conversionValues,
@@ -1108,15 +1109,23 @@ class ScoreDashboard extends Component {
                     },
                     tooltip: {
                         callbacks: {
+                            title: () => {
+                                const tooltipScoreName = this.state.scoreName || this.state.quadrants?.q1?.score_name;
+                                return tooltipScoreName || 'Score';
+                            },
                             label: (context) => {
                                 // For both bar and line charts, x-axis has categories, y-axis has values
                                 const value = context.parsed.y || 0;
-                                const datasetLabel = context.dataset.label || 'Value';
+                                const datasetLabel = context.datasetIndex === 0
+                                    ? 'Actual'
+                                    : (context.dataset.label || 'Value');
                                 const formattedValue = this.formatScoreValue(value);
                                 const tooltipLines = [`${datasetLabel}: ${formattedValue}`];
                                 
-                                // Add min/max values for Labour scores on separate lines
-                                if (isLabourScore && this.state.departmentChartData.minValues && this.state.departmentChartData.maxValues) {
+                                // Add min/max values when available (first dataset only)
+                                if (context.datasetIndex === 0 &&
+                                    this.state.departmentChartData.minValues &&
+                                    this.state.departmentChartData.maxValues) {
                                     const dataIndex = context.dataIndex;
                                     const minValue = this.state.departmentChartData.minValues[dataIndex];
                                     const maxValue = this.state.departmentChartData.maxValues[dataIndex];
@@ -1339,23 +1348,27 @@ class ScoreDashboard extends Component {
             sampleDepartment: departments.length > 0 ? departments[0] : null
         });
         
-        // Extract min/max values for Labour scores
+        // Extract min/max values for all scores when available
         let minValues = null;
         let maxValues = null;
         
-        if (isLabourScore) {
-            minValues = departments.map((dep, idx) => {
-                const minVal = dep.min_value;
-                const result = (minVal === '' || minVal === null || minVal === undefined) ? null : Number(minVal);
+        minValues = departments.map((dep, idx) => {
+            const minVal = dep.min_value;
+            const result = (minVal === '' || minVal === null || minVal === undefined) ? null : Number(minVal);
+            if (isLabourScore) {
                 console.log(`Department ${idx} (${dep.department_name}${dep.category_name ? ', category: ' + dep.category_name : ''}): min_value = ${minVal} -> ${result}, actual_value = ${dep.actual_value}`);
-                return result;
-            });
-            maxValues = departments.map((dep, idx) => {
-                const maxVal = dep.max_value;
-                const result = (maxVal === '' || maxVal === null || maxVal === undefined) ? null : Number(maxVal);
+            }
+            return Number.isFinite(result) ? result : null;
+        });
+        maxValues = departments.map((dep, idx) => {
+            const maxVal = dep.max_value;
+            const result = (maxVal === '' || maxVal === null || maxVal === undefined) ? null : Number(maxVal);
+            if (isLabourScore) {
                 console.log(`Department ${idx} (${dep.department_name}${dep.category_name ? ', category: ' + dep.category_name : ''}): max_value = ${maxVal} -> ${result}, actual_value = ${dep.actual_value}`);
-                return result;
-            });
+            }
+            return Number.isFinite(result) ? result : null;
+        });
+        if (isLabourScore) {
             console.log('Labour minValues:', minValues);
             console.log('Labour maxValues:', maxValues);
             console.log('Full department data:', departments);
@@ -1664,7 +1677,9 @@ class ScoreDashboard extends Component {
                     source_id: source.source_id,
                     source_name: source.source_name || 'N/A',
                     lead_value: Number(source.lead_value || 0),
-                    quality_lead_value: Number(source.quality_lead_value || 0)
+                    quality_lead_value: Number(source.quality_lead_value || 0),
+                    min_value: source.min_value,
+                    max_value: source.max_value
                 });
             });
         }
@@ -1673,10 +1688,33 @@ class ScoreDashboard extends Component {
         sources.sort((a, b) => b.lead_value - a.lead_value);
 
         // Build chart data with both Leads and Quality Leads datasets (similar to Quadrant 1)
+        const sharedMinRaw = selectedPeriodData.min_value;
+        const sharedMaxRaw = selectedPeriodData.max_value;
+        const sharedMin = (sharedMinRaw === '' || sharedMinRaw === null || sharedMinRaw === undefined)
+            ? null
+            : Number(sharedMinRaw);
+        const sharedMax = (sharedMaxRaw === '' || sharedMaxRaw === null || sharedMaxRaw === undefined)
+            ? null
+            : Number(sharedMaxRaw);
+
         this.state.employeeChartData = {
             labels: sources.map(s => s.source_name),
             values: sources.map(s => s.lead_value),
-            conversionValues: sources.map(s => s.quality_lead_value)
+            conversionValues: sources.map(s => s.quality_lead_value),
+            minValues: sources.map(s => {
+                const minVal = s.min_value;
+                if (minVal === '' || minVal === null || minVal === undefined) return null;
+                const parsed = Number(minVal);
+                return Number.isFinite(parsed) ? parsed : null;
+            }),
+            maxValues: sources.map(s => {
+                const maxVal = s.max_value;
+                if (maxVal === '' || maxVal === null || maxVal === undefined) return null;
+                const parsed = Number(maxVal);
+                return Number.isFinite(parsed) ? parsed : null;
+            }),
+            sharedMin: Number.isFinite(sharedMin) ? sharedMin : null,
+            sharedMax: Number.isFinite(sharedMax) ? sharedMax : null
         };
     }
 
@@ -1756,7 +1794,9 @@ class ScoreDashboard extends Component {
                     saleperson_id: salesperson.saleperson_id,
                     saleperson_name: salesperson.saleperson_name || 'N/A',
                     quality_lead_value: Number(salesperson.quality_lead_value || 0),
-                    converted_value: Number(salesperson.converted_value || 0)
+                    converted_value: Number(salesperson.converted_value || 0),
+                    min_value: salesperson.min_value,
+                    max_value: salesperson.max_value
                 });
             });
         }
@@ -1765,10 +1805,33 @@ class ScoreDashboard extends Component {
         salespersons.sort((a, b) => b.quality_lead_value - a.quality_lead_value);
 
         // Build chart data with both Quality Leads (total) and Converted datasets
+        const sharedMinRaw = selectedPeriodData.min_value;
+        const sharedMaxRaw = selectedPeriodData.max_value;
+        const sharedMin = (sharedMinRaw === '' || sharedMinRaw === null || sharedMinRaw === undefined)
+            ? null
+            : Number(sharedMinRaw);
+        const sharedMax = (sharedMaxRaw === '' || sharedMaxRaw === null || sharedMaxRaw === undefined)
+            ? null
+            : Number(sharedMaxRaw);
+
         this.state.employeeChartData = {
             labels: salespersons.map(s => s.saleperson_name),
             values: salespersons.map(s => s.quality_lead_value),
-            conversionValues: salespersons.map(s => s.converted_value)
+            conversionValues: salespersons.map(s => s.converted_value),
+            minValues: salespersons.map(s => {
+                const minVal = s.min_value;
+                if (minVal === '' || minVal === null || minVal === undefined) return null;
+                const parsed = Number(minVal);
+                return Number.isFinite(parsed) ? parsed : null;
+            }),
+            maxValues: salespersons.map(s => {
+                const maxVal = s.max_value;
+                if (maxVal === '' || maxVal === null || maxVal === undefined) return null;
+                const parsed = Number(maxVal);
+                return Number.isFinite(parsed) ? parsed : null;
+            }),
+            sharedMin: Number.isFinite(sharedMin) ? sharedMin : null,
+            sharedMax: Number.isFinite(sharedMax) ? sharedMax : null
         };
     }
 
@@ -2038,7 +2101,9 @@ class ScoreDashboard extends Component {
                     questions.push({
                         question_id: q.question_id,
                         question: q.question || 'N/A',
-                        actual_value: Number(q.actual_value || 0)
+                        actual_value: Number(q.actual_value || 0),
+                        min_value: q.min_value,
+                        max_value: q.max_value
                     });
                 }
             });
@@ -2047,9 +2112,32 @@ class ScoreDashboard extends Component {
         // Sort by actual_value descending
         questions.sort((a, b) => b.actual_value - a.actual_value);
 
+        const sharedMinRaw = selectedPeriodData.min_value;
+        const sharedMaxRaw = selectedPeriodData.max_value;
+        const sharedMin = (sharedMinRaw === '' || sharedMinRaw === null || sharedMinRaw === undefined)
+            ? null
+            : Number(sharedMinRaw);
+        const sharedMax = (sharedMaxRaw === '' || sharedMaxRaw === null || sharedMaxRaw === undefined)
+            ? null
+            : Number(sharedMaxRaw);
+
         this.state.employeeChartData = {
             labels: questions.map(q => q.question),
-            values: questions.map(q => q.actual_value)
+            values: questions.map(q => q.actual_value),
+            minValues: questions.map(q => {
+                const minVal = q.min_value;
+                if (minVal === '' || minVal === null || minVal === undefined) return null;
+                const parsed = Number(minVal);
+                return Number.isFinite(parsed) ? parsed : null;
+            }),
+            maxValues: questions.map(q => {
+                const maxVal = q.max_value;
+                if (maxVal === '' || maxVal === null || maxVal === undefined) return null;
+                const parsed = Number(maxVal);
+                return Number.isFinite(parsed) ? parsed : null;
+            }),
+            sharedMin: Number.isFinite(sharedMin) ? sharedMin : null,
+            sharedMax: Number.isFinite(sharedMax) ? sharedMax : null
         };
     }
 
@@ -2123,7 +2211,9 @@ class ScoreDashboard extends Component {
                 items.push({
                     id: cat.category_id,
                     name: cat.category_name || 'N/A',
-                    actual_value: Number(cat.actual_value || 0)
+                    actual_value: Number(cat.actual_value || 0),
+                    min_value: cat.min_value,
+                    max_value: cat.max_value
                 });
             });
         } else if (selectedPeriodData.products && Array.isArray(selectedPeriodData.products)) {
@@ -2131,7 +2221,9 @@ class ScoreDashboard extends Component {
                 items.push({
                     id: product.product_id || product.category_id,
                     name: product.product_name || product.category_name || 'N/A',
-                    actual_value: Number(product.actual_value || 0)
+                    actual_value: Number(product.actual_value || 0),
+                    min_value: product.min_value,
+                    max_value: product.max_value
                 });
             });
         } else if (selectedPeriodData.employees && Array.isArray(selectedPeriodData.employees)) {
@@ -2139,7 +2231,9 @@ class ScoreDashboard extends Component {
                 items.push({
                     id: product.product_id || product.category_id || product.employee_id,
                     name: product.product_name || product.category_name || product.employee_name || 'N/A',
-                    actual_value: Number(product.actual_value || 0)
+                    actual_value: Number(product.actual_value || 0),
+                    min_value: product.min_value,
+                    max_value: product.max_value
                 });
             });
         }
@@ -2147,9 +2241,32 @@ class ScoreDashboard extends Component {
         // Sort by actual_value descending
         items.sort((a, b) => b.actual_value - a.actual_value);
 
+        const sharedMinRaw = selectedPeriodData.min_value;
+        const sharedMaxRaw = selectedPeriodData.max_value;
+        const sharedMin = (sharedMinRaw === '' || sharedMinRaw === null || sharedMinRaw === undefined)
+            ? null
+            : Number(sharedMinRaw);
+        const sharedMax = (sharedMaxRaw === '' || sharedMaxRaw === null || sharedMaxRaw === undefined)
+            ? null
+            : Number(sharedMaxRaw);
+
         this.state.employeeChartData = {
             labels: items.map(p => p.name),
-            values: items.map(p => p.actual_value)
+            values: items.map(p => p.actual_value),
+            minValues: items.map(p => {
+                const minVal = p.min_value;
+                if (minVal === '' || minVal === null || minVal === undefined) return null;
+                const parsed = Number(minVal);
+                return Number.isFinite(parsed) ? parsed : null;
+            }),
+            maxValues: items.map(p => {
+                const maxVal = p.max_value;
+                if (maxVal === '' || maxVal === null || maxVal === undefined) return null;
+                const parsed = Number(maxVal);
+                return Number.isFinite(parsed) ? parsed : null;
+            }),
+            sharedMin: Number.isFinite(sharedMin) ? sharedMin : null,
+            sharedMax: Number.isFinite(sharedMax) ? sharedMax : null
         };
     }
 
@@ -2189,32 +2306,38 @@ class ScoreDashboard extends Component {
             const datasets = [];
             const sharedMin = this.state.employeeChartData.sharedMin;
             const sharedMax = this.state.employeeChartData.sharedMax;
-            const labourMinValues = this.state.employeeChartData.minValues;
-            const labourMaxValues = this.state.employeeChartData.maxValues;
-            const hasPerEmployeeThresholds = Array.isArray(labourMinValues) &&
-                Array.isArray(labourMaxValues) &&
-                labourMinValues.length === this.state.employeeChartData.values.length &&
-                labourMaxValues.length === this.state.employeeChartData.values.length &&
-                labourMinValues.some(v => Number.isFinite(v) && v !== 0) &&
-                labourMaxValues.some(v => Number.isFinite(v) && v !== 0);
-            let labourColors = '#0d6efd';
-            let labourBorderColors = '#0d6efd';
-            if (isLabourScore && hasPerEmployeeThresholds) {
+            const thresholdMinValues = this.state.employeeChartData.minValues;
+            const thresholdMaxValues = this.state.employeeChartData.maxValues;
+            const hasPerItemThresholds = Array.isArray(thresholdMinValues) &&
+                Array.isArray(thresholdMaxValues) &&
+                thresholdMinValues.length === this.state.employeeChartData.values.length &&
+                thresholdMaxValues.length === this.state.employeeChartData.values.length;
+            const hasSharedThresholds = Number.isFinite(sharedMin) && Number.isFinite(sharedMax) && !(sharedMin === 0 && sharedMax === 0);
+            const hasThresholds = hasPerItemThresholds || hasSharedThresholds;
+            let primaryColors = '#0d6efd';
+            let primaryBorderColors = '#0d6efd';
+            if (hasThresholds) {
                 const tolerance = 0.01;
-                labourColors = this.state.employeeChartData.values.map((actualValue, index) => {
+                primaryColors = this.state.employeeChartData.values.map((actualValue, index) => {
                     const numericActual = Number(actualValue || 0);
-                    const perItemMin = hasPerEmployeeThresholds ? labourMinValues[index] : null;
-                    const perItemMax = hasPerEmployeeThresholds ? labourMaxValues[index] : null;
-                    const minThreshold = Number.isFinite(perItemMin) ? perItemMin : null;
-                    const maxThreshold = Number.isFinite(perItemMax) ? perItemMax : null;
+                    const perItemMin = hasPerItemThresholds ? thresholdMinValues[index] : null;
+                    const perItemMax = hasPerItemThresholds ? thresholdMaxValues[index] : null;
+                    // If per-item arrays exist, use only per-item thresholds for that bar.
+                    // Fall back to shared thresholds only when per-item thresholds are not present at all.
+                    const minThreshold = hasPerItemThresholds
+                        ? (Number.isFinite(perItemMin) ? perItemMin : null)
+                        : (hasSharedThresholds ? sharedMin : null);
+                    const maxThreshold = hasPerItemThresholds
+                        ? (Number.isFinite(perItemMax) ? perItemMax : null)
+                        : (hasSharedThresholds ? sharedMax : null);
                     if (!Number.isFinite(minThreshold) || !Number.isFinite(maxThreshold) || (minThreshold === 0 && maxThreshold === 0)) {
                         return '#0d6efd';
                     }
-                    if (numericActual < minThreshold - tolerance) return '#dc3545'; // red
-                    if (numericActual >= maxThreshold - tolerance) return '#198754'; // green
-                    return '#ffc107'; // yellow
+                    if (numericActual < minThreshold - tolerance) return '#dc3545';
+                    if (numericActual >= maxThreshold - tolerance) return '#198754';
+                    return '#ffc107';
                 });
-                labourBorderColors = labourColors;
+                primaryBorderColors = primaryColors;
             }
             
             if (isLeadsScore) {
@@ -2222,14 +2345,15 @@ class ScoreDashboard extends Component {
                 datasets.push({
                     label: 'Leads',
                     data: this.state.employeeChartData.values,
-                    backgroundColor: '#0d6efd',
-                    borderColor: '#0d6efd',
+                    backgroundColor: primaryColors,
+                    borderColor: primaryBorderColors,
                     borderWidth: 1,
                     borderRadius: 4
                 });
                 
                 // Add Quality Leads dataset if available
-                if (this.state.employeeChartData.conversionValues && Array.isArray(this.state.employeeChartData.conversionValues)) {
+                if (Array.isArray(this.state.employeeChartData.conversionValues) &&
+                    this.state.employeeChartData.conversionValues.length > 0) {
                     datasets.push({
                         label: 'Quality Leads',
                         data: this.state.employeeChartData.conversionValues,
@@ -2244,14 +2368,15 @@ class ScoreDashboard extends Component {
                 datasets.push({
                     label: 'Quality Leads',
                     data: this.state.employeeChartData.values,
-                    backgroundColor: '#0d6efd',
-                    borderColor: '#0d6efd',
+                    backgroundColor: primaryColors,
+                    borderColor: primaryBorderColors,
                     borderWidth: 1,
                     borderRadius: 4
                 });
                 
                 // Add Converted dataset if available
-                if (this.state.employeeChartData.conversionValues && Array.isArray(this.state.employeeChartData.conversionValues)) {
+                if (Array.isArray(this.state.employeeChartData.conversionValues) &&
+                    this.state.employeeChartData.conversionValues.length > 0) {
                     datasets.push({
                         label: 'Converted',
                         data: this.state.employeeChartData.conversionValues,
@@ -2266,8 +2391,8 @@ class ScoreDashboard extends Component {
                 datasets.push({
                     label: 'Average Rating',
                     data: this.state.employeeChartData.values,
-                    backgroundColor: '#0d6efd',
-                    borderColor: '#0d6efd',
+                    backgroundColor: primaryColors,
+                    borderColor: primaryBorderColors,
                     borderWidth: 1,
                     borderRadius: 4
                 });
@@ -2276,8 +2401,8 @@ class ScoreDashboard extends Component {
                 datasets.push({
                     label: 'Income',
                     data: this.state.employeeChartData.values,
-                    backgroundColor: '#0d6efd',
-                    borderColor: '#0d6efd',
+                    backgroundColor: primaryColors,
+                    borderColor: primaryBorderColors,
                     borderWidth: 1,
                     borderRadius: 4
                 });
@@ -2287,8 +2412,8 @@ class ScoreDashboard extends Component {
                 datasets.push({
                     label: 'Expense',
                     data: this.state.employeeChartData.values,
-                    backgroundColor: '#0d6efd',
-                    borderColor: '#0d6efd',
+                    backgroundColor: primaryColors,
+                    borderColor: primaryBorderColors,
                     borderWidth: 1,
                     borderRadius: 4
                 });
@@ -2298,8 +2423,8 @@ class ScoreDashboard extends Component {
                 datasets.push({
                     label: 'Labour',
                     data: this.state.employeeChartData.values,
-                    backgroundColor: labourColors,
-                    borderColor: labourBorderColors,
+                    backgroundColor: primaryColors,
+                    borderColor: primaryBorderColors,
                     borderWidth: 1,
                     borderRadius: 4
                 });
@@ -2380,19 +2505,25 @@ class ScoreDashboard extends Component {
                         mode: 'nearest',
                         animation: { duration: 200 },
                         callbacks: {
+                            title: () => {
+                                const tooltipScoreName = this.state.scoreName || this.state.quadrants?.q1?.score_name;
+                                return tooltipScoreName || 'Score';
+                            },
                             label: (context) => {
                                 const value = chartTypeQ3 === 'bar' ? (context.parsed?.x ?? 0) : (context.parsed?.y ?? 0);
-                                const datasetLabel = context.dataset.label || 'Value';
+                                const datasetLabel = context.datasetIndex === 0
+                                    ? 'Actual'
+                                    : (context.dataset.label || 'Value');
                                 const decimals = (isCustomerRetentionScore || isLabourScore || isIncomeScore || isExpenseScore || isAOVScore) ? 2 : 0;
                                 const tooltipLines = [`${datasetLabel}: ${value.toFixed(decimals)}`];
-                                if (isLabourScore && hasPerEmployeeThresholds) {
+                                if (context.datasetIndex === 0) {
                                     const dataIndex = context.dataIndex;
-                                    const perItemMin = hasPerEmployeeThresholds && Array.isArray(labourMinValues)
-                                        ? labourMinValues[dataIndex]
-                                        : null;
-                                    const perItemMax = hasPerEmployeeThresholds && Array.isArray(labourMaxValues)
-                                        ? labourMaxValues[dataIndex]
-                                        : null;
+                                    const perItemMin = Array.isArray(thresholdMinValues)
+                                        ? thresholdMinValues[dataIndex]
+                                        : (Number.isFinite(sharedMin) ? sharedMin : null);
+                                    const perItemMax = Array.isArray(thresholdMaxValues)
+                                        ? thresholdMaxValues[dataIndex]
+                                        : (Number.isFinite(sharedMax) ? sharedMax : null);
                                     const minThreshold = Number.isFinite(perItemMin) ? perItemMin : null;
                                     const maxThreshold = Number.isFinite(perItemMax) ? perItemMax : null;
                                     if (Number.isFinite(minThreshold) && Number.isFinite(maxThreshold) &&
@@ -2402,11 +2533,6 @@ class ScoreDashboard extends Component {
                                     }
                                 }
                                 return tooltipLines;
-                            },
-                            title: (tooltipItems) => {
-                                if (!tooltipItems || tooltipItems.length === 0) return '';
-                                const index = tooltipItems[0].dataIndex;
-                                return chartLabels[index] || '';
                             }
                         }
                     }
@@ -3230,84 +3356,36 @@ class ScoreDashboard extends Component {
                         }
                     },
                     tooltip: {
-                        enabled: true,
-                        backgroundColor: 'rgba(0, 0, 0, 0.8)',
-                        padding: 10,
-                        titleFont: {
-                            size: 13
-                        },
-                        bodyFont: {
-                            size: 16,
-                            weight: 'bold'
-                        },
                         callbacks: {
                             title: () => {
-                                // Hide title, we'll show it in label instead
-                                return '';
+                                const tooltipScoreName = this.state.scoreName || this.state.quadrants?.q1?.score_name;
+                                return tooltipScoreName || 'Score';
                             },
                             label: (context) => {
                                 const value = context.parsed.y || 0;
-                                const datasetLabel = context.dataset.label || 'Value';
+                                const datasetLabel = context.datasetIndex === 0
+                                    ? 'Actual'
+                                    : (context.dataset.label || 'Value');
                                 const formattedValue = this.formatScoreValue(value);
-                                return `${datasetLabel}: ${formattedValue}`;
-                            },
-                            afterLabel: (context) => {
-                                // Show period/title after the value
-                                // Only show once per tooltip (for the first dataset)
-                                if (context.datasetIndex === 0) {
+                                const tooltipLines = [`${datasetLabel}: ${formattedValue}`];
+
+                                if (context.datasetIndex === 0 && this.state.quadrants.q1.data) {
                                     const dataIndex = context.dataIndex;
-                                    const label = chartData.labels[dataIndex];
-                                    if (label && typeof label === 'object' && label.period) {
-                                        return label.period;
+                                    const periodData = this.state.quadrants.q1.data[dataIndex];
+                                    const minValue = periodData ? Number(periodData.min_value) : null;
+                                    const maxValue = periodData ? Number(periodData.max_value) : null;
+
+                                    if (minValue !== null && maxValue !== null &&
+                                        !isNaN(minValue) && !isNaN(maxValue) &&
+                                        !(minValue === 0 && maxValue === 0)) {
+                                        tooltipLines.push(`Min: ${this.formatScoreValue(minValue)}`);
+                                        tooltipLines.push(`Max: ${this.formatScoreValue(maxValue)}`);
                                     }
                                 }
-                                return '';
-                            },
-                            afterBody: (tooltipItems) => {
-                                // Show date range only on mobile devices
-                                const currentIsMobile = window.innerWidth < 768;
-                                if (!currentIsMobile) {
-                                    return '';
-                                }
-                                // Show date range at the bottom (e.g., "01 Jan 2025 - 31 Jan 2025")
-                                if (!tooltipItems || tooltipItems.length === 0) {
-                                    return '';
-                                }
-                                const tooltipItem = tooltipItems[0];
-                                if (!tooltipItem || tooltipItem.dataIndex === undefined) {
-                                    return '';
-                                }
-                                const dataIndex = tooltipItem.dataIndex;
-                                const label = chartData.labels[dataIndex];
-                                
-                                // Try to get dateRange from label
-                                if (label && typeof label === 'object' && label.dateRange && label.dateRange.trim() !== '') {
-                                    return label.dateRange;
-                                }
-                                
-                                // Fallback: get dates from original data
-                                const originalData = this.originalChartData[dataIndex];
-                                if (originalData && originalData.start_date && originalData.end_date) {
-                                    try {
-                                        const startDate = this.formatDateForTooltip(originalData.start_date);
-                                        const endDate = this.formatDateForTooltip(originalData.end_date);
-                                        if (startDate && endDate && 
-                                            !startDate.includes('Invalid') && 
-                                            !endDate.includes('Invalid') &&
-                                            startDate !== '' && 
-                                            endDate !== '') {
-                                            return `${startDate} - ${endDate}`;
-                                        }
-                                    } catch (error) {
-                                        // If formatting fails, use raw dates
-                                        return `${originalData.start_date} - ${originalData.end_date}`;
-                                    }
-                                }
-                                
-                                return '';
+
+                                return tooltipLines;
                             }
-                        },
-                        displayColors: false
+                        }
                     }
                 },
                 scales: {

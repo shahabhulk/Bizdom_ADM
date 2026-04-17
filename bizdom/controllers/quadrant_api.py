@@ -266,15 +266,18 @@ class BizdomQuadrant(http.Controller):
             # Special handling for Leads/Conversion - add quality_lead
             if score_record.score_name in ["Leads", "Conversion"]:
                 lead_model = request.env['crm.lead'].sudo()
-                # Leads: stage_id.sequence = 1, Conversion: stage_id.sequence = [1, 2]
-                stage_sequence = 1 if score_record.score_name == "Leads" else [1, 2]
-
-                quality_lead_count = lead_model.search_count([
+                # Leads: sequence 1, Conversion: sequence in [1, 2]
+                lead_domain = [
                     ('lead_date', '>=', start_date),
                     ('lead_date', '<=', end_date),
-                    ('stage_id.sequence', '=', stage_sequence),
                     ('company_id', '=', user.company_id.id)
-                ])
+                ]
+                if score_record.score_name == "Leads":
+                    lead_domain.append(('stage_id.sequence', '=', 1))
+                else:
+                    lead_domain.append(('stage_id.sequence', 'in', [1, 2]))
+
+                quality_lead_count = lead_model.search_count(lead_domain)
 
                 period_data["quality_lead"] = quality_lead_count if quality_lead_count else (
                     "0" if score_record.score_name == "Leads" else 0)
@@ -756,7 +759,7 @@ class BizdomQuadrant(http.Controller):
             )
             period_min_value = ""
             period_max_value = ""
-            if score_record.score_name == "Labour" and filter_type in ["WTD", "MTD", "YTD", "CUSTOM"]:
+            if filter_type in ["WTD", "MTD", "YTD", "CUSTOM", "Custom"]:
                 min_value, max_value = Q1Helpers.calculate_min_max(
                     score_record, filter_type, start_date, end_date
                 )
@@ -784,8 +787,8 @@ class BizdomQuadrant(http.Controller):
                 period_data = {
                     "start_date": start_date.strftime('%d-%m-%Y'),
                     "end_date": end_date.strftime('%d-%m-%Y'),
-                    "max_value": "",
-                    "min_value": "",
+                    "max_value": period_max_value,
+                    "min_value": period_min_value,
                     "total_quality_lead_value": total_quality_lead,
                     "total_lead_value": total_lead,
                     "sources": emp_grouped
@@ -798,8 +801,8 @@ class BizdomQuadrant(http.Controller):
                 period_data = {
                     "start_date": start_date.strftime('%d-%m-%Y'),
                     "end_date": end_date.strftime('%d-%m-%Y'),
-                    "max_value": "",
-                    "min_value": "",
+                    "max_value": period_max_value,
+                    "min_value": period_min_value,
                     "total_quality_lead_value": total_quality_lead,
                     "total_actual_value": total_converted,
                     "sources": emp_grouped
@@ -808,8 +811,8 @@ class BizdomQuadrant(http.Controller):
                 period_data = {
                     "start_date": start_date.strftime('%d-%m-%Y'),
                     "end_date": end_date.strftime('%d-%m-%Y'),
-                    "max_value": "",
-                    "min_value": "",
+                    "max_value": period_max_value,
+                    "min_value": period_min_value,
                     "total_actual_value": total_actual_value,
                     "categories": emp_grouped
                 }
@@ -817,8 +820,8 @@ class BizdomQuadrant(http.Controller):
                 period_data = {
                     "start_date": start_date.strftime('%d-%m-%Y'),
                     "end_date": end_date.strftime('%d-%m-%Y'),
-                    "max_value": "",
-                    "min_value": "",
+                    "max_value": period_max_value,
+                    "min_value": period_min_value,
                     "total_actual_value": total_actual_value,
                     "categories": emp_grouped
                 }
