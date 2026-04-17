@@ -188,11 +188,14 @@ class Q3Helpers:
                     emp_data['saleperson_name'] = emp_data.pop('employee_name')
 
             # Add min/max for Labour scores with WTD/MTD/YTD
-            if score_record.score_name == "Labour" and filter_type in ["WTD", "MTD", "YTD"]:
-                # For employee-level, we might need to calculate min/max differently
-                # For now, leave empty as the original code didn't have employee-level min/max
-                emp_data['min_value'] = ''
-                emp_data['max_value'] = ''
+            if score_record.score_name == "Labour" and filter_type in ["WTD", "MTD", "YTD", "CUSTOM", "Custom"]:
+                # Use direct category_lvl2 thresholds without period scaling
+                if score_record.type == 'percentage':
+                    emp_data['min_value'] = single_rec.min_category_percentage_lvl2 or ''
+                    emp_data['max_value'] = single_rec.max_category_percentage_lvl2 or ''
+                else:
+                    emp_data['min_value'] = single_rec.min_category_value_lvl2 or ''
+                    emp_data['max_value'] = single_rec.max_category_value_lvl2 or ''
             else:
                 emp_data['min_value'] = ''
                 emp_data['max_value'] = ''

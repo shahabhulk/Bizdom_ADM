@@ -1895,7 +1895,9 @@ class ScoreDashboard extends Component {
             console.error('❌ No matching period found - showing empty chart');
             this.state.employeeChartData = {
                 labels: [],
-                values: []
+                values: [],
+                sharedMin: null,
+                sharedMax: null
             };
             return;
         }
@@ -1919,7 +1921,9 @@ class ScoreDashboard extends Component {
                 employees.push({
                     employee_id: emp.employee_id,
                     employee_name: emp.employee_name || 'N/A',
-                    actual_value: Number(emp.actual_value || 0)
+                    actual_value: Number(emp.actual_value || 0),
+                    min_value: emp.min_value,
+                    max_value: emp.max_value
                 });
             });
         }
@@ -1932,9 +1936,32 @@ class ScoreDashboard extends Component {
             employees: employees.map(e => ({ name: e.employee_name, value: e.actual_value }))
         });
 
+        const sharedMinRaw = selectedPeriodData.min_value;
+        const sharedMaxRaw = selectedPeriodData.max_value;
+        const sharedMin = (sharedMinRaw === '' || sharedMinRaw === null || sharedMinRaw === undefined)
+            ? null
+            : Number(sharedMinRaw);
+        const sharedMax = (sharedMaxRaw === '' || sharedMaxRaw === null || sharedMaxRaw === undefined)
+            ? null
+            : Number(sharedMaxRaw);
+
         this.state.employeeChartData = {
             labels: employees.map(emp => emp.employee_name),
-            values: employees.map(emp => emp.actual_value)
+            values: employees.map(emp => emp.actual_value),
+            minValues: employees.map(emp => {
+                const minVal = emp.min_value;
+                if (minVal === '' || minVal === null || minVal === undefined) return null;
+                const parsed = Number(minVal);
+                return Number.isFinite(parsed) ? parsed : null;
+            }),
+            maxValues: employees.map(emp => {
+                const maxVal = emp.max_value;
+                if (maxVal === '' || maxVal === null || maxVal === undefined) return null;
+                const parsed = Number(maxVal);
+                return Number.isFinite(parsed) ? parsed : null;
+            }),
+            sharedMin: Number.isFinite(sharedMin) ? sharedMin : null,
+            sharedMax: Number.isFinite(sharedMax) ? sharedMax : null
         };
     }
 
@@ -2160,6 +2187,35 @@ class ScoreDashboard extends Component {
 
             // Build datasets based on score type
             const datasets = [];
+            const sharedMin = this.state.employeeChartData.sharedMin;
+            const sharedMax = this.state.employeeChartData.sharedMax;
+            const labourMinValues = this.state.employeeChartData.minValues;
+            const labourMaxValues = this.state.employeeChartData.maxValues;
+            const hasPerEmployeeThresholds = Array.isArray(labourMinValues) &&
+                Array.isArray(labourMaxValues) &&
+                labourMinValues.length === this.state.employeeChartData.values.length &&
+                labourMaxValues.length === this.state.employeeChartData.values.length &&
+                labourMinValues.some(v => Number.isFinite(v) && v !== 0) &&
+                labourMaxValues.some(v => Number.isFinite(v) && v !== 0);
+            let labourColors = '#0d6efd';
+            let labourBorderColors = '#0d6efd';
+            if (isLabourScore && hasPerEmployeeThresholds) {
+                const tolerance = 0.01;
+                labourColors = this.state.employeeChartData.values.map((actualValue, index) => {
+                    const numericActual = Number(actualValue || 0);
+                    const perItemMin = hasPerEmployeeThresholds ? labourMinValues[index] : null;
+                    const perItemMax = hasPerEmployeeThresholds ? labourMaxValues[index] : null;
+                    const minThreshold = Number.isFinite(perItemMin) ? perItemMin : null;
+                    const maxThreshold = Number.isFinite(perItemMax) ? perItemMax : null;
+                    if (!Number.isFinite(minThreshold) || !Number.isFinite(maxThreshold) || (minThreshold === 0 && maxThreshold === 0)) {
+                        return '#0d6efd';
+                    }
+                    if (numericActual < minThreshold - tolerance) return '#dc3545'; // red
+                    if (numericActual >= maxThreshold - tolerance) return '#198754'; // green
+                    return '#ffc107'; // yellow
+                });
+                labourBorderColors = labourColors;
+            }
             
             if (isLeadsScore) {
                 // For Leads score: show both Leads and Quality Leads as grouped bars
@@ -2242,8 +2298,8 @@ class ScoreDashboard extends Component {
                 datasets.push({
                     label: 'Labour',
                     data: this.state.employeeChartData.values,
-                    backgroundColor: '#0d6efd',
-                    borderColor: '#0d6efd',
+                    backgroundColor: labourColors,
+                    borderColor: labourBorderColors,
                     borderWidth: 1,
                     borderRadius: 4
                 });
@@ -2328,7 +2384,24 @@ class ScoreDashboard extends Component {
                                 const value = chartTypeQ3 === 'bar' ? (context.parsed?.x ?? 0) : (context.parsed?.y ?? 0);
                                 const datasetLabel = context.dataset.label || 'Value';
                                 const decimals = (isCustomerRetentionScore || isLabourScore || isIncomeScore || isExpenseScore || isAOVScore) ? 2 : 0;
-                                return `${datasetLabel}: ${value.toFixed(decimals)}`;
+                                const tooltipLines = [`${datasetLabel}: ${value.toFixed(decimals)}`];
+                                if (isLabourScore && hasPerEmployeeThresholds) {
+                                    const dataIndex = context.dataIndex;
+                                    const perItemMin = hasPerEmployeeThresholds && Array.isArray(labourMinValues)
+                                        ? labourMinValues[dataIndex]
+                                        : null;
+                                    const perItemMax = hasPerEmployeeThresholds && Array.isArray(labourMaxValues)
+                                        ? labourMaxValues[dataIndex]
+                                        : null;
+                                    const minThreshold = Number.isFinite(perItemMin) ? perItemMin : null;
+                                    const maxThreshold = Number.isFinite(perItemMax) ? perItemMax : null;
+                                    if (Number.isFinite(minThreshold) && Number.isFinite(maxThreshold) &&
+                                        !(minThreshold === 0 && maxThreshold === 0)) {
+                                        tooltipLines.push(`Min: ${this.formatScoreValue(minThreshold)}`);
+                                        tooltipLines.push(`Max: ${this.formatScoreValue(maxThreshold)}`);
+                                    }
+                                }
+                                return tooltipLines;
                             },
                             title: (tooltipItems) => {
                                 if (!tooltipItems || tooltipItems.length === 0) return '';
