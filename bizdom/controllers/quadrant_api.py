@@ -746,6 +746,14 @@ class BizdomQuadrant(http.Controller):
             emp_grouped = Q3Helpers.compute_employee_scores(
                 category_lvl2_records, start_date, end_date, score_record, user, dept_id, filter_type
             )
+            period_min_value = ""
+            period_max_value = ""
+            if score_record.score_name == "Labour" and filter_type in ["WTD", "MTD", "YTD", "CUSTOM"]:
+                min_value, max_value = Q1Helpers.calculate_min_max(
+                    score_record, filter_type, start_date, end_date
+                )
+                period_min_value = min_value if min_value is not None else ""
+                period_max_value = max_value if max_value is not None else ""
 
             # Calculate total actual value
             total_actual_value = round(sum(e.get('actual_value', 0) for e in emp_grouped), 2)
@@ -811,8 +819,8 @@ class BizdomQuadrant(http.Controller):
                 period_data = {
                     "start_date": start_date.strftime('%d-%m-%Y'),
                     "end_date": end_date.strftime('%d-%m-%Y'),
-                    "max_value": "",
-                    "min_value": "",
+                    "max_value": period_max_value,
+                    "min_value": period_min_value,
                     "total_actual_value": total_actual_value,
                     "employees": emp_grouped
                 }
