@@ -176,8 +176,10 @@ class Q2Helpers:
                 'actual_value': dept_actual_value
             }
             
-            # Add min/max for Labour scores with WTD/MTD/YTD using category_lvl1 values
-            if score_record.score_name == "Labour" and filter_type in ["WTD", "MTD", "YTD", "CUSTOM"]:
+            # Add min/max from Q2 category_lvl1 thresholds for all scores.
+            # Normalize filter type so Custom/CUSTOM casing behaves consistently.
+            normalized_filter_type = str(filter_type).upper() if filter_type else ""
+            if normalized_filter_type in ["TODAY", "WTD", "MTD", "YTD", "CUSTOM"]:
                 if score_record.type == 'percentage':
                     dept_data['min_value'] = single_rec.min_category_percentage_lvl1 or 0
                     dept_data['max_value'] = single_rec.max_category_percentage_lvl1 or 0
