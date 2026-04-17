@@ -176,8 +176,10 @@ class Q2Helpers:
                 'actual_value': dept_actual_value
             }
             
-            # Add min/max for Labour scores with WTD/MTD/YTD using category_lvl1 values
-            if score_record.score_name == "Labour" and filter_type in ["WTD", "MTD", "YTD", "CUSTOM"]:
+            # Min/max behavior:
+            # - Labour: computed values based on filter/date range.
+            # - Other scores: direct category_lvl1 thresholds (no period computation).
+            if score_record.score_name == "Labour" and filter_type in ["WTD", "MTD", "YTD", "CUSTOM", "Custom"]:
                 print(f"Q2 Processing Labour department: {dept.name}, category_lvl1: {single_rec.name} (ID: {single_rec.id})")
                 print(f"Q2 Category record fields - min_category_value_lvl1: {single_rec.min_category_value_lvl1}, max_category_value_lvl1: {single_rec.max_category_value_lvl1}")
                 print(f"Q2 Category record fields - min_category_percentage_lvl1: {single_rec.min_category_percentage_lvl1}, max_category_percentage_lvl1: {single_rec.max_category_percentage_lvl1}")
@@ -194,8 +196,15 @@ class Q2Helpers:
                 if min_value == 0 and max_value == 0:
                     print(f"WARNING: Q2 min/max are both 0 for {dept.name} (category: {single_rec.name}). Check if min/max values are set in category_lvl1 record!")
             else:
-                dept_data['min_value'] = ''
-                dept_data['max_value'] = ''
+                if score_record.type == 'percentage':
+                    min_base = single_rec.min_category_percentage_lvl1
+                    max_base = single_rec.max_category_percentage_lvl1
+                else:
+                    min_base = single_rec.min_category_value_lvl1
+                    max_base = single_rec.max_category_value_lvl1
+
+                dept_data['min_value'] = '' if min_base in (None, '') else min_base
+                dept_data['max_value'] = '' if max_base in (None, '') else max_base
             
             # Special handling for Leads/Conversion - add quality_lead
             if score_record.score_name in ["Leads", "Conversion"]:
