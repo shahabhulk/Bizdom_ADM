@@ -5,3 +5,4 @@ from .import dashboard
 from .import quadrant_api
 from .import favorite_score
 from .import to_do_api
+from .import users_api
