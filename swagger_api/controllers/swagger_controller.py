@@ -635,13 +635,109 @@ class SwaggerController(http.Controller):
                     }
                 },
                 "/api/todos": {
+                    "get": {
+                        "tags": ["Todos"],
+                        "summary": "List todos for the authenticated user",
+                        "description": (
+                            "Returns a paginated list of `project.task` records where the JWT user is an assignee. "
+                            "Each todo includes a hydrated `user_ids` array (full user objects, not just ids)."
+                        ),
+                        "parameters": [
+                            {
+                                "name": "limit",
+                                "in": "query",
+                                "required": False,
+                                "schema": {"type": "integer", "default": 50, "maximum": 200, "example": 50}
+                            },
+                            {
+                                "name": "offset",
+                                "in": "query",
+                                "required": False,
+                                "schema": {"type": "integer", "default": 0, "example": 0}
+                            },
+                            {
+                                "name": "search",
+                                "in": "query",
+                                "required": False,
+                                "schema": {"type": "string", "description": "Case-insensitive match on todo name"}
+                            },
+                            {
+                                "name": "pillar_id",
+                                "in": "query",
+                                "required": False,
+                                "schema": {"type": "integer", "description": "Filter by Bizdom pillar"}
+                            },
+                            {
+                                "name": "assignee_id",
+                                "in": "query",
+                                "required": False,
+                                "schema": {"type": "integer", "description": "Filter by an additional assignee user id"}
+                            }
+                        ],
+                        "responses": {
+                            "200": {
+                                "description": "List of todos",
+                                "content": {
+                                    "application/json": {
+                                        "schema": {
+                                            "type": "object",
+                                            "properties": {
+                                                "statusCode": {"type": "integer", "example": 200},
+                                                "data": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "type": "object",
+                                                        "properties": {
+                                                            "id": {"type": "integer", "example": 42},
+                                                            "name": {"type": "string", "example": "Review Q1 dashboard"},
+                                                            "description": {"type": "string", "example": "Check figures before Monday"},
+                                                            "pillar_id": {"type": "integer", "nullable": True, "example": 1},
+                                                            "pillar_name": {"type": "string", "nullable": True, "example": "Finance"},
+                                                            "date_deadline": {"type": "string", "format": "date", "nullable": True, "example": "2026-04-15"},
+                                                            "state": {"type": "string", "example": "01_in_progress"},
+                                                            "user_ids": {
+                                                                "type": "array",
+                                                                "items": {
+                                                                    "type": "object",
+                                                                    "properties": {
+                                                                        "id": {"type": "integer", "example": 5},
+                                                                        "name": {"type": "string", "example": "Alice Johnson"},
+                                                                        "login": {"type": "string", "example": "alice"},
+                                                                        "avatar_url": {"type": "string", "example": "http://localhost:8069/web/image/res.users/5/avatar_128"}
+                                                                    }
+                                                                }
+                                                            },
+                                                            "create_date": {"type": "string", "format": "date-time", "nullable": True},
+                                                            "write_date": {"type": "string", "format": "date-time", "nullable": True}
+                                                        }
+                                                    }
+                                                },
+                                                "meta": {
+                                                    "type": "object",
+                                                    "properties": {
+                                                        "total": {"type": "integer", "example": 137},
+                                                        "limit": {"type": "integer", "example": 50},
+                                                        "offset": {"type": "integer", "example": 0}
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            },
+                            "400": {"description": "Invalid query parameters"},
+                            "401": {"description": "Missing, expired, or invalid JWT"},
+                            "500": {"description": "Internal server error"}
+                        },
+                        "security": [{"bearerAuth": []}]
+                    },
                     "post": {
                         "tags": ["Todos"],
                         "summary": "Create a Bizdom todo",
                         "description": (
-                            "Creates a `project.task` (todo) for the authenticated user. "
-                            "Assignees (`user_ids`) are set from the JWT user. Optional `pillar_id` must exist on `bizdom.pillar`. "
-                            "`date_deadline` must be `YYYY-MM-DD`."
+                            "Creates a `project.task`. `user_ids` is a list of `res.users` ids; the creator is always "
+                            "auto-added if not already present. Assignees must be active internal users (not portal). "
+                            "`date_deadline` must be `YYYY-MM-DD`. Returns the fully-hydrated todo."
                         ),
                         "requestBody": {
                             "required": True,
@@ -649,30 +745,19 @@ class SwaggerController(http.Controller):
                                 "application/json": {
                                     "schema": {
                                         "type": "object",
+                                        "required": ["name"],
                                         "properties": {
-                                            "name": {
-                                                "type": "string",
-                                                "description": "Todo title (required)",
-                                                "example": "Review Q1 dashboard"
-                                            },
-                                            "pillar_id": {
-                                                "type": "integer",
-                                                "description": "Optional Bizdom pillar",
-                                                "example": 1
-                                            },
-                                            "description": {
-                                                "type": "string",
-                                                "description": "Optional HTML/plain description",
-                                                "example": "Check figures before Monday"
-                                            },
-                                            "date_deadline": {
-                                                "type": "string",
-                                                "format": "date",
-                                                "description": "Optional deadline (YYYY-MM-DD)",
-                                                "example": "2026-04-15"
+                                            "name": {"type": "string", "description": "Todo title (required)", "example": "Review Q1 dashboard"},
+                                            "description": {"type": "string", "description": "Optional HTML/plain description", "example": "Check figures before Monday"},
+                                            "pillar_id": {"type": "integer", "description": "Optional Bizdom pillar id", "example": 1},
+                                            "date_deadline": {"type": "string", "format": "date", "description": "Optional deadline (YYYY-MM-DD)", "example": "2026-04-15"},
+                                            "user_ids": {
+                                                "type": "array",
+                                                "description": "Assignees (res.users ids). Creator is always auto-included.",
+                                                "items": {"type": "integer"},
+                                                "example": [5, 8, 12]
                                             }
-                                        },
-                                        "required": ["name"]
+                                        }
                                     }
                                 }
                             }
@@ -686,19 +771,28 @@ class SwaggerController(http.Controller):
                                             "type": "object",
                                             "properties": {
                                                 "statusCode": {"type": "integer", "example": 201},
-                                                "message": {
-                                                    "type": "string",
-                                                    "example": "Todo created successfully"
-                                                },
+                                                "message": {"type": "string", "example": "Todo created successfully"},
                                                 "data": {
                                                     "type": "object",
                                                     "properties": {
                                                         "id": {"type": "integer", "example": 42},
                                                         "name": {"type": "string", "example": "Review Q1 dashboard"},
-                                                        "pillar_id": {
-                                                            "type": "integer",
-                                                            "nullable": True,
-                                                            "example": 1
+                                                        "description": {"type": "string", "example": "Check figures before Monday"},
+                                                        "pillar_id": {"type": "integer", "nullable": True, "example": 1},
+                                                        "pillar_name": {"type": "string", "nullable": True, "example": "Finance"},
+                                                        "date_deadline": {"type": "string", "format": "date", "nullable": True, "example": "2026-04-15"},
+                                                        "state": {"type": "string", "example": "01_in_progress"},
+                                                        "user_ids": {
+                                                            "type": "array",
+                                                            "items": {
+                                                                "type": "object",
+                                                                "properties": {
+                                                                    "id": {"type": "integer", "example": 5},
+                                                                    "name": {"type": "string", "example": "Alice Johnson"},
+                                                                    "login": {"type": "string", "example": "alice"},
+                                                                    "avatar_url": {"type": "string", "example": "http://localhost:8069/web/image/res.users/5/avatar_128"}
+                                                                }
+                                                            }
                                                         }
                                                     }
                                                 }
@@ -707,58 +801,251 @@ class SwaggerController(http.Controller):
                                     }
                                 }
                             },
-                            "400": {
-                                "description": "Invalid JSON, missing name, or invalid date_deadline",
+                            "400": {"description": "Invalid JSON, missing name, bad user_ids, or invalid date_deadline"},
+                            "401": {"description": "Missing, expired, or invalid JWT"},
+                            "404": {"description": "pillar_id or one of user_ids not found"},
+                            "500": {"description": "Internal server error"}
+                        },
+                        "security": [{"bearerAuth": []}]
+                    }
+                },
+                "/api/todos/{todo_id}": {
+                    "get": {
+                        "tags": ["Todos"],
+                        "summary": "Get a single todo by id",
+                        "description": "Returns the todo with hydrated assignees. Caller must be one of the assignees.",
+                        "parameters": [
+                            {
+                                "name": "todo_id",
+                                "in": "path",
+                                "required": True,
+                                "schema": {"type": "integer", "example": 42}
+                            }
+                        ],
+                        "responses": {
+                            "200": {
+                                "description": "Todo details",
                                 "content": {
                                     "application/json": {
                                         "schema": {
                                             "type": "object",
                                             "properties": {
-                                                "statusCode": {"type": "integer", "example": 400},
-                                                "message": {"type": "string"}
-                                            }
-                                        }
-                                    }
-                                }
-                            },
-                            "401": {
-                                "description": "Missing, expired, or invalid JWT",
-                                "content": {
-                                    "application/json": {
-                                        "schema": {
-                                            "type": "object",
-                                            "properties": {
-                                                "statusCode": {"type": "integer", "example": 401},
-                                                "message": {
-                                                    "type": "string",
-                                                    "enum": [
-                                                        "Token missing",
-                                                        "Token expired",
-                                                        "Invalid token"
-                                                    ]
+                                                "statusCode": {"type": "integer", "example": 200},
+                                                "data": {
+                                                    "type": "object",
+                                                    "properties": {
+                                                        "id": {"type": "integer", "example": 42},
+                                                        "name": {"type": "string", "example": "Review Q1 dashboard"},
+                                                        "description": {"type": "string", "example": "Check figures before Monday"},
+                                                        "pillar_id": {"type": "integer", "nullable": True, "example": 1},
+                                                        "pillar_name": {"type": "string", "nullable": True, "example": "Finance"},
+                                                        "date_deadline": {"type": "string", "format": "date", "nullable": True, "example": "2026-04-15"},
+                                                        "state": {"type": "string", "example": "01_in_progress"},
+                                                        "user_ids": {
+                                                            "type": "array",
+                                                            "items": {
+                                                                "type": "object",
+                                                                "properties": {
+                                                                    "id": {"type": "integer", "example": 5},
+                                                                    "name": {"type": "string", "example": "Alice Johnson"},
+                                                                    "login": {"type": "string", "example": "alice"},
+                                                                    "avatar_url": {"type": "string", "example": "http://localhost:8069/web/image/res.users/5/avatar_128"}
+                                                                }
+                                                            }
+                                                        }
+                                                    }
                                                 }
                                             }
                                         }
                                     }
                                 }
                             },
-                            "404": {
-                                "description": "pillar_id provided but pillar not found",
+                            "401": {"description": "Missing, expired, or invalid JWT"},
+                            "403": {"description": "Forbidden - caller is not an assignee"},
+                            "404": {"description": "Todo not found"},
+                            "500": {"description": "Internal server error"}
+                        },
+                        "security": [{"bearerAuth": []}]
+                    },
+                    "put": {
+                        "tags": ["Todos"],
+                        "summary": "Update a todo (partial)",
+                        "description": (
+                            "Partial update: only keys present in the body are changed. "
+                            "Sending `user_ids` REPLACES the entire assignee list (M2M full-set semantics). "
+                            "An updated todo must still have at least one assignee."
+                        ),
+                        "parameters": [
+                            {
+                                "name": "todo_id",
+                                "in": "path",
+                                "required": True,
+                                "schema": {"type": "integer", "example": 42}
+                            }
+                        ],
+                        "requestBody": {
+                            "required": True,
+                            "content": {
+                                "application/json": {
+                                    "schema": {
+                                        "type": "object",
+                                        "properties": {
+                                            "name": {"type": "string", "example": "Review Q1 dashboard (updated)"},
+                                            "description": {"type": "string", "example": "New notes"},
+                                            "pillar_id": {"type": "integer", "nullable": True, "description": "Send null to clear", "example": 2},
+                                            "date_deadline": {"type": "string", "format": "date", "nullable": True, "description": "Send null to clear", "example": "2026-05-01"},
+                                            "user_ids": {
+                                                "type": "array",
+                                                "description": "Full replacement list; must contain at least one id",
+                                                "items": {"type": "integer"},
+                                                "example": [5, 8]
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        "responses": {
+                            "200": {
+                                "description": "Todo updated",
                                 "content": {
                                     "application/json": {
                                         "schema": {
                                             "type": "object",
                                             "properties": {
-                                                "statusCode": {"type": "integer", "example": 404},
-                                                "message": {"type": "string", "example": "Pillar not found"}
+                                                "statusCode": {"type": "integer", "example": 200},
+                                                "message": {"type": "string", "example": "Todo updated successfully"},
+                                                "data": {
+                                                    "type": "object",
+                                                    "properties": {
+                                                        "id": {"type": "integer", "example": 42},
+                                                        "name": {"type": "string", "example": "Review Q1 dashboard (updated)"},
+                                                        "user_ids": {
+                                                            "type": "array",
+                                                            "items": {
+                                                                "type": "object",
+                                                                "properties": {
+                                                                    "id": {"type": "integer", "example": 5},
+                                                                    "name": {"type": "string", "example": "Alice Johnson"},
+                                                                    "login": {"type": "string", "example": "alice"},
+                                                                    "avatar_url": {"type": "string", "example": "http://localhost:8069/web/image/res.users/5/avatar_128"}
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                }
                                             }
                                         }
                                     }
                                 }
                             },
-                            "500": {
-                                "description": "Internal server error"
+                            "400": {"description": "Invalid JSON body or field values"},
+                            "401": {"description": "Missing, expired, or invalid JWT"},
+                            "403": {"description": "Forbidden - caller is not an assignee"},
+                            "404": {"description": "Todo, pillar, or user not found"},
+                            "500": {"description": "Internal server error"}
+                        },
+                        "security": [{"bearerAuth": []}]
+                    },
+                    "delete": {
+                        "tags": ["Todos"],
+                        "summary": "Delete a todo",
+                        "description": "Permanently deletes the todo. Caller must be an assignee.",
+                        "parameters": [
+                            {
+                                "name": "todo_id",
+                                "in": "path",
+                                "required": True,
+                                "schema": {"type": "integer", "example": 42}
                             }
+                        ],
+                        "responses": {
+                            "200": {
+                                "description": "Todo deleted",
+                                "content": {
+                                    "application/json": {
+                                        "schema": {
+                                            "type": "object",
+                                            "properties": {
+                                                "statusCode": {"type": "integer", "example": 200},
+                                                "message": {"type": "string", "example": "Todo deleted successfully"}
+                                            }
+                                        }
+                                    }
+                                }
+                            },
+                            "401": {"description": "Missing, expired, or invalid JWT"},
+                            "403": {"description": "Forbidden - caller is not an assignee"},
+                            "404": {"description": "Todo not found"},
+                            "500": {"description": "Internal server error"}
+                        },
+                        "security": [{"bearerAuth": []}]
+                    }
+                },
+                "/api/users": {
+                    "get": {
+                        "tags": ["Users"],
+                        "summary": "List assignable users",
+                        "description": (
+                            "Returns active internal users (excludes portal/public/share users). "
+                            "Used by the frontend to populate the M2M assignee picker for todos."
+                        ),
+                        "parameters": [
+                            {
+                                "name": "search",
+                                "in": "query",
+                                "required": False,
+                                "schema": {"type": "string", "description": "Matches name or login (ilike)"}
+                            },
+                            {
+                                "name": "limit",
+                                "in": "query",
+                                "required": False,
+                                "schema": {"type": "integer", "default": 50, "maximum": 200, "example": 50}
+                            },
+                            {
+                                "name": "offset",
+                                "in": "query",
+                                "required": False,
+                                "schema": {"type": "integer", "default": 0, "example": 0}
+                            }
+                        ],
+                        "responses": {
+                            "200": {
+                                "description": "List of users",
+                                "content": {
+                                    "application/json": {
+                                        "schema": {
+                                            "type": "object",
+                                            "properties": {
+                                                "statusCode": {"type": "integer", "example": 200},
+                                                "data": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "type": "object",
+                                                        "properties": {
+                                                            "id": {"type": "integer", "example": 5},
+                                                            "name": {"type": "string", "example": "Alice Johnson"},
+                                                            "login": {"type": "string", "example": "alice"},
+                                                            "avatar_url": {"type": "string", "example": "http://localhost:8069/web/image/res.users/5/avatar_128"}
+                                                        }
+                                                    }
+                                                },
+                                                "meta": {
+                                                    "type": "object",
+                                                    "properties": {
+                                                        "total": {"type": "integer", "example": 137},
+                                                        "limit": {"type": "integer", "example": 50},
+                                                        "offset": {"type": "integer", "example": 0}
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            },
+                            "401": {"description": "Missing, expired, or invalid JWT"},
+                            "500": {"description": "Internal server error"}
                         },
                         "security": [{"bearerAuth": []}]
                     }
