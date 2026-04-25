@@ -49,7 +49,7 @@ class CustomAuthController(http.Controller):
             if "laptop-uijcccph:8070" in host:
                 db = "bizapp_april23"
             elif "13.233.223.127" in host:
-                db = "bitnami_odoo"
+                db = "bn_odoo_sample"
             else:
                 return http.Response(
                     json.dumps({

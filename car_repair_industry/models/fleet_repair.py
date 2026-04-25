@@ -37,7 +37,7 @@ class FleetRepair(models.Model):
     kilometers_num = fields.Char(string="KMS")
     name = fields.Char(string='Subject')
     sequence = fields.Char(string='Sequence', readonly=True, copy=False)
-    client_id = fields.Many2one('res.partner', string='Client', required=True, tracking=True)
+    client_id = fields.Many2one('res.partner', string='Client')
     client_phone = fields.Char(related='client_id.phone', store=True, readonly=False, string='Phone',
                                inverse='_inverse_client_phone')
     client_mobile = fields.Char(related='client_id.mobile', store=True, readonly=False, string='Mobile',

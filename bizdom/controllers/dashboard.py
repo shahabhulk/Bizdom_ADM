@@ -103,15 +103,15 @@ class BizdomDashboard(http.Controller):
                 if s.score_name == "TAT":
                     score_value = self._calculate_delivered_tat_only(start_date, end_date, company_id)
                 
-                if s.score_name == "Labour" and filter_type:
-                    min_value, max_value = Q1Helpers.calculate_min_max(
-                        s, filter_type, start_date, end_date
-                    )
-                    if min_value is None:
-                        min_value = 0
-                    if max_value is None:
-                        max_value = 0
-                elif s.type == "percentage":
+                # if s.score_name == "Labour" and filter_type:
+                #     min_value, max_value = Q1Helpers.calculate_min_max(
+                #         s, filter_type, start_date, end_date
+                #     )
+                #     if min_value is None:
+                #         min_value = 0
+                #     if max_value is None:
+                #         max_value = 0
+                if s.type == "percentage":
                     min_value = s.min_score_percentage
                     max_value = s.max_score_percentage
                 else:
