@@ -1519,8 +1519,8 @@ class ScoreDashboard extends Component {
                 const scoreNameLower = (this.state.scoreName || '').toLowerCase();
                 
                 if (scoreNameLower === 'leads') {
-                    // For Leads score, the response uses overview_source instead of overview_employee
-                    this.state.employeeData = empData.overview_source || [];
+                    // Q3 now uses overview_category; keep fallback for older payloads.
+                    this.state.employeeData = empData.overview_category || empData.overview_source || empData.overview_employee || [];
                     if (!this.state.employeeData.length) {
                         this.state.employeeError = 'No source data available for this medium.';
                     } else {
@@ -1529,8 +1529,8 @@ class ScoreDashboard extends Component {
                         this.buildLeadsChartData();
                     }
                 } else if (scoreNameLower === 'conversion') {
-                    // For Conversion score, the response uses overview_source (contains salespersons)
-                    this.state.employeeData = empData.overview_source || [];
+                    // Q3 now uses overview_category; keep fallback for older payloads.
+                    this.state.employeeData = empData.overview_category || empData.overview_source || empData.overview_employee || [];
                     if (!this.state.employeeData.length) {
                         this.state.employeeError = 'No salesperson data available for this medium.';
                     } else {
@@ -1539,8 +1539,8 @@ class ScoreDashboard extends Component {
                         this.buildConversionChartData();
                     }
                 } else if (scoreNameLower === 'customer retention') {
-                    // For Customer Retention score, use overview_employee (contains questions)
-                    this.state.employeeData = empData.overview_employee || [];
+                    // Q3 now uses overview_category; keep fallback for older payloads.
+                    this.state.employeeData = empData.overview_category || empData.overview_employee || [];
                     if (!this.state.employeeData.length) {
                         this.state.employeeError = 'No question data available for this department.';
                     } else {
@@ -1573,8 +1573,8 @@ class ScoreDashboard extends Component {
 
 
                 else if (scoreNameLower === 'aov') {
-                    // For AOV score, use overview_employee (contains car brands; same structure as Labour)
-                    this.state.employeeData = empData.overview_employee || [];
+                    // Q3 now uses overview_category; keep fallback for older payloads.
+                    this.state.employeeData = empData.overview_category || empData.overview_employee || [];
                     if (!this.state.employeeData.length) {
                         this.state.employeeError = 'No car brand data available for this department.';
                     } else {
@@ -1582,8 +1582,8 @@ class ScoreDashboard extends Component {
                         this.buildEmployeeChartData();
                     }
                 } else {
-                    // For Labour score, use overview_employee
-                    this.state.employeeData = empData.overview_employee || [];
+                    // Q3 now uses overview_category; keep fallback for older payloads.
+                    this.state.employeeData = empData.overview_category || empData.overview_employee || [];
                     if (!this.state.employeeData.length) {
                         this.state.employeeError = 'No employee data available for this department.';
                     } else {
@@ -1668,11 +1668,12 @@ class ScoreDashboard extends Component {
             return;
         }
         
-        // Process sources from the selected period
+        // Process categories/sources from the selected period
         const sources = [];
-        
-        if (selectedPeriodData.sources && Array.isArray(selectedPeriodData.sources)) {
-            selectedPeriodData.sources.forEach(source => {
+        const periodSources = selectedPeriodData.categories || selectedPeriodData.sources || [];
+
+        if (Array.isArray(periodSources)) {
+            periodSources.forEach(source => {
                 sources.push({
                     source_id: source.source_id,
                     source_name: source.source_name || 'N/A',
@@ -1785,11 +1786,11 @@ class ScoreDashboard extends Component {
         }
         
         // Process salespersons from the selected period
-        // Note: Conversion API uses "sources" key but contains salesperson data
         const salespersons = [];
-        
-        if (selectedPeriodData.sources && Array.isArray(selectedPeriodData.sources)) {
-            selectedPeriodData.sources.forEach(salesperson => {
+        const periodSalespersons = selectedPeriodData.categories || selectedPeriodData.sources || [];
+
+        if (Array.isArray(periodSalespersons)) {
+            periodSalespersons.forEach(salesperson => {
                 salespersons.push({
                     saleperson_id: salesperson.saleperson_id,
                     saleperson_name: salesperson.saleperson_name || 'N/A',
@@ -1857,8 +1858,8 @@ class ScoreDashboard extends Component {
                     start_date: p.start_date,
                     end_date: p.end_date,
                     period: p.period,
-                    employeeCount: p.employees?.length || 0,
-                    employees: p.employees?.map(e => ({ name: e.employee_name, value: e.actual_value }))
+                    employeeCount: (p.categories?.length || p.employees?.length || 0),
+                    employees: (p.categories || p.employees || []).map(e => ({ name: e.employee_name, value: e.actual_value }))
                 }))
             });
             
@@ -1892,7 +1893,7 @@ class ScoreDashboard extends Component {
                         console.log('✓ Found exact period match:', {
                             selected: { start: normalizedStart, end: normalizedEnd },
                             found: { start: periodStartNorm, end: periodEndNorm },
-                            employees: period.employees?.map(e => ({ name: e.employee_name, value: e.actual_value }))
+                            employees: (period.categories || period.employees || []).map(e => ({ name: e.employee_name, value: e.actual_value }))
                         });
                     } else {
                         console.log('✗ Period mismatch:', {
@@ -1917,7 +1918,7 @@ class ScoreDashboard extends Component {
                         console.log('✓ Found period match by start date:', {
                             start: normalizedStart,
                             period: { start: periodStartNorm, end: normalizeDate(period.end_date) },
-                            employees: period.employees?.map(e => ({ name: e.employee_name, value: e.actual_value }))
+                            employees: (period.categories || period.employees || []).map(e => ({ name: e.employee_name, value: e.actual_value }))
                         });
                     }
                     return match;
@@ -1933,7 +1934,7 @@ class ScoreDashboard extends Component {
                 if (selectedPeriodData) {
                     console.log('✓ Found period match by label:', {
                         period: this.state.selectedPeriodInfo.period,
-                        employees: selectedPeriodData.employees?.map(e => ({ name: e.employee_name, value: e.actual_value }))
+                        employees: (selectedPeriodData.categories || selectedPeriodData.employees || []).map(e => ({ name: e.employee_name, value: e.actual_value }))
                     });
                 }
             }
@@ -1971,16 +1972,17 @@ class ScoreDashboard extends Component {
             selectedPeriodData: {
                 start_date: selectedPeriodData.start_date,
                 end_date: selectedPeriodData.end_date,
-                employeeCount: selectedPeriodData.employees?.length || 0,
-                employees: selectedPeriodData.employees?.map(e => ({ name: e.employee_name, value: e.actual_value }))
+                employeeCount: (selectedPeriodData.categories?.length || selectedPeriodData.employees?.length || 0),
+                employees: (selectedPeriodData.categories || selectedPeriodData.employees || []).map(e => ({ name: e.employee_name, value: e.actual_value }))
             }
         });
         
         // Process employees from the selected period only - no aggregation needed
         const employees = [];
         
-        if (selectedPeriodData.employees && Array.isArray(selectedPeriodData.employees)) {
-            selectedPeriodData.employees.forEach(emp => {
+        const periodEmployees = selectedPeriodData.categories || selectedPeriodData.employees || [];
+        if (Array.isArray(periodEmployees)) {
+            periodEmployees.forEach(emp => {
                 employees.push({
                     employee_id: emp.employee_id,
                     employee_name: emp.employee_name || 'N/A',
@@ -2091,11 +2093,12 @@ class ScoreDashboard extends Component {
             return;
         }
         
-        // Process questions from the selected period
+        // Process questions/categories from the selected period
         const questions = [];
-        
-        if (selectedPeriodData.questions && Array.isArray(selectedPeriodData.questions)) {
-            selectedPeriodData.questions.forEach(q => {
+        const periodQuestions = selectedPeriodData.categories || selectedPeriodData.questions || [];
+
+        if (Array.isArray(periodQuestions)) {
+            periodQuestions.forEach(q => {
                 // Only include questions with actual_value (not empty string)
                 if (q.actual_value !== "" && q.actual_value !== null && q.actual_value !== undefined) {
                     questions.push({

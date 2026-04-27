@@ -240,6 +240,12 @@ class BizdomQuadrant(http.Controller):
                 period_data["operating_cash"] = breakdown['operating_cash']
                 period_data["financing_cash"] = breakdown['financing_cash']
                 period_data["investment_cash"] = breakdown['investment_cash']
+                if score_record.type == "percentage":
+                    period_data["min_value"] = score_record.min_score_percentage
+                    period_data["max_value"] = score_record.max_score_percentage
+                else:
+                    period_data["min_value"] = score_record.min_score_number
+                    period_data["max_value"] = score_record.max_score_number
 
             # Add min/max for Labour scores with WTD/MTD/YTD
             if min_value is not None and max_value is not None:
@@ -293,6 +299,14 @@ class BizdomQuadrant(http.Controller):
                     period_data["max_value"] = score_record.max_score_number
 
             if score_record.score_name == "Income":
+                if score_record.type == "percentage":
+                    period_data["min_value"] = score_record.min_score_percentage
+                    period_data["max_value"] = score_record.max_score_percentage
+                else:
+                    period_data["min_value"] = score_record.min_score_number
+                    period_data["max_value"] = score_record.max_score_number
+
+            if score_record.score_name == "Expense":
                 if score_record.type == "percentage":
                     period_data["min_value"] = score_record.min_score_percentage
                     period_data["max_value"] = score_record.max_score_percentage
@@ -704,19 +718,19 @@ class BizdomQuadrant(http.Controller):
                     "max_value": "",
                     "min_value": "",
                     "total_actual_value": round(total_actual_value, 2) if total_actual_value > 0 else 0,
-                    "questions": questions_data
+                    "categories": questions_data
                 }
 
                 overview_employee.append(period_data)
 
             response = {
                 "statusCode": 200,
-                "message": "Employee Overview",
+                "message": "Category Overview",
                 "score_id": score_id,
                 "score_name": score_record.score_name,
                 "department_id": dept.id,
                 "department_name": dept.name,
-                "overview_employee": overview_employee
+                "overview_category": overview_employee
             }
 
             return request.make_response(
@@ -783,7 +797,7 @@ class BizdomQuadrant(http.Controller):
                     "min_value": period_min_value,
                     "total_quality_lead_value": total_quality_lead,
                     "total_lead_value": total_lead,
-                    "sources": emp_grouped
+                    "categories": emp_grouped
                 }
             elif score_record.score_name == "Conversion":
                 # For Conversion, calculate totals from emp_grouped (which contains salespersons)
@@ -797,7 +811,7 @@ class BizdomQuadrant(http.Controller):
                     "min_value": period_min_value,
                     "total_quality_lead_value": total_quality_lead,
                     "total_actual_value": total_converted,
-                    "sources": emp_grouped
+                    "categories": emp_grouped
                 }
             elif score_record.score_name == "Income":
                 period_data = {
@@ -825,27 +839,14 @@ class BizdomQuadrant(http.Controller):
                     "max_value": period_max_value,
                     "min_value": period_min_value,
                     "total_actual_value": total_actual_value,
-                    "employees": emp_grouped
+                    "categories": emp_grouped
                 }
 
             overview_employee.append(period_data)
 
-        # Determine response field name based on score type
-        if score_record.score_name in ["Leads", "Conversion"]:
-            response_field = "overview_source"
-            response_message = "Source Overview"
-
-        elif score_record.score_name == "Income":
-            response_field = "overview_category"
-            response_message = "Category Overview"
-
-        elif score_record.score_name == "Expense":
-            response_field = "overview_category"
-            response_message = "Category Overview"
-
-        else:
-            response_field = "overview_employee"
-            response_message = "Employee Overview"
+        # Use a unified response structure for all score types.
+        response_field = "overview_category"
+        response_message = "Category Overview"
 
         response = {
             "statusCode": 200,
