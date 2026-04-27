@@ -642,11 +642,18 @@ class BizdomQuadrant(http.Controller):
                 headers=_cors_headers()
             )
 
-        # Get department name for response
-        dept = request.env['hr.department'].sudo().browse(dept_id)
+        # Resolve department/medium based on score type.
+        # Leads/Conversion use utm.medium IDs, others use hr.department IDs.
+        if score_record.score_name in ["Leads", "Conversion"]:
+            dept = request.env['utm.medium'].sudo().browse(dept_id)
+            not_found_message = "Medium not found"
+        else:
+            dept = request.env['hr.department'].sudo().browse(dept_id)
+            not_found_message = "Department not found"
+
         if not dept.exists():
             return request.make_response(
-                json.dumps({"statusCode": 404, "message": "Department not found"}),
+                json.dumps({"statusCode": 404, "message": not_found_message}),
                 headers=_cors_headers()
             )
 
@@ -743,18 +750,6 @@ class BizdomQuadrant(http.Controller):
             ('score_id', '=', score_id),
             ('category_lvl2_selection', '!=', False)
         ])
-
-        # Get department/medium name for response
-        if score_record.score_name in ["Leads", "Conversion"]:
-            dept = request.env['utm.medium'].sudo().browse(dept_id)
-        else:
-            dept = request.env['hr.department'].sudo().browse(dept_id)
-
-        if not dept.exists():
-            return request.make_response(
-                json.dumps({"statusCode": 404, "message": "Department/Medium not found"}),
-                headers=_cors_headers()
-            )
 
         # Build overview list using batch computation
         overview_employee = []
