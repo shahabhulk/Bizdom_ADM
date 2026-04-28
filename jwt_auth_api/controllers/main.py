@@ -48,7 +48,7 @@ class CustomAuthController(http.Controller):
             host = request.httprequest.host
             if "laptop-uijcccph:8070" in host:
                 db = "bizapp_april23"
-            elif "13.233.223.127" in host:
+            elif "13.204.226.141" in host:
                 db = "bitnami_odoo"
             else:
                 return http.Response(
