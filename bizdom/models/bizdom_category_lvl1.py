@@ -50,6 +50,7 @@ class BizdomCategoryLvl1(models.Model):
         'category_lvl1_id',
         string='Category Lvl2'
     )
+    active = fields.Boolean(default=True, index=True)
 
     @api.depends('score_id', 'score_id.score_name')
     def _compute_name(self):

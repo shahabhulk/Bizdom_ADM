@@ -28,6 +28,7 @@ class BizdomScore(models.Model):
     favorite = fields.Boolean(string='Favorite', default=False, index=True)
     context_total_score = fields.Float(compute='_compute_context_total_score')
     dashboard_overview_data = fields.Text(compute='_compute_dashboard_overview_data', string='Dashboard Overview')
+    active = fields.Boolean(default=True, index=True)
 
     type = fields.Selection([
         ('percentage', 'Percentage'),

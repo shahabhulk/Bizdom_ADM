@@ -29,6 +29,7 @@ class BizdomPillar(models.Model):
         compute='_compute_favorite_scores',
         store=False
     )
+    active = fields.Boolean(default=True, index=True)
 
     @api.depends('all_score_ids.favorite')
     def _compute_favorite_scores(self):
