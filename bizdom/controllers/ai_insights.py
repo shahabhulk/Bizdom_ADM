@@ -38,6 +38,8 @@ PROVIDER_DEFAULTS = {
 MAX_HISTORY_MESSAGES = 8
 MAX_QUESTION_LENGTH = 1500
 MAX_TOKENS_HARD_CAP = 2000
+MAX_Q3_DEPARTMENTS = 8
+MAX_Q3_CATEGORIES_PER_DEPARTMENT = 12
 
 
 class BizdomAiInsights(http.Controller):
@@ -378,30 +380,39 @@ class BizdomAiInsights(http.Controller):
         )[:12]
 
         q2_total_actual = round(sum(float(d.get('actual_value') or 0) for d in q2_departments), 2)
-        q2_focus_department_id = q2_departments[0].get('department_id') if q2_departments else None
-        q2_focus_department_name = q2_departments[0].get('department_name') if q2_departments else None
-
-        # Q3: employee/category/source breakdown for the top Q2 department (if any).
-        q3_categories = []
-        if q2_focus_department_id:
+        # Q3: employee/category/source breakdown per department (capped).
+        q3_by_department = []
+        if q2_departments:
             category_lvl2_records = request.env['bizdom.category_lvl2'].sudo().search([
                 ('score_id', '=', score.id),
                 ('category_lvl2_selection', '!=', False),
             ])
-            q3_categories = Q3Helpers.compute_employee_scores(
-                category_lvl2_records,
-                start_date,
-                end_date,
-                score,
-                user,
-                int(q2_focus_department_id),
-                filter_norm,
-            )
-            q3_categories = sorted(
-                q3_categories,
-                key=lambda e: float(e.get('actual_value') or 0),
-                reverse=True,
-            )[:12]
+            # Keep payload bounded while still giving cross-department insight.
+            for dept in q2_departments[:MAX_Q3_DEPARTMENTS]:
+                dept_id = dept.get('department_id')
+                dept_name = dept.get('department_name')
+                if not dept_id:
+                    continue
+                dept_categories = Q3Helpers.compute_employee_scores(
+                    category_lvl2_records,
+                    start_date,
+                    end_date,
+                    score,
+                    user,
+                    int(dept_id),
+                    filter_norm,
+                )
+                dept_categories = sorted(
+                    dept_categories,
+                    key=lambda e: float(e.get('actual_value') or 0),
+                    reverse=True,
+                )[:MAX_Q3_CATEGORIES_PER_DEPARTMENT]
+                q3_by_department.append({
+                    'department_id': dept_id,
+                    'department_name': dept_name,
+                    'category_count': len(dept_categories),
+                    'categories': dept_categories,
+                })
 
         return {
             'q1_overview': q1,
@@ -412,9 +423,7 @@ class BizdomAiInsights(http.Controller):
                 'departments': q2_departments,
             },
             'q3_breakdown': {
-                'focus_department_id': q2_focus_department_id,
-                'focus_department_name': q2_focus_department_name,
-                'categories': q3_categories,
+                'departments': q3_by_department,
             },
         }
 
@@ -589,7 +598,8 @@ class BizdomAiInsights(http.Controller):
                 "- For TAT (Turnaround Time), lower is better.\n"
                 "- Use the status field (green/yellow/red/unknown) which already classifies the score against min/max.\n"
                 "- If status is 'unknown', flag that thresholds aren't set rather than guessing.\n"
-                "- The payload includes Q1/Q2/Q3 quadrant data. If asked about quadrants, use it directly.\n"
+                "- The payload includes Q1/Q2/Q3 quadrant data. Q3 contains per-department breakdowns.\n"
+                "- For questions like 'best employee in each department', iterate through q3_breakdown.departments.\n"
                 "- Never invent numbers; only quote values present in the JSON below.\n"
                 "- If the question can't be answered from this data, say so plainly.\n\n"
                 "DATA (single score snapshot, JSON):\n%s"
