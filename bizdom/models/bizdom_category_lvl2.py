@@ -75,6 +75,8 @@ class BizdomCategoryLvl2(models.Model):
         ('value', 'Value')
     ])
 
+    active = fields.Boolean(default=True, index=True)
+
     max_category_percentage_lvl2 = fields.Float(string="Max Score")
     min_category_percentage_lvl2 = fields.Float(string="Min Score")
     max_category_value_lvl2 = fields.Float(string="Max Score")
