@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<odoo>
+
+    <!-- Standalone Bizdom AI Settings form (TransientModel) -->
+    <record id="view_bizdom_ai_settings_form" model="ir.ui.view">
+        <field name="name">bizdom.ai.settings.form</field>
+        <field name="model">res.config.settings</field>
+        <field name="priority">100</field>
+        <field name="arch" type="xml">
+            <form string="Bizdom AI Insights">
+                <sheet>
+                    <div class="oe_title">
+                        <h1>Bizdom AI Insights</h1>
+                        <p class="text-muted">
+                            Configure the AI assistant that lives inside the Bizdom Dashboard and Score Dashboard.
+                            Any OpenAI-compatible provider works (Groq, Ollama, OpenAI, OpenRouter, custom).
+                        </p>
+                    </div>
+                    <group>
+                        <group string="General">
+                            <field name="bizdom_ai_enabled"/>
+                            <field name="bizdom_ai_provider"/>
+                        </group>
+                        <group string="Provider Connection">
+                            <field name="bizdom_ai_base_url"
+                                   placeholder="Leave blank to use provider default"/>
+                            <field name="bizdom_ai_model"
+                                   placeholder="Leave blank to use provider default"/>
+                            <field name="bizdom_ai_api_key" password="True"
+                                   placeholder="Not required for local Ollama"/>
+                        </group>
+                    </group>
+                    <group string="Behaviour">
+                        <field name="bizdom_ai_temperature"/>
+                        <field name="bizdom_ai_max_tokens"/>
+                        <field name="bizdom_ai_timeout"/>
+                    </group>
+                    <div class="alert alert-info" role="status">
+                        <h4 class="mt-0 mb-2">Quick Help</h4>
+                        <p class="mb-2">
+                            <b>You normally don't need to fill in Base URL or Model.</b>
+                            Just pick a provider, paste your API key, and save — the right URL and
+                            model are filled in automatically.
+                        </p>
+                        <ul class="mb-2">
+                            <li><b>Groq</b> (free, fast): get a key at console.groq.com — recommended for getting started.</li>
+                            <li><b>Ollama</b> (free, private): install from ollama.com, then run <code>ollama pull llama3.1:8b</code>. No API key needed.</li>
+                            <li><b>OpenAI</b>: paid, highest quality answers. Get a secret key (starts with <code>sk-...</code>) at platform.openai.com/api-keys.</li>
+                            <li><b>OpenRouter</b>: many models behind one key, includes free tiers.</li>
+                            <li><b>Custom</b>: any OpenAI-compatible base URL.</li>
+                        </ul>
+                        <p class="mb-0 text-muted">
+                            <small>If you do override Base URL, it must be the API endpoint
+                            (e.g. <code>https://api.openai.com/v1</code>), not a marketing or login page.</small>
+                        </p>
+                    </div>
+                    <footer>
+                        <button string="Save" type="object" name="execute" class="btn-primary"/>
+                        <button string="Cancel" special="cancel" class="btn-secondary"/>
+                    </footer>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_bizdom_ai_settings" model="ir.actions.act_window">
+        <field name="name">Bizdom AI Settings</field>
+        <field name="res_model">res.config.settings</field>
+        <field name="view_mode">form</field>
+        <field name="view_id" ref="view_bizdom_ai_settings_form"/>
+        <field name="target">new</field>
+    </record>
+
+    <menuitem
+        id="menu_bizdom_ai_settings"
+        name="AI Settings"
+        parent="menu_bizdom_root"
+        action="action_bizdom_ai_settings"
+        sequence="200"
+        groups="base.group_system"/>
+
+</odoo>

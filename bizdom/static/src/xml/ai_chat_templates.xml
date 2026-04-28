@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+
+    <t t-name="bizdom.AiChat" owl="1">
+        <t t-if="state.statusChecked and state.enabled">
+            <div t-att-class="'bizdom-ai-chat ' + (state.open ? 'is-open' : '')">
+
+                <button class="bizdom-ai-fab"
+                        t-on-click.stop="toggle"
+                        t-if="!state.open"
+                        title="Ask Bizdom AI">
+                    <i class="fa fa-comments"></i>
+                    <span class="bizdom-ai-fab-label">AI Insights</span>
+                </button>
+
+                <div class="bizdom-ai-panel" t-if="state.open">
+                    <div class="bizdom-ai-header">
+                        <div class="bizdom-ai-title">
+                            <span class="bizdom-ai-avatar"><i class="fa fa-magic"></i></span>
+                            <div class="bizdom-ai-title-text">
+                                <div class="bizdom-ai-title-main" t-esc="props.title"/>
+                                <div class="bizdom-ai-title-sub" t-esc="'Powered by ' + providerLabel"/>
+                            </div>
+                        </div>
+                        <div class="bizdom-ai-actions">
+                            <button class="bizdom-ai-btn-icon"
+                                    t-on-click.stop="clearChat"
+                                    title="Clear conversation">
+                                <i class="fa fa-eraser"></i>
+                            </button>
+                            <button class="bizdom-ai-btn-icon"
+                                    t-on-click.stop="toggle"
+                                    title="Close">
+                                <i class="fa fa-times"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="bizdom-ai-messages" t-ref="messagesScroll">
+                        <t t-foreach="state.messages" t-as="m" t-key="m_index">
+                            <div t-att-class="'bizdom-ai-msg bizdom-ai-msg-' + m.role + (m.error ? ' bizdom-ai-msg-error' : '')">
+                                <div class="bizdom-ai-msg-bubble">
+                                    <t t-esc="m.content"/>
+                                </div>
+                            </div>
+                        </t>
+                        <t t-if="state.sending">
+                            <div class="bizdom-ai-msg bizdom-ai-msg-assistant">
+                                <div class="bizdom-ai-msg-bubble bizdom-ai-typing">
+                                    <span></span><span></span><span></span>
+                                </div>
+                            </div>
+                        </t>
+                    </div>
+
+                    <t t-if="state.configured and state.messages.length &lt;= 1">
+                        <div class="bizdom-ai-quicks">
+                            <button class="bizdom-ai-quick"
+                                    t-on-click.stop="() => this.quickAsk('How am I doing this period? Give me a quick verdict.')">
+                                How am I doing?
+                            </button>
+                            <button class="bizdom-ai-quick"
+                                    t-on-click.stop="() => this.quickAsk('Which scores are underperforming and why?')">
+                                Underperformers
+                            </button>
+                            <button class="bizdom-ai-quick"
+                                    t-on-click.stop="() => this.quickAsk('What 3 things should I focus on to improve productivity?')">
+                                Top 3 priorities
+                            </button>
+                        </div>
+                    </t>
+
+                    <div class="bizdom-ai-input">
+                        <textarea t-ref="chatInput"
+                                  class="bizdom-ai-textarea"
+                                  t-model="state.input"
+                                  t-on-keydown="onKeydown"
+                                  placeholder="Ask about your scores..."
+                                  rows="2"
+                                  t-att-disabled="state.sending or !state.configured"/>
+                        <button class="bizdom-ai-send"
+                                t-on-click.stop="send"
+                                t-att-disabled="state.sending or !state.configured or !state.input.trim()">
+                            <i class="fa fa-paper-plane" t-if="!state.sending"/>
+                            <i class="fa fa-spinner fa-spin" t-if="state.sending"/>
+                        </button>
+                    </div>
+
+                    <div class="bizdom-ai-footer">
+                        <small t-if="!state.configured" class="text-warning">
+                            Provider/API key missing. Configure in Settings → Bizdom AI.
+                        </small>
+                        <small t-else="" class="text-muted">
+                            Press Enter to send · Shift+Enter for newline
+                        </small>
+                    </div>
+                </div>
+            </div>
+        </t>
+    </t>
+
+</templates>

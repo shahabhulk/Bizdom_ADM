@@ -4,6 +4,7 @@ import { registry } from "@web/core/registry";
 import { Component, useState, onMounted, useRef, useEffect, onWillStart } from "@odoo/owl";
 import { useService } from "@web/core/utils/hooks";
 import { loadBundle } from "@web/core/assets";
+import { AiChat } from "./ai_chat";
 
 const DEPARTMENT_API = '/api/score/overview/department';
 const SCORE_OVERVIEW_API = '/api/score/overview';
@@ -94,6 +95,7 @@ let globalScrollingObserver = null;
 
 class ScoreDashboard extends Component {
     static template = "bizdom.ScoreDashboard";
+    static components = { AiChat };
     static props = ["*"];
 
     setup() {
@@ -284,6 +286,8 @@ class ScoreDashboard extends Component {
             this.state.departmentChartData,
             this.state.employeeChartData
         ]);
+
+        this.getAiContext = this.getAiContext.bind(this);
     }
 
     async loadScoreData() {
@@ -3495,6 +3499,19 @@ class ScoreDashboard extends Component {
             console.error('Error rendering chart:', error);
             this.isRenderingChart = false; // Reset flag on error
         }
+    }
+
+    getAiContext() {
+        const filter = this.state.filterType || "MTD";
+        const range = this.state.activeRange || {};
+        return {
+            scope: "score",
+            filterType: filter,
+            startDate: range.start ? this.formatDateForQuadrantAPI(range.start) : null,
+            endDate: range.end ? this.formatDateForQuadrantAPI(range.end) : null,
+            scoreId: this.state.scoreId || null,
+            scoreName: this.state.scoreName || null,
+        };
     }
 }
 

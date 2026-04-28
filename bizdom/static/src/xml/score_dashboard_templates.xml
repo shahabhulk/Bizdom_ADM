@@ -284,6 +284,8 @@
                     </div>
                 </div>
             </div>
+
+            <AiChat getContext="getAiContext" title="(state.scoreName || 'Score') + ' AI Insights'"/>
         </div>
 
         <style>

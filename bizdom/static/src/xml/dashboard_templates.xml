@@ -98,6 +98,8 @@
                     </t>
                 </t>
             </div>
+
+            <AiChat getContext="getAiContext" title="'Dashboard AI Insights'"/>
         </div>
 
         <style>
