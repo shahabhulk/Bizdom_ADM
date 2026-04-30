@@ -27,39 +27,25 @@ class Q3Helpers:
         """
         emp_grouped = []
 
+
         # Determine what we're grouping by based on score type
         if score_record.score_name in ["Leads"]:
             # For Leads, group by source (utm.source)
             selection_type = 'utm.source'
-            selection_field = 'source_id'
-            name_field = 'source_name'
-            id_field = 'source_id'
 
         elif score_record.score_name in ["Income"]:
             selection_type = 'product.category'
-            selection_field = 'category_id'
-            name_field = 'category_name'
-            id_field = 'category_id'
 
         elif score_record.score_name == "Expense":
             selection_type = 'product.category'
             selection_types = ('product.category', 'product.product')
-            selection_field = 'category_id'
-            name_field = 'category_name'
-            id_field = 'category_id'
 
         elif score_record.score_name == "AOV":
-            # AOV: group by car brand; use employee_id/employee_name so Q3 chart works like Labour
+            # AOV: group by car brand
             selection_type = 'fleet.vehicle.model.brand'
-            selection_field = 'employee_id'
-            name_field = 'employee_name'
-            id_field = 'employee_id'
         else:
             # For Labour, TAT, Conversion, etc., group by employee
             selection_type = 'hr.employee'
-            selection_field = 'employee_id'
-            name_field = 'employee_name'
-            id_field = 'employee_id'
 
         # Filter category_lvl2 records by department/medium
         if score_record.score_name == "Expense":
@@ -125,8 +111,8 @@ class Q3Helpers:
                 emp_name = selection_obj.name if hasattr(selection_obj, 'name') else "N/A"
 
             emp_data = {
-                id_field: selection_obj.id,
-                name_field: emp_name,
+                'category_id': selection_obj.id,
+                'category_name': emp_name,
                 'actual_value': emp_actual_value
             }
 
@@ -183,9 +169,6 @@ class Q3Helpers:
                     emp_data['quality_lead_value'] = all_leads
                     emp_data['converted_value'] = converted_leads
                     emp_data['actual_value'] = converted_leads  # For Conversion, actual_value is converted leads
-                    # Rename fields for Conversion response
-                    emp_data['saleperson_id'] = emp_data.pop('employee_id')
-                    emp_data['saleperson_name'] = emp_data.pop('employee_name')
 
             # Add min/max from category_lvl2 thresholds for all scores (when available)
             if filter_type in ["WTD", "MTD", "YTD", "CUSTOM", "Custom"]:

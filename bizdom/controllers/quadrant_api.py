@@ -232,7 +232,10 @@ class BizdomQuadrant(http.Controller):
                 "period": period_label,
                 "start_date": start_date.strftime('%d-%m-%Y'),
                 "end_date": end_date.strftime('%d-%m-%Y'),
-                "actual_value": actual_value
+                "actual_value": actual_value,
+                # Keep keys stable for all scores; override per-score where applicable.
+                "min_value": "",
+                "max_value": "",
             }
 
             if score_record.score_name == "Cashflow":
@@ -277,10 +280,9 @@ class BizdomQuadrant(http.Controller):
 
                 quality_lead_count = lead_model.search_count(lead_domain)
 
-                period_data["quality_lead"] = quality_lead_count if quality_lead_count else (
-                    "0" if score_record.score_name == "Leads" else 0)
-                period_data["min_value"] = "0" if score_record.score_name == "Leads" else ""
-                period_data["max_value"] = "0" if score_record.score_name == "Leads" else ""
+                period_data["quality_lead"] = quality_lead_count if quality_lead_count else 0
+                period_data["min_value"] = 0 if score_record.score_name == "Leads" else ""
+                period_data["max_value"] = 0 if score_record.score_name == "Leads" else ""
 
             if score_record.score_name == "Customer Retention":
                 if score_record.type == "percentage":
@@ -707,16 +709,16 @@ class BizdomQuadrant(http.Controller):
                             actual_value = round(avg_rating, 3)
                             total_actual_value += actual_value
                         else:
-                            actual_value = ""
+                            actual_value = 0
                     else:
-                        actual_value = ""
+                        actual_value = 0
 
                     questions_data.append({
-                        'question_id': question_id,
-                        'question': question_info['question'],
+                        'category_id': question_id,
+                        'category_name': question_info['question'],
                         'actual_value': actual_value,
                         'min_value': "",
-                        'max_value': ""
+                        'max_value': "",
                     })
 
                 period_data = {

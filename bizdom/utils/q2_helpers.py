@@ -189,7 +189,6 @@ class Q2Helpers:
                 )
                 dept_data['min_value'] = min_value
                 dept_data['max_value'] = max_value
-                dept_data['category_name'] = single_rec.name  # Include category name for debugging
                 print(f"Q2 dept_data for {dept.name} (category: {single_rec.name}): actual_value={dept_actual_value}, min_value={min_value}, max_value={max_value}")
                 
                 # If min/max are 0, warn that they might not be set in category_lvl1

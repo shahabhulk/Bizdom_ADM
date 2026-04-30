@@ -1675,8 +1675,8 @@ class ScoreDashboard extends Component {
         if (Array.isArray(periodSources)) {
             periodSources.forEach(source => {
                 sources.push({
-                    source_id: source.source_id,
-                    source_name: source.source_name || 'N/A',
+                    source_id: source.category_id || source.source_id,
+                    source_name: source.category_name || source.source_name || 'N/A',
                     lead_value: Number(source.lead_value || 0),
                     quality_lead_value: Number(source.quality_lead_value || 0),
                     min_value: source.min_value,
@@ -1792,8 +1792,8 @@ class ScoreDashboard extends Component {
         if (Array.isArray(periodSalespersons)) {
             periodSalespersons.forEach(salesperson => {
                 salespersons.push({
-                    saleperson_id: salesperson.saleperson_id,
-                    saleperson_name: salesperson.saleperson_name || 'N/A',
+                    category_id: salesperson.category_id,
+                    category_name: salesperson.category_name || 'N/A',
                     quality_lead_value: Number(salesperson.quality_lead_value || 0),
                     converted_value: Number(salesperson.converted_value || 0),
                     min_value: salesperson.min_value,
@@ -1816,7 +1816,7 @@ class ScoreDashboard extends Component {
             : Number(sharedMaxRaw);
 
         this.state.employeeChartData = {
-            labels: salespersons.map(s => s.saleperson_name),
+            labels: salespersons.map(s => s.category_name),
             values: salespersons.map(s => s.quality_lead_value),
             conversionValues: salespersons.map(s => s.converted_value),
             minValues: salespersons.map(s => {
@@ -1859,7 +1859,7 @@ class ScoreDashboard extends Component {
                     end_date: p.end_date,
                     period: p.period,
                     employeeCount: (p.categories?.length || p.employees?.length || 0),
-                    employees: (p.categories || p.employees || []).map(e => ({ name: e.employee_name, value: e.actual_value }))
+                    employees: (p.categories || p.employees || []).map(e => ({ name: e.category_name || e.employee_name || 'N/A', value: e.actual_value }))
                 }))
             });
             
@@ -1893,7 +1893,7 @@ class ScoreDashboard extends Component {
                         console.log('✓ Found exact period match:', {
                             selected: { start: normalizedStart, end: normalizedEnd },
                             found: { start: periodStartNorm, end: periodEndNorm },
-                            employees: (period.categories || period.employees || []).map(e => ({ name: e.employee_name, value: e.actual_value }))
+                            employees: (period.categories || period.employees || []).map(e => ({ name: e.category_name || e.employee_name || 'N/A', value: e.actual_value }))
                         });
                     } else {
                         console.log('✗ Period mismatch:', {
@@ -1918,7 +1918,7 @@ class ScoreDashboard extends Component {
                         console.log('✓ Found period match by start date:', {
                             start: normalizedStart,
                             period: { start: periodStartNorm, end: normalizeDate(period.end_date) },
-                            employees: (period.categories || period.employees || []).map(e => ({ name: e.employee_name, value: e.actual_value }))
+                            employees: (period.categories || period.employees || []).map(e => ({ name: e.category_name || e.employee_name || 'N/A', value: e.actual_value }))
                         });
                     }
                     return match;
@@ -1934,7 +1934,7 @@ class ScoreDashboard extends Component {
                 if (selectedPeriodData) {
                     console.log('✓ Found period match by label:', {
                         period: this.state.selectedPeriodInfo.period,
-                        employees: (selectedPeriodData.categories || selectedPeriodData.employees || []).map(e => ({ name: e.employee_name, value: e.actual_value }))
+                        employees: (selectedPeriodData.categories || selectedPeriodData.employees || []).map(e => ({ name: e.category_name || e.employee_name || 'N/A', value: e.actual_value }))
                     });
                 }
             }
@@ -1973,7 +1973,7 @@ class ScoreDashboard extends Component {
                 start_date: selectedPeriodData.start_date,
                 end_date: selectedPeriodData.end_date,
                 employeeCount: (selectedPeriodData.categories?.length || selectedPeriodData.employees?.length || 0),
-                employees: (selectedPeriodData.categories || selectedPeriodData.employees || []).map(e => ({ name: e.employee_name, value: e.actual_value }))
+                employees: (selectedPeriodData.categories || selectedPeriodData.employees || []).map(e => ({ name: e.category_name || e.employee_name || 'N/A', value: e.actual_value }))
             }
         });
         
@@ -1984,8 +1984,8 @@ class ScoreDashboard extends Component {
         if (Array.isArray(periodEmployees)) {
             periodEmployees.forEach(emp => {
                 employees.push({
-                    employee_id: emp.employee_id,
-                    employee_name: emp.employee_name || 'N/A',
+                    employee_id: emp.category_id || emp.employee_id,
+                    employee_name: emp.category_name || emp.employee_name || 'N/A',
                     actual_value: Number(emp.actual_value || 0),
                     min_value: emp.min_value,
                     max_value: emp.max_value
@@ -2099,16 +2099,13 @@ class ScoreDashboard extends Component {
 
         if (Array.isArray(periodQuestions)) {
             periodQuestions.forEach(q => {
-                // Only include questions with actual_value (not empty string)
-                if (q.actual_value !== "" && q.actual_value !== null && q.actual_value !== undefined) {
-                    questions.push({
-                        question_id: q.question_id,
-                        question: q.question || 'N/A',
-                        actual_value: Number(q.actual_value || 0),
-                        min_value: q.min_value,
-                        max_value: q.max_value
-                    });
-                }
+                questions.push({
+                    question_id: q.category_id || q.question_id,
+                    question: q.category_name || q.question || 'N/A',
+                    actual_value: Number(q.actual_value || 0),
+                    min_value: q.min_value,
+                    max_value: q.max_value
+                });
             });
         }
 
