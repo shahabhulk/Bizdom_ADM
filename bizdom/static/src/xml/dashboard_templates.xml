@@ -63,40 +63,169 @@
 
             <!-- Main Content Area -->
             <div class="dashboard-content">
-                <t t-if="state.loading">
-                    <div class="loading-message">Loading...</div>
-                </t>
-                <t t-else="">
-                    <t t-foreach="state.pillars" t-as="pillar" t-key="pillar.id">
-                        <div class="pillar-row">
-                            <!-- Left: Pillar Name with Orb -->
-                            <div class="pillar-section">
-                                <div class="vertical-item">
-                                    <div class="vertical-orb" t-att-style="'background: radial-gradient(circle, ' + this.getPillarOrbColor(pillar.name) + ' 0%, ' + this.getPillarOrbColor(pillar.name, true) + ' 100%); box-shadow: 0 0 20px ' + this.getPillarOrbColor(pillar.name) + ';'"></div>
-                                    <div class="vertical-name" t-esc="pillar.name"/>
+                <div class="dashboard-main">
+                    <t t-if="state.loading">
+                        <div class="loading-message">Loading...</div>
+                    </t>
+                    <t t-else="">
+                        <t t-foreach="state.pillars" t-as="pillar" t-key="pillar.id">
+                            <div class="pillar-row">
+                                <!-- Left: Pillar Name with Orb -->
+                                <div class="pillar-section">
+                                    <div class="vertical-item">
+                                        <div class="vertical-orb" t-att-style="'background: radial-gradient(circle, ' + this.getPillarOrbColor(pillar.name) + ' 0%, ' + this.getPillarOrbColor(pillar.name, true) + ' 100%); box-shadow: 0 0 20px ' + this.getPillarOrbColor(pillar.name) + ';'"></div>
+                                        <div class="vertical-name" t-esc="pillar.name"/>
+                                    </div>
+                                </div>
+                                <!-- Right: KPIs Flow -->
+                                <div class="kpi-flow" t-att-style="'border-left: 4px solid ' + this.getPillarOrbColor(pillar.name) + ';'">
+                                    <t t-if="pillar.scores and pillar.scores.length">
+                                        <t t-foreach="pillar.scores" t-as="score" t-key="score.id">
+                                            <div class="kpi-circle" t-on-click="(ev) => this.openScoreDashboard(ev, score)">
+                                                <div class="kpi-icon-wrapper" t-att-style="'background-color: ' + this.getScoreOverviewColor(score) + ';'">
+                                                    <i t-att-class="'fa ' + this.getScoreIcon(score.score_name)"></i>
+                                                </div>
+                                                <div class="kpi-label" t-esc="score.score_name"/>
+                                                <div class="kpi-value" t-esc="score.type === 'percentage' ? (score.context_total_score || 0).toFixed(1) + '%' : score.type === 'currency_inr' ? '₹' + (score.context_total_score || 0).toLocaleString('en-IN', { maximumFractionDigits: 1, minimumFractionDigits: 1 }) : (score.context_total_score || 0).toFixed(1)"/>
+                                            </div>
+                                        </t>
+                                    </t>
+                                    <t t-else="">
+                                        <div class="no-scores">No scores available</div>
+                                    </t>
                                 </div>
                             </div>
-                            
-                            <!-- Right: KPIs Flow -->
-                            <div class="kpi-flow" t-att-style="'border-left: 4px solid ' + this.getPillarOrbColor(pillar.name) + ';'">
-                                <t t-if="pillar.scores and pillar.scores.length">
-                                    <t t-foreach="pillar.scores" t-as="score" t-key="score.id">
-                                        <div class="kpi-circle" t-on-click="(ev) => this.openScoreDashboard(ev, score)">
-                                            <div class="kpi-icon-wrapper" t-att-style="'background-color: ' + this.getScoreOverviewColor(score) + ';'">
-                                                <i t-att-class="'fa ' + this.getScoreIcon(score.score_name)"></i>
-                                            </div>
-                                            <div class="kpi-label" t-esc="score.score_name"/>
-                                            <div class="kpi-value" t-esc="score.type === 'percentage' ? (score.context_total_score || 0).toFixed(1) + '%' : score.type === 'currency_inr' ? '₹' + (score.context_total_score || 0).toLocaleString('en-IN', { maximumFractionDigits: 1, minimumFractionDigits: 1 }) : (score.context_total_score || 0).toFixed(1)"/>
-                                        </div>
-                                    </t>
-                                </t>
-                                <t t-else="">
-                                    <div class="no-scores">No scores available</div>
+                        </t>
+                    </t>
+                </div>
+
+                <aside class="todo-sidebar">
+                    <div class="todo-card">
+                        <div class="todo-card-header">
+                            <div class="todo-title-row">
+                                <div class="todo-title"><i class="fa fa-check-circle"/> <span>My Todos</span></div>
+                                <div class="todo-actions-top">
+                                    <button type="button" class="todo-refresh-btn" title="Create todo" t-on-click="() => this.openCreateTodoForm()">
+                                        <i class="fa fa-plus"/>
+                                    </button>
+                                    <button type="button" class="todo-refresh-btn" title="Refresh" t-on-click="() => this.loadTodos()">
+                                        <i class="fa fa-refresh"/>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="todo-summary">
+                                <span class="todo-summary-pill"><strong t-esc="this.todoCounts.open"/> open</span>
+                                <span class="todo-summary-pill"><strong t-esc="this.todoCounts.done"/> done</span>
+                                <span class="todo-summary-pill"><strong t-esc="this.todoCounts.total"/> total</span>
+                            </div>
+                            <div class="todo-filter-tabs">
+                                <button type="button" t-att-class="'todo-tab ' + (state.todoFilter === 'open' ? 'active' : '')" t-on-click="() => this.setTodoFilter('open')">Open</button>
+                                <button type="button" t-att-class="'todo-tab ' + (state.todoFilter === 'done' ? 'active' : '')" t-on-click="() => this.setTodoFilter('done')">Done</button>
+                                <button type="button" t-att-class="'todo-tab ' + (state.todoFilter === 'all' ? 'active' : '')" t-on-click="() => this.setTodoFilter('all')">All</button>
+                            </div>
+                            <div class="todo-pillar-tabs">
+                                <t t-foreach="this.todoPillarTabs" t-as="tab" t-key="tab.name">
+                                    <button type="button"
+                                            t-att-class="'todo-pill-tab ' + (state.todoPillarFilter === tab.name ? 'active' : '')"
+                                            t-on-click="() => this.setTodoPillarFilter(tab.name)">
+                                        <span t-esc="tab.name"/>
+                                        <span class="todo-pill-count" t-esc="tab.count"/>
+                                    </button>
                                 </t>
                             </div>
                         </div>
-                    </t>
-                </t>
+                        <div class="todo-card-body">
+                            <t t-if="state.showTodoForm">
+                                <form class="todo-form" t-on-submit="(ev) => this.saveTodo(ev)">
+                                    <div class="todo-form-title">
+                                        <span t-esc="state.editingTodoId ? 'Update Todo' : 'Create Todo'"/>
+                                    </div>
+                                    <input class="todo-input"
+                                           type="text"
+                                           placeholder="Todo title"
+                                           t-att-value="state.todoForm.name"
+                                           t-on-input="(ev) => this.onTodoFormChange('name', ev)"/>
+                                    <textarea class="todo-input todo-textarea"
+                                              placeholder="Description"
+                                              t-att-value="state.todoForm.description"
+                                              t-on-input="(ev) => this.onTodoFormChange('description', ev)"/>
+                                    <div class="todo-form-row">
+                                        <input class="todo-input" type="date" t-att-value="state.todoForm.date_deadline" t-on-change="(ev) => this.onTodoFormChange('date_deadline', ev)"/>
+                                        <select class="todo-input" t-att-value="state.todoForm.pillar_id" t-on-change="(ev) => this.onTodoFormChange('pillar_id', ev)">
+                                            <option value="">Select pillar</option>
+                                            <t t-foreach="state.pillarOptions" t-as="p" t-key="p.id">
+                                                <option t-att-value="p.id" t-att-selected="p.id == state.todoForm.pillar_id ? 'selected' : undefined" t-esc="p.name"/>
+                                            </t>
+                                        </select>
+                                    </div>
+                                    <div class="todo-form-row">
+                                        <select class="todo-input" t-att-value="state.todoForm.assignee_id" t-on-change="(ev) => this.onTodoFormChange('assignee_id', ev)">
+                                            <option value="">Select assignee</option>
+                                            <t t-foreach="state.userOptions" t-as="u" t-key="u.id">
+                                                <option t-att-value="u.id" t-att-selected="u.id == state.todoForm.assignee_id ? 'selected' : undefined" t-esc="u.name"/>
+                                            </t>
+                                        </select>
+                                    </div>
+                                    <div class="todo-priority-row">
+                                        <button type="button" t-att-class="'todo-priority-btn todo-priority-low ' + (state.todoForm.priority === 'low' ? 'active' : '')" t-on-click="() => this.setTodoPriority('low')">Low</button>
+                                        <button type="button" t-att-class="'todo-priority-btn todo-priority-medium ' + (state.todoForm.priority === 'medium' ? 'active' : '')" t-on-click="() => this.setTodoPriority('medium')">Medium</button>
+                                        <button type="button" t-att-class="'todo-priority-btn todo-priority-high ' + (state.todoForm.priority === 'high' ? 'active' : '')" t-on-click="() => this.setTodoPriority('high')">Urgent</button>
+                                    </div>
+                                    <t t-if="state.todoFormError">
+                                        <div class="todo-form-error" t-esc="state.todoFormError"/>
+                                    </t>
+                                    <div class="todo-form-actions">
+                                        <button type="button" class="todo-form-btn cancel" t-on-click="() => this.closeTodoForm()">Cancel</button>
+                                        <button type="submit" class="todo-form-btn save" t-att-disabled="state.savingTodo">
+                                            <t t-if="state.savingTodo">Saving...</t>
+                                            <t t-else=""><t t-esc="state.editingTodoId ? 'Update' : 'Create'"/></t>
+                                        </button>
+                                    </div>
+                                </form>
+                            </t>
+                            <t t-if="state.todosLoading">
+                                <div class="todo-placeholder"><i class="fa fa-spinner fa-spin"/> Loading todos...</div>
+                            </t>
+                            <t t-elif="state.todosError">
+                                <div class="todo-placeholder todo-placeholder-error" t-esc="state.todosError"/>
+                            </t>
+                            <t t-elif="!this.filteredTodos.length">
+                                <div class="todo-placeholder">No todos found</div>
+                            </t>
+                            <t t-else="">
+                                <ul class="todo-list">
+                                    <t t-foreach="this.filteredTodos" t-as="todo" t-key="todo.id">
+                                        <li t-att-class="'todo-item ' + this.getPriorityClass(todo.priority) + ' ' + (this.isTodoDone(todo) ? 'done' : '')">
+                                            <div class="todo-row-top">
+                                                <div class="todo-name" t-esc="todo.name"/>
+                                                <div class="todo-item-actions">
+                                                    <button type="button" class="todo-icon-btn" title="Edit" t-on-click="() => this.openEditTodoForm(todo)">
+                                                        <i class="fa fa-pencil"/>
+                                                    </button>
+                                                    <button type="button" class="todo-icon-btn danger" title="Delete" t-on-click="() => this.deleteTodo(todo.id)" t-att-disabled="state.deletingTodoId === todo.id">
+                                                        <i t-att-class="'fa ' + (state.deletingTodoId === todo.id ? 'fa-spinner fa-spin' : 'fa-trash')"/>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                            <t t-if="todo.description">
+                                                <div class="todo-description" t-esc="todo.description"/>
+                                            </t>
+                                            <div class="todo-meta">
+                                                <span t-att-class="'todo-chip ' + this.getPriorityClass(todo.priority)" t-esc="this.getPriorityLabel(todo.priority)"/>
+                                                <t t-if="todo.pillar_name">
+                                                    <span class="todo-chip todo-chip-pillar" t-esc="todo.pillar_name"/>
+                                                </t>
+                                                <t t-if="todo.date_deadline">
+                                                    <span class="todo-chip"><i class="fa fa-calendar"/> <t t-esc="todo.date_deadline"/></span>
+                                                </t>
+                                            </div>
+                                        </li>
+                                    </t>
+                                </ul>
+                            </t>
+                        </div>
+                    </div>
+                </aside>
             </div>
         </div>
 
@@ -238,6 +367,14 @@
                 background: #f5f7fa;
                 overflow-y: auto;
                 height: calc(100vh - 120px);
+                display: grid;
+                grid-template-columns: minmax(0, 1fr) 360px;
+                gap: 1.5rem;
+                align-items: start;
+            }
+
+            .dashboard-main {
+                min-width: 0;
             }
 
             .pillar-row {
@@ -344,6 +481,366 @@
                 color: #6c757d;
                 padding: 2rem;
                 font-size: 1.1rem;
+            }
+
+            .todo-sidebar {
+                position: sticky;
+                top: 0;
+            }
+
+            .todo-card {
+                background: #fff;
+                border-radius: 12px;
+                overflow: hidden;
+                box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+                max-height: calc(100vh - 170px);
+                display: flex;
+                flex-direction: column;
+            }
+
+            .todo-card-header {
+                padding: 1rem;
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                color: #fff;
+            }
+
+            .todo-title-row {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+            }
+
+            .todo-title {
+                font-weight: 700;
+                display: flex;
+                gap: 0.4rem;
+                align-items: center;
+            }
+
+            .todo-actions-top {
+                display: flex;
+                gap: 0.35rem;
+            }
+
+            .todo-refresh-btn {
+                border: none;
+                background: rgba(255, 255, 255, 0.2);
+                color: #fff;
+                border-radius: 8px;
+                width: 30px;
+                height: 30px;
+                cursor: pointer;
+            }
+
+            .todo-summary {
+                display: flex;
+                gap: 0.4rem;
+                margin-top: 0.8rem;
+                flex-wrap: wrap;
+            }
+
+            .todo-summary-pill {
+                background: rgba(255, 255, 255, 0.2);
+                border-radius: 999px;
+                padding: 0.2rem 0.6rem;
+                font-size: 0.75rem;
+            }
+
+            .todo-filter-tabs {
+                margin-top: 0.8rem;
+                display: flex;
+                background: rgba(255, 255, 255, 0.2);
+                padding: 0.2rem;
+                border-radius: 10px;
+            }
+
+            .todo-pillar-tabs {
+                margin-top: 0.6rem;
+                display: flex;
+                gap: 0.35rem;
+                overflow-x: auto;
+            }
+
+            .todo-pill-tab {
+                border: 1px solid rgba(255, 255, 255, 0.35);
+                border-radius: 999px;
+                background: rgba(255, 255, 255, 0.1);
+                color: #fff;
+                font-size: 0.72rem;
+                padding: 0.2rem 0.5rem;
+                display: inline-flex;
+                gap: 0.35rem;
+                align-items: center;
+                cursor: pointer;
+                white-space: nowrap;
+            }
+
+            .todo-pill-tab.active {
+                background: #fff;
+                color: #667eea;
+                border-color: #fff;
+            }
+
+            .todo-pill-count {
+                background: rgba(0, 0, 0, 0.15);
+                border-radius: 999px;
+                padding: 0 0.35rem;
+                font-weight: 700;
+            }
+
+            .todo-pill-tab.active .todo-pill-count {
+                background: #e8eefe;
+            }
+
+            .todo-tab {
+                flex: 1;
+                border: none;
+                background: transparent;
+                color: rgba(255, 255, 255, 0.9);
+                font-weight: 600;
+                padding: 0.35rem 0.4rem;
+                border-radius: 8px;
+                cursor: pointer;
+                font-size: 0.8rem;
+            }
+
+            .todo-tab.active {
+                background: #fff;
+                color: #667eea;
+            }
+
+            .todo-card-body {
+                padding: 0.7rem;
+                overflow: auto;
+                flex: 1;
+            }
+
+            .todo-form {
+                background: #f6f8fe;
+                border: 1px solid #e5eaf7;
+                border-radius: 10px;
+                padding: 0.65rem;
+                margin-bottom: 0.7rem;
+            }
+
+            .todo-form-title {
+                font-size: 0.82rem;
+                font-weight: 700;
+                color: #4a5568;
+                margin-bottom: 0.45rem;
+            }
+
+            .todo-input {
+                width: 100%;
+                border: 1px solid #d9e0ef;
+                border-radius: 8px;
+                padding: 0.45rem 0.6rem;
+                font-size: 0.82rem;
+                margin-bottom: 0.45rem;
+                background: #fff;
+            }
+
+            .todo-textarea {
+                min-height: 62px;
+                resize: vertical;
+            }
+
+            .todo-form-row {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 0.45rem;
+            }
+
+            .todo-priority-row {
+                display: grid;
+                grid-template-columns: repeat(3, 1fr);
+                gap: 0.35rem;
+                margin-bottom: 0.45rem;
+            }
+
+            .todo-priority-btn {
+                border: 1px solid #d9e0ef;
+                border-radius: 8px;
+                background: #fff;
+                padding: 0.3rem 0.4rem;
+                font-size: 0.75rem;
+                font-weight: 700;
+                cursor: pointer;
+            }
+
+            .todo-priority-low.active { background: #e9f9ef; border-color: #2e9b55; color: #227641; }
+            .todo-priority-medium.active { background: #fff7df; border-color: #e1ad2e; color: #946f0f; }
+            .todo-priority-high.active { background: #ffe8e8; border-color: #d94848; color: #aa2d2d; }
+
+            .todo-form-error {
+                color: #b42318;
+                background: #ffe8e8;
+                border: 1px solid #ffc8c8;
+                border-radius: 7px;
+                font-size: 0.78rem;
+                padding: 0.3rem 0.45rem;
+                margin-bottom: 0.45rem;
+            }
+
+            .todo-form-actions {
+                display: flex;
+                justify-content: flex-end;
+                gap: 0.4rem;
+            }
+
+            .todo-form-btn {
+                border: none;
+                border-radius: 8px;
+                padding: 0.36rem 0.65rem;
+                font-size: 0.78rem;
+                font-weight: 700;
+                cursor: pointer;
+            }
+
+            .todo-form-btn.cancel {
+                background: #e9edf5;
+                color: #344054;
+            }
+
+            .todo-form-btn.save {
+                background: #667eea;
+                color: #fff;
+            }
+
+            .todo-placeholder {
+                color: #6c757d;
+                text-align: center;
+                padding: 1.5rem 0.5rem;
+                font-size: 0.9rem;
+            }
+
+            .todo-placeholder-error {
+                color: #dc3545;
+            }
+
+            .todo-list {
+                list-style: none;
+                margin: 0;
+                padding: 0;
+                display: flex;
+                flex-direction: column;
+                gap: 0.5rem;
+            }
+
+            .todo-item {
+                background: #f8f9fc;
+                border: 1px solid #eceff5;
+                border-radius: 10px;
+                padding: 0.65rem 0.75rem;
+            }
+
+            .todo-row-top {
+                display: flex;
+                justify-content: space-between;
+                gap: 0.5rem;
+                align-items: center;
+            }
+
+            .todo-item-actions {
+                display: flex;
+                gap: 0.25rem;
+            }
+
+            .todo-icon-btn {
+                border: 1px solid #d8dfea;
+                background: #fff;
+                width: 24px;
+                height: 24px;
+                border-radius: 6px;
+                cursor: pointer;
+                color: #475467;
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 0.7rem;
+            }
+
+            .todo-icon-btn.danger {
+                color: #b42318;
+                border-color: #f0c8c8;
+                background: #fff7f7;
+            }
+
+            .todo-item.done .todo-name {
+                text-decoration: line-through;
+                opacity: 0.6;
+            }
+
+            .todo-name {
+                font-weight: 600;
+                color: #212529;
+                font-size: 0.9rem;
+            }
+
+            .todo-description {
+                margin-top: 0.2rem;
+                color: #6c757d;
+                font-size: 0.8rem;
+                line-height: 1.35;
+            }
+
+            .todo-meta {
+                margin-top: 0.4rem;
+                display: flex;
+                gap: 0.3rem;
+                flex-wrap: wrap;
+            }
+
+            .todo-chip {
+                font-size: 0.7rem;
+                border-radius: 999px;
+                padding: 0.15rem 0.5rem;
+                background: #eef2ff;
+                color: #4a5568;
+                display: inline-flex;
+                align-items: center;
+                gap: 0.25rem;
+            }
+
+            .todo-chip-pillar {
+                background: #e8f2ff;
+                color: #2b6cb0;
+            }
+
+            .todo-priority-low {
+                border-left: 4px solid #2e9b55;
+            }
+
+            .todo-priority-medium {
+                border-left: 4px solid #e1ad2e;
+            }
+
+            .todo-priority-high {
+                border-left: 4px solid #d94848;
+            }
+
+            .todo-chip.todo-priority-low {
+                background: #e9f9ef;
+                color: #227641;
+            }
+
+            .todo-chip.todo-priority-medium {
+                background: #fff7df;
+                color: #946f0f;
+            }
+
+            .todo-chip.todo-priority-high {
+                background: #ffe8e8;
+                color: #aa2d2d;
+            }
+
+            @media (max-width: 1200px) {
+                .dashboard-content {
+                    grid-template-columns: 1fr;
+                }
+                .todo-sidebar {
+                    position: static;
+                }
             }
         </style>
     </t>
