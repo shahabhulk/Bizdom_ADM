@@ -12,3 +12,4 @@ from .import bizdom_category_lvl1
 from .import bizdom_category_lvl2
 from .import custom_res_users
 from .import bizdom_todo
+from .import ai_settings
