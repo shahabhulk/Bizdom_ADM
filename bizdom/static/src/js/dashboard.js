@@ -5,6 +5,8 @@ import { Component, useState, onMounted } from "@odoo/owl";
 import { useService } from "@web/core/utils/hooks";
 
 const DASHBOARD_API = '/api/dashboard';
+const TODOS_API = '/api/todos';
+const TODO_PILLAR_TABS = ["All", "Operations", "Sales and Marketing", "Finance"];
 
 class BizdomDashboard extends Component {
   static template = "bizdom.Dashboard";
@@ -25,11 +27,53 @@ class BizdomDashboard extends Component {
         start: "",
         end: "",
       },
+      todos: [],
+      todosLoading: true,
+      todosError: "",
+      todoFilter: "open", // open | done | all
+      todoPillarFilter: "All",
+      showTodoForm: false,
+      editingTodoId: null,
+      savingTodo: false,
+      deletingTodoId: null,
+      pillarOptions: [],
+      userOptions: [],
+      todoFormError: "",
+      todoForm: {
+        name: "",
+        description: "",
+        date_deadline: "",
+        priority: "low",
+        pillar_id: "",
+        assignee_id: "",
+      },
     });
 
     onMounted(() => {
       this.loadPillars();
+      this.loadTodos();
+      this.loadTodoSupportData();
     });
+  }
+
+  async loadTodoSupportData() {
+    try {
+      const [pillars, users] = await Promise.all([
+        this.orm.searchRead("bizdom.pillar", [], ["id", "name"], { order: "name asc" }),
+        this.orm.searchRead(
+          "res.users",
+          [["active", "=", true], ["share", "=", false]],
+          ["id", "name"],
+          { order: "name asc", limit: 200 }
+        ),
+      ]);
+      this.state.pillarOptions = pillars || [];
+      this.state.userOptions = users || [];
+    } catch (error) {
+      console.warn("Could not load todo form options:", error);
+      this.state.pillarOptions = [];
+      this.state.userOptions = [];
+    }
   }
 
   
@@ -265,6 +309,214 @@ class BizdomDashboard extends Component {
     } finally {
       this.state.loading = false;
     }
+  }
+
+  async loadTodos() {
+    try {
+      this.state.todosLoading = true;
+      this.state.todosError = "";
+      const response = await fetch(`${TODOS_API}?limit=100`, {
+        method: "GET",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+      });
+      const payload = await response.json().catch(() => null);
+      if (response.status === 401) {
+        this.state.todosError = "Please log in to see your todos";
+        this.state.todos = [];
+        return;
+      }
+      if (payload && payload.statusCode === 200 && Array.isArray(payload.data)) {
+        this.state.todos = payload.data;
+      } else {
+        this.state.todos = [];
+        this.state.todosError = (payload && payload.message) || "No todos available";
+      }
+    } catch (error) {
+      console.error("Error loading todos:", error);
+      this.state.todosError = "Could not load todos";
+      this.state.todos = [];
+    } finally {
+      this.state.todosLoading = false;
+    }
+  }
+
+  setTodoFilter(filter) {
+    this.state.todoFilter = filter;
+  }
+
+  setTodoPillarFilter(pillarName) {
+    this.state.todoPillarFilter = pillarName;
+  }
+
+  isTodoDone(todo) {
+    return todo && (todo.state === "1_done" || todo.state === "1_canceled");
+  }
+
+  get filteredTodos() {
+    let todos = this.state.todos || [];
+    if (this.state.todoFilter === "done") {
+      todos = todos.filter((t) => this.isTodoDone(t));
+    }
+    if (this.state.todoFilter === "open") {
+      todos = todos.filter((t) => !this.isTodoDone(t));
+    }
+    if (this.state.todoPillarFilter !== "All") {
+      todos = todos.filter((t) => (t.pillar_name || "") === this.state.todoPillarFilter);
+    }
+    return todos;
+  }
+
+  get todoCounts() {
+    const todos = this.state.todos || [];
+    const done = todos.filter((t) => this.isTodoDone(t)).length;
+    return { total: todos.length, done, open: todos.length - done };
+  }
+
+  get todoPillarTabs() {
+    const todos = this.state.todos || [];
+    return TODO_PILLAR_TABS.map((name) => {
+      if (name === "All") {
+        return { name, count: todos.length };
+      }
+      return { name, count: todos.filter((t) => (t.pillar_name || "") === name).length };
+    });
+  }
+
+  resetTodoForm() {
+    this.state.todoForm = {
+      name: "",
+      description: "",
+      date_deadline: "",
+      priority: "low",
+      pillar_id: "",
+      assignee_id: "",
+    };
+    this.state.todoFormError = "";
+  }
+
+  openCreateTodoForm() {
+    this.state.editingTodoId = null;
+    this.resetTodoForm();
+    this.state.showTodoForm = true;
+  }
+
+  openEditTodoForm(todo) {
+    this.state.editingTodoId = todo.id;
+    this.state.todoForm = {
+      name: todo.name || "",
+      description: todo.description || "",
+      date_deadline: todo.date_deadline || "",
+      priority: todo.priority || "low",
+      pillar_id: todo.pillar_id || "",
+      assignee_id: (todo.user_ids && todo.user_ids[0] && todo.user_ids[0].id) || "",
+    };
+    this.state.todoFormError = "";
+    this.state.showTodoForm = true;
+  }
+
+  closeTodoForm() {
+    this.state.showTodoForm = false;
+    this.state.editingTodoId = null;
+    this.state.todoFormError = "";
+  }
+
+  onTodoFormChange(field, ev) {
+    this.state.todoForm = {
+      ...this.state.todoForm,
+      [field]: ev.target.value,
+    };
+  }
+
+  setTodoPriority(priority) {
+    this.state.todoForm = {
+      ...this.state.todoForm,
+      priority,
+    };
+  }
+
+  async saveTodo(ev) {
+    if (ev && ev.preventDefault) ev.preventDefault();
+    if (this.state.savingTodo) return;
+
+    const name = (this.state.todoForm.name || "").trim();
+    if (!name) {
+      this.state.todoFormError = "Title is required";
+      return;
+    }
+
+    const payload = {
+      name,
+      description: this.state.todoForm.description || "",
+      date_deadline: this.state.todoForm.date_deadline || false,
+      priority: this.state.todoForm.priority || "low",
+      pillar_id: this.state.todoForm.pillar_id ? Number(this.state.todoForm.pillar_id) : false,
+    };
+    if (this.state.todoForm.assignee_id) {
+      payload.user_ids = [Number(this.state.todoForm.assignee_id)];
+    }
+
+    const isEdit = !!this.state.editingTodoId;
+    const url = isEdit ? `${TODOS_API}/${this.state.editingTodoId}` : TODOS_API;
+    const method = isEdit ? "PUT" : "POST";
+
+    this.state.savingTodo = true;
+    this.state.todoFormError = "";
+    try {
+      const response = await fetch(url, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify(payload),
+      });
+      const data = await response.json().catch(() => null);
+      if (!data || !(response.status === 200 || response.status === 201)) {
+        this.state.todoFormError = (data && data.message) || "Could not save todo";
+        return;
+      }
+      await this.loadTodos();
+      this.closeTodoForm();
+    } catch (error) {
+      console.error("Error saving todo:", error);
+      this.state.todoFormError = "Could not save todo";
+    } finally {
+      this.state.savingTodo = false;
+    }
+  }
+
+  async deleteTodo(todoId) {
+    const confirmed = window.confirm("Delete this todo?");
+    if (!confirmed) return;
+    this.state.deletingTodoId = todoId;
+    try {
+      const response = await fetch(`${TODOS_API}/${todoId}`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+      });
+      const data = await response.json().catch(() => null);
+      if (!data || response.status !== 200) {
+        console.warn("Delete failed:", data);
+        return;
+      }
+      this.state.todos = (this.state.todos || []).filter((t) => t.id !== todoId);
+    } catch (error) {
+      console.error("Error deleting todo:", error);
+    } finally {
+      this.state.deletingTodoId = null;
+    }
+  }
+
+  getPriorityLabel(priority) {
+    if (priority === "high") return "Urgent";
+    if (priority === "medium") return "Medium";
+    return "Low";
+  }
+
+  getPriorityClass(priority) {
+    if (priority === "high") return "todo-priority-high";
+    if (priority === "medium") return "todo-priority-medium";
+    return "todo-priority-low";
   }
 
   openScoreDashboard(ev, score) {
