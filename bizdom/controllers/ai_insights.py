@@ -11,7 +11,6 @@ from .dashboard import BizdomDashboard
 from ..utils.q1_helpers import Q1Helpers
 from ..utils.q2_helpers import Q2Helpers
 from ..utils.q3_helpers import Q3Helpers
-from ..utils.ai_curated_insights import build_curated_insights_bundle
 
 _logger = logging.getLogger(__name__)
 
@@ -114,13 +113,6 @@ class BizdomAiInsights(http.Controller):
                     start_date, end_date, filterType,
                     company, is_owner, allowed_pillar_ids,
                 )
-
-            snapshot['curated_insights'] = build_curated_insights_bundle(
-                request.env,
-                company,
-                start_date,
-                end_date,
-            )
         except Exception as e:
             _logger.exception("AI Insights: error building data snapshot")
             return {'statusCode': 500, 'message': 'Could not assemble dashboard data: %s' % str(e)[:200]}
@@ -608,9 +600,6 @@ class BizdomAiInsights(http.Controller):
                 "- If status is 'unknown', flag that thresholds aren't set rather than guessing.\n"
                 "- The payload includes Q1/Q2/Q3 quadrant data. Q3 contains per-department breakdowns.\n"
                 "- For questions like 'best employee in each department', iterate through q3_breakdown.departments.\n"
-                "- The key 'curated_insights' holds pre-aggregated workshop/CRM/accounting slices (vehicle labour/parts, "
-                "department charges, CRM leads, paid vendor bills and customer invoices). Read each block's 'description' "
-                "to know what the numbers mean. Do not treat parts_spend as exact GL; it is a product-line heuristic (no employee on the line).\n"
                 "- Never invent numbers; only quote values present in the JSON below.\n"
                 "- If the question can't be answered from this data, say so plainly.\n\n"
                 "DATA (single score snapshot, JSON):\n%s"
@@ -630,8 +619,6 @@ class BizdomAiInsights(http.Controller):
             "- If a score's status is 'unknown', say its thresholds aren't set rather than judging it.\n"
             "- Never invent numbers; only use what's in the JSON below.\n"
             "- Score 'type' may be 'percentage', 'value', or 'currency_inr' — quote values with appropriate units.\n"
-            "- If the user asks something not answerable from this snapshot, say so plainly.\n"
-            "- 'curated_insights' contains ranked vehicle lists and period summaries (labour, parts heuristic, workshop lines, "
-            "CRM leads, AP/AR). Use the 'description' under each sub-key; never invent rows beyond what is listed.\n\n"
+            "- If the user asks something not answerable from this snapshot, say so plainly.\n\n"
             "DATA (current dashboard snapshot, JSON):\n%s"
         ) % json.dumps(snapshot, default=str)
