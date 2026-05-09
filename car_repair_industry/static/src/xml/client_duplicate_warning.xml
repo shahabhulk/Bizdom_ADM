@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+    <t t-name="car_repair_industry.ClientNumberConflictDialog">
+        <Dialog size="'md'" title="props.title">
+            <p t-out="props.body" class="text-prewrap"/>
+            <t t-set-slot="footer">
+                <button class="btn btn-primary" t-on-click="_create" t-esc="props.createLabel"/>
+                <button class="btn btn-secondary" t-on-click="_cancel" t-esc="props.cancelLabel"/>
+                <button class="btn btn-danger" t-on-click="_delete" t-esc="props.deleteLabel"/>
+            </t>
+        </Dialog>
+    </t>
+</templates>
