@@ -59,12 +59,13 @@ class BizdomDashboard(http.Controller):
                 ('pillar_id', '=', p.id),
                 ('company_id', '=', company_id),
             ]
+            score_records=[]
             if not is_owner:
                 score_domain.append(('pillar_id', 'in', allowed_pillar_ids))
             if favorites_only:
                 score_records = request.env['bizdom.score'].sudo().search(score_domain + [('favorite', '=', True)])
-            else:
-                score_records = request.env['bizdom.score'].sudo().search(score_domain)
+            # else:
+            #     score_records = request.env['bizdom.score'].sudo().search(score_domain)
             
             # Store score IDs with pillar reference
             for s in score_records:
