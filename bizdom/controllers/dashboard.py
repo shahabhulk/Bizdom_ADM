@@ -261,7 +261,7 @@ class BizdomDashboard(http.Controller):
         start_date_str = kwargs.get("startDate")
         end_date_str = kwargs.get("endDate")
         filter_type = kwargs.get("filterType")
-        favorites_only = kwargs.get("favoritesOnly", "false").lower() == "true"  # Optional parameter to filter favorites
+        favorites_only = kwargs.get("favoritesOnly", "true").lower() == "true"  # Optional parameter to filter favorites
 
         # Removed debug print statements
 
