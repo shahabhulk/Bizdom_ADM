@@ -150,6 +150,7 @@
                                         <field name="product_id" options="{'no_quick_create': True}"/>
                                         <field name="item_code_display"/>
                                         <field name="quantity"/>
+                                        <field name="available_qty" readonly="1" optional="show"/>
                                         <field name="uom_id"/>
                                         <field name="unit_price" widget="monetary"
                                                options="{'currency_field': 'currency_id'}"/>

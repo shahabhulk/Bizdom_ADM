@@ -168,8 +168,10 @@ class AccountInvoice(models.Model):
 
     def action_post(self):
         res = super(AccountInvoice, self).action_post()
+        self.filtered(
+            lambda m: m.fleet_repair_invoice_id and m.create_form_fleet and m.move_type == 'out_invoice'
+        )._fleet_repair_process_stock_delivery()
         for invoice in self:
-            print("fleet", invoice.fleet_repair_invoice_id.id)
             if invoice.fleet_repair_invoice_id.id:
                 # Check if feedback already exists to prevent duplicates
                 existing_feedback = self.env['fleet.repair.feedback'].search([
@@ -227,10 +229,13 @@ class AccountInvoice(models.Model):
         return super(AccountInvoice, self).create(vals_list)
 
     def button_draft(self):
-        """Override to unlink feedbacks when invoice is reset to draft"""
+        """Override to return stock and unlink feedbacks when invoice is reset to draft."""
+        fleet_job_invoices = self.filtered(
+            lambda m: m.fleet_repair_invoice_id and m.create_form_fleet
+        )
+        fleet_job_invoices._fleet_repair_return_delivery_pickings()
         res = super(AccountInvoice, self).button_draft()
         for invoice in self:
-            # Unlink all feedbacks linked to this invoice
             if invoice.fleet_feedback_ids:
                 invoice.fleet_feedback_ids.unlink()
         return res

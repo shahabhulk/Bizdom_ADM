@@ -46,6 +46,48 @@
         </record>
 
 
+        <!-- Load delivery button inherit before other account.move inherits (avoids stale DB arch on upgrade). -->
+        <record id="custom_invoice_view_order_form" model="ir.ui.view">
+            <field name="name">custom.invoice.view.order.form</field>
+            <field name="model">account.move</field>
+            <field name="inherit_id" ref="account.view_move_form"/>
+            <field name="arch" type="xml">
+                <xpath expr="//div[@name='button_box']" position="inside">
+                    <field name="create_form_fleet" invisible="1"/>
+                    <field name="fleet_repair_invoice_id" invisible="1"/>
+                    <field name="fleet_delivery_pending" invisible="1"/>
+                    <button type="object"
+                            name="action_view_fleet_deliveries"
+                            class="oe_stat_button"
+                            icon="fa-truck"
+                            invisible="not create_form_fleet or not fleet_repair_invoice_id or state != 'posted' or fleet_delivery_count == 0"
+                            groups="stock.group_stock_user">
+                        <field name="fleet_delivery_count" widget="statinfo" string="Delivery"/>
+                    </button>
+                </xpath>
+                <xpath expr="//field[@name='delivery_date']" position="after">
+                    <field name="job_card_name" invisible="move_type in ('in_invoice', 'in_refund')"/>
+                    <field name="license_plate" invisible="move_type in ('in_invoice', 'in_refund')"/>
+                    <field name="car_name" invisible="move_type in ('in_invoice', 'in_refund')"/>
+                    <field name="model_name" invisible="move_type in ('in_invoice', 'in_refund')"/>
+                    <field name="vin_sn" invisible="move_type in ('in_invoice', 'in_refund')"/>
+                </xpath>
+                <xpath expr="/form/sheet/notebook/page/field[@name='invoice_line_ids']/list/field[@name='product_id']"
+                       position="before">
+                    <field name="car_model" column_invisible="True"/>
+                    <field name="license_plate" column_invisible="True"/>
+                </xpath>
+                <xpath expr="//field[@name='invoice_line_ids']/list/field[@name='product_id']" position="after">
+                    <field name="item_code"/>
+                    <field name="name" string="Description"/>
+                    <field name="department_id" options="{'no_create': True}"/>
+                    <field name="employee_id"
+                           domain="[('department_id', '=', department_id)]"
+                           context="{'default_department_id': department_id}"/>
+                </xpath>
+            </field>
+        </record>
+
         <record id="custom_view_invoice_form" model="ir.ui.view">
             <field name="name">account.invoice.form.custom</field>
             <field name="model">account.move</field>
@@ -117,39 +159,6 @@
         <!--                </xpath>-->
         <!--            </field>-->
         <!--        </record>-->
-
-        <record id="custom_invoice_view_order_form" model="ir.ui.view">
-            <field name="name">custom.invoice.view.order.form</field>
-            <field name="model">account.move</field>
-            <field name="inherit_id" ref="account.view_move_form"/>
-            <field name="arch" type="xml">
-                <xpath expr="//field[@name='delivery_date']" position="after">
-                    <field name="job_card_name" invisible="move_type in ('in_invoice', 'in_refund')"/>
-                    <field name="license_plate" invisible="move_type in ('in_invoice', 'in_refund')"/>
-                    <field name="car_name" invisible="move_type in ('in_invoice', 'in_refund')"/>
-                    <field name="model_name" invisible="move_type in ('in_invoice', 'in_refund')"/>
-                    <field name="vin_sn" invisible="move_type in ('in_invoice', 'in_refund')"/>
-                </xpath>
-                <xpath expr="/form/sheet/notebook/page/field[@name='invoice_line_ids']/list/field[@name='product_id']"
-                       position="before">
-                    <!--                    <field name="car_model" column_invisible="parent.create_form_fleet == False"/>-->
-                    <!--                    <field name="license_plate" column_invisible="parent.create_form_fleet == False"/>-->
-                    <field name="car_model" column_invisible="True"/>
-                    <field name="license_plate" column_invisible="True"/>
-                </xpath>
-                <xpath expr="//field[@name='invoice_line_ids']/list/field[@name='product_id']" position="after">
-                    <field name="item_code"/>
-                    <field name="name" string="Description"/>
-                    <field name="department_id" options="{'no_create': True}"/>
-                    <field name="employee_id"
-                           domain="[('department_id', '=', department_id)]"
-                           context="{'default_department_id': department_id}"/>
-                </xpath>
-                <!--                 <xpath expr="//field[@name='invoice_line_ids']/list/field[@name='price_unit']" position="after">-->
-                <!--                   <field name="labour_charges"/>-->
-                <!--                </xpath>-->
-            </field>
-        </record>
 
         <record id="action_invoice_tree1" model="ir.actions.act_window">
             <field name="name">Customer Invoices</field>
