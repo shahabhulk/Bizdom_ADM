@@ -3,7 +3,7 @@
 
 {
     "name": "Car Repair and Automotive Service Maintenance Management Odoo App",
-    "version": "18.0.0.6",
+    "version": "18.0.0.9",
     "depends": ['base', 'sale', 'purchase', 'account', 'sale_stock', 'mail', 'product', 'stock', 'fleet','sale_management', 'website', 'calendar', 'hr_timesheet','web','project', 'crm', 'hr_expense'],
     "author": "BROWSEINFO",
     "summary": "Fleet repair vehicle repair car Maintenance auto-fleet service repair Car Maintenance Repair workshop automobile repair Automotive Service repair Automotive repair machine repair workshop equipment repair service Repair auto repair shop Auto Shop repair",

@@ -33,6 +33,12 @@ class StockPickingFleetRepair(models.Model):
 
     fleet_repair_id = fields.Many2one('fleet.repair', string='Job Card', index=True, copy=False)
     fleet_repair_invoice_id = fields.Many2one('account.move', string='Job Card Invoice', index=True, copy=False)
+    fleet_repair_product_line_id = fields.Many2one(
+        'fleet.repair.product.line',
+        string='Job Card Product Line',
+        index=True,
+        copy=False,
+    )
 
 
 class AccountMoveFleetRepairStock(models.Model):
@@ -89,6 +95,14 @@ class AccountMoveFleetRepairStock(models.Model):
             and not float_is_zero(l.quantity, precision_rounding=l.product_uom_id.rounding)
         )
 
+    def _fleet_repair_get_issued_qty_product_uom(self, repair, product):
+        """Total qty already issued on job card lines for this product."""
+        total = 0.0
+        for line in repair.product_line_ids.filtered(lambda l: l.product_id == product):
+            line_uom = line.uom_id or product.uom_id
+            total += line_uom._compute_quantity(line.qty_issued, product.uom_id)
+        return total
+
     def _fleet_repair_create_stock_delivery(self):
         """Create and reserve an outgoing picking (not validated yet)."""
         Picking = self.env['stock.picking']
@@ -108,12 +122,24 @@ class AccountMoveFleetRepairStock(models.Model):
                 continue
 
             move_commands = []
+            issued_remaining = {}
             for line in storable_lines:
                 product = line.product_id
                 qty = line.product_uom_id._compute_quantity(line.quantity, product.uom_id)
                 if float_is_zero(qty, precision_rounding=product.uom_id.rounding):
                     continue
-                available = product.with_context(warehouse_id=warehouse.id).free_qty
+                if product.id not in issued_remaining:
+                    issued_remaining[product.id] = invoice._fleet_repair_get_issued_qty_product_uom(
+                        repair, product,
+                    )
+                offset = min(qty, issued_remaining[product.id])
+                qty -= offset
+                issued_remaining[product.id] -= offset
+                if float_is_zero(qty, precision_rounding=product.uom_id.rounding):
+                    continue
+                available = self.env['stock.quant']._get_available_quantity(
+                    product, warehouse.lot_stock_id, strict=True,
+                )
                 if float_compare(qty, available, precision_rounding=product.uom_id.rounding) > 0:
                     raise UserError(_(
                         'Not enough stock for "%(product)s". '
@@ -163,7 +189,7 @@ class AccountMoveFleetRepairStock(models.Model):
         return created
 
     def _fleet_repair_process_stock_delivery(self):
-        """On invoice post: create delivery only; user validates to Done manually."""
+        """On invoice post: deliver only qty not already issued on the job card."""
         self._fleet_repair_create_stock_delivery()
 
     def action_view_fleet_deliveries(self):

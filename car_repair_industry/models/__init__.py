@@ -3,6 +3,7 @@
 
 from . import fleet_repair
 from . import fleet_repair_stock
+from . import fleet_repair_product_issue
 from . import fleet_diagnose
 from . import fleet_workorder
 from . import custom_sale

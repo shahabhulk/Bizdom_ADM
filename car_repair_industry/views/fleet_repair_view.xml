@@ -145,15 +145,33 @@
                                     </list>
                                 </field>
                                 <separator string="Items"/>
-                                <field name="product_line_ids" readonly="state != 'draft'" widget="one2many_list">
+                                <field name="product_line_ids" readonly="state in ('done', 'cancel')" widget="one2many_list">
                                     <list editable="bottom">
-                                        <field name="product_id" options="{'no_quick_create': True}"/>
-                                        <field name="item_code_display"/>
-                                        <field name="quantity"/>
+                                        <field name="product_id" options="{'no_quick_create': True}"
+                                               readonly="parent.state in ('done', 'cancel', 'invoiced')"/>
+                                        <field name="item_code_display"
+                                               readonly="parent.state in ('done', 'cancel', 'invoiced')"/>
+                                        <field name="quantity"
+                                               readonly="parent.state in ('done', 'cancel', 'invoiced')"/>
+                                        <field name="qty_issued" readonly="1" optional="show"/>
+                                        <field name="qty_to_return"
+                                               readonly="parent.state in ('done', 'cancel', 'invoiced')"
+                                               optional="show"
+                                               invisible="not can_return"/>
                                         <field name="available_qty" readonly="1" optional="show"/>
-                                        <field name="uom_id"/>
+                                        <field name="can_issue" column_invisible="1"/>
+                                        <field name="can_return" column_invisible="1"/>
+                                        <button name="action_issue_part" type="object" string="Issue"
+                                                class="btn-link" icon="fa-arrow-right"
+                                                invisible="not can_issue"/>
+                                        <button name="action_return_part" type="object" string="Return"
+                                                class="btn-link" icon="fa-undo"
+                                                invisible="not can_return"/>
+                                        <field name="uom_id"
+                                               readonly="parent.state in ('done', 'cancel', 'invoiced')"/>
                                         <field name="unit_price" widget="monetary"
-                                               options="{'currency_field': 'currency_id'}"/>
+                                               options="{'currency_field': 'currency_id'}"
+                                               readonly="parent.state in ('done', 'cancel', 'invoiced')"/>
                                         <field name="subtotal" widget="monetary"
                                                options="{'currency_field': 'currency_id'}"/>
                                         <field name="currency_id" column_invisible="1"/>
