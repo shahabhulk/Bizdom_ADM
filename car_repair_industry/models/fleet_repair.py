@@ -477,6 +477,7 @@ class FleetRepair(models.Model):
                 'quantity': line.quantity,
                 'price_unit': line.unit_price,
                 'product_uom_id': line.uom_id.id,
+                'margin_parts': line.margin,
                 'tax_ids': [(6, 0, [])],
             }))
 
