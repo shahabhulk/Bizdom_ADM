@@ -335,6 +335,7 @@ class AccountInvoiceLine(models.Model):
         store=True,
         readonly=False  #
     )
+    margin_parts=fields.Float(string='Margin Parts')
 
 
 

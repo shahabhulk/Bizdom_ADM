@@ -84,6 +84,7 @@
                     <field name="employee_id"
                            domain="[('department_id', '=', department_id)]"
                            context="{'default_department_id': department_id}"/>
+                    <field name="margin_parts" string="Margin Parts"/>
                 </xpath>
             </field>
         </record>

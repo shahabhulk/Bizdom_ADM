@@ -172,6 +172,29 @@
                                         <field name="unit_price" widget="monetary"
                                                options="{'currency_field': 'currency_id'}"
                                                readonly="parent.state in ('done', 'cancel', 'invoiced')"/>
+                                        <field name="vendor_cost_summary" readonly="1" optional="show"/>
+                                        <field name="issue_cost_line_ids" readonly="1" optional="show">
+                                            <list create="0" edit="0" delete="0">
+                                                <field name="vendor_name"/>
+                                                <field name="quantity"/>
+                                                <field name="unit_cost" widget="monetary"
+                                                       options="{'currency_field': 'currency_id'}"/>
+                                                <field name="cost_subtotal" widget="monetary"
+                                                       options="{'currency_field': 'currency_id'}"/>
+                                                <field name="issue_date" optional="show"/>
+                                                <field name="currency_id" column_invisible="1"/>
+                                            </list>
+                                        </field>
+                                        <field name="cost_price" widget="monetary"
+                                               options="{'currency_field': 'currency_id'}"
+                                               readonly="1" optional="show"/>
+                                        <field name="cost_subtotal" widget="monetary"
+                                               options="{'currency_field': 'currency_id'}"
+                                               readonly="1" optional="show"/>
+                                        <field name="margin" widget="monetary"
+                                               options="{'currency_field': 'currency_id'}"
+                                               readonly="1" optional="show"/>
+                                        <field name="margin_percent" readonly="1" optional="hide"/>
                                         <field name="subtotal" widget="monetary"
                                                options="{'currency_field': 'currency_id'}"/>
                                         <field name="currency_id" column_invisible="1"/>

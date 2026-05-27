@@ -40,6 +40,53 @@ class StockPickingFleetRepair(models.Model):
         copy=False,
     )
 
+    def _fleet_prepare_moves_for_valuation(self):
+        """stock_account only values moves with picked move lines (not move.picked alone)."""
+        for picking in self:
+            for move in picking.move_ids:
+                rounding = move.product_uom.rounding
+                if float_is_zero(move.product_uom_qty, precision_rounding=rounding):
+                    continue
+                if not move.move_line_ids:
+                    move._set_quantity_done(move.product_uom_qty)
+                else:
+                    qty_done = sum(
+                        ml.product_uom_id._compute_quantity(ml.quantity, move.product_uom)
+                        for ml in move.move_line_ids
+                    )
+                    if float_compare(qty_done, move.product_uom_qty, precision_rounding=rounding) < 0:
+                        move._set_quantity_done(move.product_uom_qty)
+                for move_line in move.move_line_ids:
+                    line_rounding = move_line.product_uom_id.rounding
+                    if float_is_zero(move_line.quantity, precision_rounding=line_rounding):
+                        move_line.quantity = move.product_uom._compute_quantity(
+                            move.product_uom_qty,
+                            move_line.product_uom_id,
+                            rounding_method='HALF-UP',
+                        )
+                    move_line.picked = True
+                move.quantity = move.product_uom_qty
+                move.picked = True
+
+    def button_validate(self):
+        job_card_pickings = self.filtered(
+            lambda p: p.fleet_repair_id or p.fleet_repair_invoice_id or p.fleet_repair_product_line_id
+        )
+        if job_card_pickings:
+            job_card_pickings._fleet_prepare_moves_for_valuation()
+        return super().button_validate()
+
+    def fleet_validate_picking(self):
+        """Confirm, reserve, pick move lines, validate — required for FIFO SVLs."""
+        for picking in self:
+            picking.action_confirm()
+            picking.action_assign()
+        validate_result = self.button_validate()
+        if validate_result is not True and isinstance(validate_result, dict):
+            return validate_result
+        self.env.flush_all()
+        return True
+
 
 class AccountMoveFleetRepairStock(models.Model):
     _inherit = 'account.move'
@@ -179,11 +226,6 @@ class AccountMoveFleetRepairStock(models.Model):
             })
             picking.action_confirm()
             picking.action_assign()
-            for move in picking.move_ids:
-                if float_is_zero(move.product_uom_qty, precision_rounding=move.product_uom.rounding):
-                    continue
-                move.quantity = move.product_uom_qty
-                move.picked = True
             created |= picking
 
         return created
@@ -235,11 +277,6 @@ class AccountMoveFleetRepairStock(models.Model):
                     'fleet_repair_id': picking.fleet_repair_id.id,
                     'fleet_repair_invoice_id': picking.fleet_repair_invoice_id.id,
                 })
-                for move in new_picking.move_ids:
-                    if float_is_zero(move.product_uom_qty, precision_rounding=move.product_uom.rounding):
-                        continue
-                    move.quantity = move.product_uom_qty
-                    move.picked = True
                 validate_result = new_picking.button_validate()
                 if validate_result is not True and isinstance(validate_result, dict):
                     return validate_result

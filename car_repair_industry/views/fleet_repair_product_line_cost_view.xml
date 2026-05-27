@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="fleet_repair_product_line_cost_list" model="ir.ui.view">
+        <field name="name">fleet.repair.product.line.cost.list</field>
+        <field name="model">fleet.repair.product.line.cost</field>
+        <field name="arch" type="xml">
+            <list create="0" edit="0" delete="0">
+                <field name="vendor_name"/>
+                <field name="quantity"/>
+                <field name="uom_id" optional="hide"/>
+                <field name="unit_cost" widget="monetary" options="{'currency_field': 'currency_id'}"/>
+                <field name="cost_subtotal" widget="monetary" options="{'currency_field': 'currency_id'}"/>
+                <field name="issue_date" optional="show"/>
+                <field name="currency_id" column_invisible="1"/>
+            </list>
+        </field>
+    </record>
+</odoo>
