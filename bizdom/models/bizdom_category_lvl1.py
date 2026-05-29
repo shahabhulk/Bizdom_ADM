@@ -228,6 +228,22 @@ class BizdomCategoryLvl1(models.Model):
                 total_dept_sum = sum(dept_record_charges.mapped('charge_amount'))
                 rec.context_score_category_lvl1 = total_dept_sum / total_cars if total_cars > 0 else 0.0
 
+
+            if rec.score_id.score_name=="Parts Profit":
+                department = rec.category_lvl1_selection
+                if department._name != 'hr.department':
+                    continue
+                dept_domain = [
+                    ('department_id', '=', department.id),
+                    ('date', '>=', rec.start_date),
+                    ('date', '<=', rec.end_date),
+                    ('invoice_id.payment_state', '=', 'paid')
+                ]
+                dept_margin_charges = self.env["department.charges"].search(dept_domain)
+                total_dept_margin_sum = sum(dept_margin_charges.mapped('parts_margin'))
+                rec.context_score_category_lvl1 = total_dept_margin_sum
+
+
             if rec.score_id.score_name == "Customer Retention":
                 department = rec.category_lvl1_selection
                 # Check if category_lvl1_selection is a department
@@ -448,6 +464,21 @@ class BizdomCategoryLvl1(models.Model):
                 dept_record_charges = self.env["department.charges"].search(dept_domain)
                 total_dept_sum = sum(dept_record_charges.mapped('charge_amount'))
                 rec.score_category_lvl1 = total_dept_sum / total_cars if total_cars > 0 else 0
+
+            if rec.score_id.score_name == "Parts Profit":
+                department = rec.category_lvl1_selection
+                if department._name != 'hr.department':
+                    continue
+                dept_domain=[
+                    ('department_id', '=', department.id),
+                    ('date', '>=', rec.start_date),
+                    ('date', '<=', rec.end_date),
+                    ('invoice_id.payment_state', '=', 'paid')
+                ]
+                dept_margin_charges=self.env["department.charges"].search(dept_domain)
+                total_dept_margin_sum = sum(dept_margin_charges.mapped('parts_margin'))
+                rec.score_category_lvl1 = total_dept_margin_sum
+
 
             if rec.score_id.score_name == "Leads":
                 medium = rec.category_lvl1_selection

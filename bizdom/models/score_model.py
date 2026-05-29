@@ -321,6 +321,16 @@ class BizdomScore(models.Model):
                     total_dept_charges = sum(dept_records.mapped('charge_amount'))
                     total_cars = len(set(dept_records.mapped('car_number')))
                     rec.context_total_score = total_dept_charges / total_cars if total_cars > 0 else 0.0
+                elif rec.score_name == "Parts Profit":
+                    dept_records = self.env['department.charges'].search([
+                        ('date', '>=', start_date),
+                        ('date', '<=', end_date),
+                        ('invoice_id.payment_state', '=', 'paid')
+                    ])
+                    total_margin_amount = sum(dept_records.mapped('parts_margin'))
+                    rec.context_total_score = total_margin_amount
+
+
 
             elif rec.pillar_id.name == "Sales and Marketing":
                 if rec.score_name == "Leads":
@@ -1082,6 +1092,16 @@ class BizdomScore(models.Model):
                     total_cars = len(set(dept_records.mapped('car_number')))
                     # total_customers=len(set(customer_records.mapped('customer_id.id')))
                     rec.total_score_value = total_dept_charges / total_cars if total_cars > 0 else 0.0
+
+                elif rec.score_name =="Parts Profit":
+                    dept_records = self.env['department.charges'].search([
+                        ('date', '>=', start_date),
+                        ('date', '<=', end_date),
+                        ('invoice_id.payment_state', '=', 'paid')
+                    ])
+                    total_margin_amount = sum(dept_records.mapped('parts_margin'))
+                    rec.total_score_value = total_margin_amount
+
 
 
 
