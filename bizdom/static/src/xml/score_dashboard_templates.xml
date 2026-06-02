@@ -148,10 +148,11 @@
                                         <t t-if="isIncomeScore()">Income by Product</t>
                                         <t t-if="isExpenseScore()">Expense by Product</t>
                                         <t t-if="isAOVScore()">AOV by Car Brand</t>
-                                        <t t-if="!isLabourScore() and !isLeadsScore() and !isConversionScore() and !isCustomerRetentionScore() and !isIncomeScore() and !isExpenseScore() and !isAOVScore()" t-esc="state.quadrants.q3.title"/>
+                                        <t t-if="isPartsProfitScore()">Parts Profit by Car Brand</t>
+                                        <t t-if="!isLabourScore() and !isLeadsScore() and !isConversionScore() and !isCustomerRetentionScore() and !isIncomeScore() and !isExpenseScore() and !isAOVScore() and !isPartsProfitScore()" t-esc="state.quadrants.q3.title"/>
                                     </h5>
                                     <div class="d-flex align-items-center gap-2">
-                                        <t t-if="isLabourScore() or isLeadsScore() or isConversionScore() or isCustomerRetentionScore() or isIncomeScore() or isExpenseScore() or isAOVScore()">
+                                        <t t-if="isLabourScore() or isLeadsScore() or isConversionScore() or isCustomerRetentionScore() or isIncomeScore() or isExpenseScore() or isAOVScore() or isPartsProfitScore()">
                                             <small class="text-dark-50" t-esc="state.employeeChartLabel"/>
                                         </t>
                                         <t t-if="state.employeeChartData">
@@ -239,7 +240,7 @@
                                         </div>
                                     </t>
                                 </t>
-                                <t t-if="isAOVScore()">
+                                <t t-if="isAOVScore() or isPartsProfitScore()">
                                     <t t-if="state.employeeDataLoading or state.employeeError or !state.employeeChartData">
                                         <div class="text-muted text-center p-4">
                                             <t t-esc="getEmployeePlaceholderMessage()"/>
@@ -251,7 +252,7 @@
                                         </div>
                                     </t>
                                 </t>
-                                <t t-if="!isLabourScore() and !isLeadsScore() and !isConversionScore() and !isCustomerRetentionScore() and !isIncomeScore() and !isExpenseScore() and !isAOVScore()">
+                                <t t-if="!isLabourScore() and !isLeadsScore() and !isConversionScore() and !isCustomerRetentionScore() and !isIncomeScore() and !isExpenseScore() and !isAOVScore() and !isPartsProfitScore()">
                                     <t t-foreach="state.quadrants.q3.data" t-as="item" t-key="item.id">
                                         <div class="mb-2">
                                             <span t-esc="item.label"/>: <span t-esc="item.value"/>

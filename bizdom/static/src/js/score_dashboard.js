@@ -898,7 +898,7 @@ class ScoreDashboard extends Component {
         // Auto-update Q3 (employee chart) by selecting the first department from Q2
         // Only for Labour, Leads, Conversion, and Customer Retention scores (which have Q3 data)
         const scoreNameLower = (this.state.scoreName || '').toLowerCase();
-        if (scoreNameLower === 'labour' || scoreNameLower === 'leads' || scoreNameLower === 'conversion' || scoreNameLower === 'customer retention'  || scoreNameLower === 'income'||scoreNameLower === 'expense'|| scoreNameLower === 'aov') {
+        if (scoreNameLower === 'labour' || scoreNameLower === 'leads' || scoreNameLower === 'conversion' || scoreNameLower === 'customer retention'  || scoreNameLower === 'income'||scoreNameLower === 'expense'|| scoreNameLower === 'aov' || scoreNameLower === 'parts profit') {
             // Wait for department chart data to be set, then auto-select first department
             setTimeout(async () => {
                 if (this.state.departmentChartData && 
@@ -1453,9 +1453,9 @@ class ScoreDashboard extends Component {
     async handleDepartmentClick(departmentId, departmentName, periodInfo = null) {
         const scoreNameLower = (this.state.scoreName || '').toLowerCase();
         
-        // Handle for Labour, Leads, Conversion, Customer Retention, Income, and AOV scores
-        if (scoreNameLower !== 'labour' && scoreNameLower !== 'leads' && scoreNameLower !== 'conversion' && scoreNameLower !== 'customer retention' && scoreNameLower !== 'income' && scoreNameLower !== 'expense' && scoreNameLower !== 'aov') {
-            console.log('Employee/Source/Question/Category overview only available for Labour, Leads, Conversion, Customer Retention, Income, and AOV scores');
+        // Handle for Labour, Leads, Conversion, Customer Retention, Income, Expense, AOV, and Parts Profit scores
+        if (scoreNameLower !== 'labour' && scoreNameLower !== 'leads' && scoreNameLower !== 'conversion' && scoreNameLower !== 'customer retention' && scoreNameLower !== 'income' && scoreNameLower !== 'expense' && scoreNameLower !== 'aov' && scoreNameLower !== 'parts profit') {
+            console.log('Employee/Source/Question/Category overview only available for Labour, Leads, Conversion, Customer Retention, Income, Expense, AOV, and Parts Profit scores');
             return;
         }
 
@@ -1572,7 +1572,7 @@ class ScoreDashboard extends Component {
                 }
 
 
-                else if (scoreNameLower === 'aov') {
+                else if (scoreNameLower === 'aov' || scoreNameLower === 'parts profit') {
                     // Q3 now uses overview_category; keep fallback for older payloads.
                     this.state.employeeData = empData.overview_category || empData.overview_employee || [];
                     if (!this.state.employeeData.length) {
@@ -2620,7 +2620,7 @@ class ScoreDashboard extends Component {
             if (scoreNameLower === 'conversion') {
                 return 'Select a medium in the Department Breakdown to view conversions by salesperson.';
             }
-            if (scoreNameLower === 'aov') {
+            if (scoreNameLower === 'aov' || scoreNameLower === 'parts profit') {
                 return 'Select a department in the Department Breakdown to view AOV by car brand.';
             }
             return 'Select a department in the Department Breakdown to view employee labour.';
@@ -2640,7 +2640,7 @@ class ScoreDashboard extends Component {
                 return 'Select a department in the Department Breakdown to view income by category.';
             }
             return 'No category data available for this department.';
-        } else if (scoreNameLower === 'aov') {
+        } else if (scoreNameLower === 'aov' || scoreNameLower === 'parts profit') {
             if (this.state.employeeData && this.state.employeeData.length > 0 && !this.state.employeeChartData) {
                 return 'Select a department in the Department Breakdown to view AOV by car brand.';
             }
@@ -2686,6 +2686,11 @@ class ScoreDashboard extends Component {
     isAOVScore() {
         const scoreNameLower = (this.state.scoreName || '').toLowerCase();
         return scoreNameLower === 'aov';
+    }
+
+    isPartsProfitScore() {
+        const scoreNameLower = (this.state.scoreName || '').toLowerCase();
+        return scoreNameLower === 'parts profit';
     }
 
     /**

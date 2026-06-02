@@ -339,6 +339,28 @@ class BizdomCategoryLvl2(models.Model):
 
                 rec.score_category_lvl2 = total_car_sum / total_cars if total_cars > 0 else 0.0
 
+
+            # Parts Profit
+            if rec.score_id.score_name=="Parts Profit":
+                if rec.category_lvl2_selection._name != 'fleet.vehicle.model.brand':
+                    continue
+                brand = rec.category_lvl2_selection
+
+                car_domain = [
+                    ('invoice_id.fleet_repair_invoice_id.fleet_id', '=', brand.id),
+                    ('department_id', '=', rec.department_id.id),
+                    ('date', '>=', rec.start_date),
+                    ('date', '<=', rec.end_date),
+                    ('invoice_id.payment_state', '=', 'paid')
+                ]
+                car_records = self.env["department.charges"].search(car_domain)
+                total_car_parts_margin= sum(car_records.mapped('parts_margin'))
+
+                rec.score_category_lvl2 = total_car_parts_margin
+
+
+
+
             # Customer Retention score - feedback question -specific
 
 
@@ -518,6 +540,26 @@ class BizdomCategoryLvl2(models.Model):
                 total_cars = len(set(car_number_records.mapped('car_number')))
 
                 rec.context_score_category_lvl2 = total_car_sum / total_cars if total_cars > 0 else 0.0
+
+            # Parts Profit
+            if rec.score_id.score_name == "Parts Profit":
+                if rec.category_lvl2_selection._name != 'fleet.vehicle.model.brand':
+                    continue
+                brand = rec.category_lvl2_selection
+
+                car_domain = [
+                    ('invoice_id.fleet_repair_invoice_id.fleet_id', '=', brand.id),
+                    ('department_id', '=', rec.department_id.id),
+                    ('date', '>=', start_date),
+                    ('date', '<=', end_date),
+                    ('invoice_id.payment_state', '=', 'paid')
+                ]
+
+                car_records = self.env["department.charges"].search(car_domain)
+                total_car_parts_margin = sum(car_records.mapped('parts_margin'))
+                rec.context_score_category_lvl2 = total_car_parts_margin
+
+
 
             # Customer Retention score with context dates
             if rec.score_id.score_name == "Customer Retention":
