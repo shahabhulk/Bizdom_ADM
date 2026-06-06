@@ -235,8 +235,8 @@ class BizdomCategoryLvl1(models.Model):
                     continue
                 dept_domain = [
                     ('department_id', '=', department.id),
-                    ('date', '>=', rec.start_date),
-                    ('date', '<=', rec.end_date),
+                    ('date', '>=', start_date),
+                    ('date', '<=', end_date),
                     ('invoice_id.payment_state', '=', 'paid')
                 ]
                 dept_margin_charges = self.env["department.charges"].search(dept_domain)
