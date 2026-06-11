@@ -1,7 +1,9 @@
 from odoo import models, fields, api, _
 from odoo.exceptions import ValidationError
-from datetime import date, timedelta
+from datetime import date, timedelta, datetime
 from odoo.exceptions import UserError
+
+from ..utils.q1_helpers import Q1Helpers
 
 
 class BizdomScore(models.Model):
@@ -838,7 +840,7 @@ class BizdomScore(models.Model):
                     week_start = week_end
                 actual_value = self._calculate_score_for_period(score, week_start, week_end)
                 entry = {
-                    'period': f'Week {3 - i}',
+                    'period': Q1Helpers.format_week_period_label(week_start),
                     'start_date': week_start.strftime('%d-%m-%Y'),
                     'end_date': week_end.strftime('%d-%m-%Y'),
                     'actual_value': round(actual_value, 1) if actual_value else 0,
