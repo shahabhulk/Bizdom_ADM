@@ -21,7 +21,8 @@
         'views/dashboard_views.xml',
         'views/category_views.xml',
         'views/res_users_views.xml',
-        'views/project_task_views.xml'
+        'views/project_task_views.xml',
+        'views/ai_settings_views.xml',
         # 'views/signal_views.xml',
         # 'views/productivity_views.xml'
 
@@ -29,7 +30,10 @@
     'assets': {
         'web.assets_backend': [
             'bizdom/static/src/css/dashboard.css',
+            'bizdom/static/src/css/ai_chat.css',
             'bizdom/static/src/xml/dashboard_templates.xml',
+            'bizdom/static/src/js/ai_chat.js',
+            'bizdom/static/src/xml/ai_chat_templates.xml',
             'bizdom/static/src/js/dashboard.js',
             'bizdom/static/src/js/score_dashboard.js',
             'bizdom/static/src/xml/score_dashboard_templates.xml',

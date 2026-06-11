@@ -3,11 +3,13 @@
 import { registry } from "@web/core/registry";
 import { Component, useState, onMounted } from "@odoo/owl";
 import { useService } from "@web/core/utils/hooks";
+import { AiChat } from "./ai_chat";
 
 const DASHBOARD_API = '/api/dashboard';
 
 class BizdomDashboard extends Component {
   static template = "bizdom.Dashboard";
+  static components = { AiChat };
 
   setup() {
     this.orm = useService("orm");
@@ -30,6 +32,8 @@ class BizdomDashboard extends Component {
     onMounted(() => {
       this.loadPillars();
     });
+
+    this.getAiContext = this.getAiContext.bind(this);
   }
 
   
@@ -353,6 +357,17 @@ class BizdomDashboard extends Component {
       'Efficiency': '#6bcf7f',
     };
     return colorMap[scoreName] || '#95a5a6';
+  }
+
+  getAiContext() {
+    const filter = this.state.currentFilter || "MTD";
+    const range = this.state.activeRange || {};
+    return {
+      scope: "dashboard",
+      filterType: filter,
+      startDate: range.start ? this.formatDateForAPI(range.start) : null,
+      endDate: range.end ? this.formatDateForAPI(range.end) : null,
+    };
   }
 
   getScoreOverviewColor(score){
