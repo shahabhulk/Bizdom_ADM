@@ -127,6 +127,11 @@ class Q1Helpers:
                 ))
         
         return ranges
+
+    @staticmethod
+    def format_week_period_label(week_start):
+        """Return ISO week label for a week, e.g. 'Week 24'."""
+        return f"Week {week_start.isocalendar()[1]}"
     
     @staticmethod
     def _get_week_ranges(today):
@@ -147,7 +152,7 @@ class Q1Helpers:
             ranges.append((
                 week_start,
                 week_end,
-                f"Week {3 - i}"
+                Q1Helpers.format_week_period_label(week_start),
             ))
         
         return ranges

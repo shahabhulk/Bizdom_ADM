@@ -670,7 +670,7 @@ let globalPublicScoreDashboardObserver = null;
                         const departmentName = state.departmentChartData.labels[dataIndex];
                         
                         // Get period information from the currently selected period item in q1
-                        // This ensures we use the correct period (e.g., "Week 3") that was clicked
+                        // This ensures we use the correct period (e.g., "Week 24") that was clicked
                         const periodItem = state.currentSelectedPeriodItem;
                         
                         const periodInfo = {
@@ -1011,7 +1011,7 @@ let globalPublicScoreDashboardObserver = null;
                 });
             }
             
-            // Final fallback: match by period label if available (e.g., "Week 3", "Week 2", "Week 1")
+            // Final fallback: match by period label if available (e.g., "Week 24")
             if (!selectedPeriodData && periodLabel) {
                 console.log('Trying to match by period label:', periodLabel);
                 selectedPeriodData = state.employeeData.find(period => {
