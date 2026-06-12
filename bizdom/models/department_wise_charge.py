@@ -15,6 +15,8 @@ class DepartmentCharges(models.Model):
     service_description = fields.Char(related="invoice_line_id.name", string="Service Description", store=True)
     car_number = fields.Char(related="invoice_line_id.move_id.license_plate", store=True)
     car_name_line = fields.Char(related="invoice_line_id.move_id.car_name", store=True)
+    parts_margin=fields.Float(string="Margin Parts")
+
 
     @api.onchange('employee_id')
     def _onchange_employee_id(self):

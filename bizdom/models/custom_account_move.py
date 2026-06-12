@@ -65,6 +65,7 @@ class AccountMoveLine(models.Model):
 
             vals = {
                 'charge_amount': line.price_subtotal,
+                'parts_margin': line.margin_parts,
                 'date': line.move_id.invoice_date or fields.Date.today(),
             }
             if line.department_id:

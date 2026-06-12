@@ -12,6 +12,7 @@
                 <field name="department_id"/>
                 <field name="employee_name"/>
                 <field name="charge_amount"/>
+                <field name="parts_margin"/>
             </list>
         </field>
     </record>

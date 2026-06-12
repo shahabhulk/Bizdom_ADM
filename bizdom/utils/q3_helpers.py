@@ -40,8 +40,8 @@ class Q3Helpers:
             selection_type = 'product.category'
             selection_types = ('product.category', 'product.product')
 
-        elif score_record.score_name == "AOV":
-            # AOV: group by car brand
+        elif score_record.score_name in ["AOV", "Parts Profit"]:
+            # AOV and Parts Profit: group by car brand
             selection_type = 'fleet.vehicle.model.brand'
         else:
             # For Labour, TAT, Conversion, etc., group by employee
