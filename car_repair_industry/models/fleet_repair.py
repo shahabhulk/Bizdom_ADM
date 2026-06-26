@@ -1032,11 +1032,26 @@ class FleetRepairProductLine(models.Model):
     @api.depends('product_id', 'uom_id', 'quantity', 'repair_id', 'repair_id.company_id')
     def _compute_available_qty(self):
         for line in self:
+            if not line.product_id or not line.product_id.is_storable:
+                line.available_qty = 0.0
+                continue
             warehouse = line._get_warehouse()
-            if line.product_id and warehouse:
+            if warehouse:
                 line.available_qty = line._get_available_qty(line.product_id, warehouse)
             else:
                 line.available_qty = 0.0
+
+    @api.model
+    def action_enable_inventory_tracking(self, product_id):
+        """Enable Track Inventory on a goods product (called from repair line UI)."""
+        product = self.env['product.product'].browse(product_id).exists()
+        if not product:
+            raise UserError(_('Product not found.'))
+        if product.type != 'consu':
+            raise UserError(_('Only goods products can track inventory.'))
+        if not product.is_storable:
+            product.write({'is_storable': True})
+        return True
 
     @api.depends('quantity', 'unit_price')
     def _compute_subtotal(self):
@@ -1048,6 +1063,15 @@ class FleetRepairProductLine(models.Model):
         for line in self:
             product = line.item_code_id
             if product:
+                error = line._get_repair_line_product_error(product)
+                if error:
+                    line._clear_invalid_product_line()
+                    return {
+                        'warning': {
+                            'title': _('Invalid Product') if product.type == 'service' else _('Track Inventory'),
+                            'message': error,
+                        }
+                    }
                 line.product_id = product
                 line.name = product.name
                 line.unit_price = product.list_price
@@ -1058,12 +1082,39 @@ class FleetRepairProductLine(models.Model):
                 line.unit_price = 0.0
                 line.uom_id = False
 
+    def _get_repair_line_product_error(self, product):
+        if product.type == 'service':
+            return _('You cannot add a service product here.')
+        if product.type == 'consu' and not product.is_storable:
+            return _(
+                'Product "%s" must have inventory tracking enabled '
+                'before it can be added to repair items.',
+                product.display_name,
+            )
+        return False
+
+    def _clear_invalid_product_line(self):
+        self.product_id = False
+        self.item_code_id = False
+        self.name = False
+        self.unit_price = 0.0
+        self.uom_id = False
+
     @api.onchange('product_id')
     def _onchange_product_id(self):
         """When product is selected, populate item code and details."""
         for line in self:
             product = line.product_id
             if product:
+                error = line._get_repair_line_product_error(product)
+                if error:
+                    line._clear_invalid_product_line()
+                    return {
+                        'warning': {
+                            'title': _('Invalid Product') if product.type == 'service' else _('Track Inventory'),
+                            'message': error,
+                        }
+                    }
                 line.name = product.name
                 line.unit_price = product.list_price
                 line.uom_id = product.uom_id
@@ -1073,6 +1124,16 @@ class FleetRepairProductLine(models.Model):
                 line.name = False
                 line.unit_price = 0.0
                 line.uom_id = False
+
+    @api.constrains('product_id')
+    def _check_product_line_product(self):
+        for line in self:
+            product = line.product_id
+            if not product:
+                continue
+            error = line._get_repair_line_product_error(product)
+            if error:
+                raise ValidationError(error)
 
     @api.onchange('quantity', 'product_id', 'uom_id')
     def _onchange_quantity_stock(self):
