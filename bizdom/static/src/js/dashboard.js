@@ -113,6 +113,16 @@ class BizdomDashboard extends Component {
         endDate.setHours(23, 59, 59, 999);
         label = `Month to Date: ${this.formatRangeLabel(startDate, endDate)}`;
         break;
+      case "QTD": // Quarter to Date
+        const currentMonth = today.getMonth(); // 0-11
+        const currentQuarter = Math.floor(currentMonth / 3); // 0=Q1, 1=Q2, 2=Q3, 3=Q4
+        const quarterStartMonth = currentQuarter * 3;
+        startDate = new Date(today.getFullYear(), quarterStartMonth, 1);
+        startDate.setHours(0, 0, 0, 0);
+        endDate = new Date();
+        endDate.setHours(23, 59, 59, 999);
+        label = `Quarter to Date: ${this.formatRangeLabel(startDate, endDate)}`;
+        break;
       case "Custom":
         const { start, end } = this.state.customRange;
         if (!start || !end) {

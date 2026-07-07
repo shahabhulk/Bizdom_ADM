@@ -709,6 +709,17 @@ class ScoreDashboard extends Component {
                 }
                 // Fall through to MTD if custom range not set
             }
+            case "QTD": {
+                const currentMonth = today.getMonth(); // 0-11
+                const currentQuarter = Math.floor(currentMonth / 3); // 0=Q1, 1=Q2, 2=Q3, 3=Q4
+                const quarterStartMonth = currentQuarter * 3;
+                startDate = new Date(today.getFullYear(), quarterStartMonth, 1);
+                startDate.setHours(0, 0, 0, 0);
+                endDate = new Date(today);
+                endDate.setHours(23, 59, 59, 999);
+                label = `Quarter to Date: ${this.formatRangeLabel(startDate, endDate)}`;
+                break;
+            }
             default: { // MTD fallback
                 startDate = new Date(today.getFullYear(), today.getMonth(), 1);
                 startDate.setHours(0, 0, 0, 0);
@@ -726,7 +737,7 @@ class ScoreDashboard extends Component {
     }
 
     getAvailableFilters(currentFilter, includeCustom = false) {
-        const filters = ["WTD", "MTD", "YTD"];
+        const filters = ["WTD", "MTD", "YTD", "QTD"];
         if (includeCustom || currentFilter === 'CUSTOM') {
             filters.push("CUSTOM");
         }

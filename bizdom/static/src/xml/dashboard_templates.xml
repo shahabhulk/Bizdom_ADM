@@ -27,6 +27,11 @@
                             MTD
                         </button>
                         <button type="button" 
+                                t-att-class="'filter-btn ' + (state.currentFilter === 'QTD' ? 'active' : '')"
+                                t-on-click="() => this.onFilterClick('QTD')">
+                            QTD
+                        </button>
+                        <button type="button" 
                                 t-att-class="'filter-btn ' + (state.currentFilter === 'YTD' ? 'active' : '')"
                                 t-on-click="() => this.onFilterClick('YTD')">
                             YTD

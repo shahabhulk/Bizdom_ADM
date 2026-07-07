@@ -36,6 +36,8 @@ class Q1Helpers:
             return Q1Helpers._get_week_ranges(today)
         elif normalized_filter_type == "YTD":
             return Q1Helpers._get_year_ranges(today)
+        elif normalized_filter_type == "QTD":
+            return Q1Helpers._get_quarter_ranges(today)
         else:
             # Default to MTD
             return Q1Helpers._get_month_ranges(today)
@@ -180,7 +182,47 @@ class Q1Helpers:
             ))
         
         return ranges
-    
+
+    @staticmethod
+    def _get_quarter_ranges(today):
+        """Handle QTD (Quarter To Date) filter - returns last 3 quarters"""
+        ranges = []
+
+        # Determine current quarter
+        current_quarter = (today.month - 1) // 3  # 0=Q1, 1=Q2, 2=Q3, 3=Q4
+        quarter_start_month = current_quarter * 3 + 1
+        current_quarter_start = today.replace(month=quarter_start_month, day=1)
+
+        for i in range(2, -1, -1):  # 2 quarters ago, 1 quarter ago, current quarter
+            target_quarter = current_quarter - i
+            if target_quarter < 0:
+                # Handle year rollover for quarters in previous year
+                target_year = today.year - 1
+                target_quarter = 4 + target_quarter  # Convert negative to positive (e.g., -1 -> 3)
+            else:
+                target_year = today.year
+
+            quarter_start_month = target_quarter * 3 + 1
+            quarter_start = date(target_year, quarter_start_month, 1)
+
+            if i == 0:
+                # Current quarter: quarter start to today
+                quarter_end = today
+            else:
+                # Previous quarters: full quarter
+                quarter_end_month = quarter_start_month + 2
+                last_day = monthrange(target_year, quarter_end_month)[1]
+                quarter_end = date(target_year, quarter_end_month, last_day)
+
+            quarter_label = f"Q{target_quarter + 1} {target_year}"
+            ranges.append((
+                quarter_start,
+                quarter_end,
+                quarter_label
+            ))
+
+        return ranges
+
     @staticmethod
     def _get_year_ranges(today):
         """Handle YTD (Year To Date) filter - returns last 3 years"""
@@ -300,7 +342,36 @@ class Q1Helpers:
                 round((monthly_min_base / days_in_month) * total_days_in_ytd, 2) if days_in_month > 0 else 0,
                 round((monthly_max_base / days_in_month) * total_days_in_ytd, 2) if days_in_month > 0 else 0
             )
-        
+
+        elif filter_type == "QTD":
+            # Calculate total days in current quarter excluding Sundays
+            current_quarter = (today.month - 1) // 3
+            quarter_start_month = current_quarter * 3 + 1
+            quarter_start = today.replace(month=quarter_start_month, day=1)
+            total_days_in_quarter = Q1Helpers._get_days_in_range_excluding_sundays(
+                quarter_start, today
+            )
+
+            # Calculate days in current month excluding Sundays (for daily rate)
+            current_month_start = today.replace(day=1)
+            days_in_month = Q1Helpers._get_days_in_month_excluding_sundays(
+                current_month_start.year, current_month_start.month
+            )
+
+            if score_record.type == "percentage":
+                monthly_min_base = score_record.min_score_percentage or 0
+                monthly_max_base = score_record.max_score_percentage or 0
+            elif score_record.type in ("value", "currency_inr"):
+                monthly_min_base = score_record.min_score_number or 0
+                monthly_max_base = score_record.max_score_number or 0
+            else:
+                monthly_min_base = monthly_max_base = 0
+
+            return (
+                round((monthly_min_base / days_in_month) * total_days_in_quarter, 2) if days_in_month > 0 else 0,
+                round((monthly_max_base / days_in_month) * total_days_in_quarter, 2) if days_in_month > 0 else 0
+            )
+
         # Custom or default - no min/max
         return None, None
     
