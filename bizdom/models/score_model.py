@@ -21,14 +21,16 @@ class BizdomScore(models.Model):
     # to_date = fields.Date(default=lambda self: date.today(), string='To Date')
     pillar_id = fields.Many2one('bizdom.pillar', string='Pillar Name', index=True)
     total_score_value = fields.Float(string='Total Score', compute="_compute_total_score_value", store=True)
-    total_score_value_percentage = fields.Float(string='Total Score', compute="_compute_total_score_value", store=True)
+    total_score_value_percentage = fields.Float(string='Total Score', store=True)
     max_score_percentage = fields.Float(string="Max Score")
     min_score_percentage = fields.Float(string="Min Score")
     max_score_number = fields.Float(string="Max Score")
     min_score_number = fields.Float(string="Min Score")
+    reference_value = fields.Float(string="Reference Value")
     # model_ref_id = fields.Many2one('ir.model', string="Information Model")
     favorite = fields.Boolean(string='Favorite', default=False, index=True)
     context_total_score = fields.Float(compute='_compute_context_total_score')
+    context_total_score_percentage = fields.Float(string='Context Total Score Percentage', store=True)
     dashboard_overview_data = fields.Text(compute='_compute_dashboard_overview_data', string='Dashboard Overview')
     active = fields.Boolean(default=True, index=True)
 
@@ -89,6 +91,13 @@ class BizdomScore(models.Model):
         for rec in self:
             if rec.start_date and rec.end_date and rec.start_date > rec.end_date:
                 raise ValidationError("Start Date cannot be greater than End Date.")
+
+
+    @api.onchange('reference_value')
+    def _onchange_reference_value(self):
+        for rec in self:
+            rec.total_score_value_percentage = (rec.total_score_value / rec.reference_value) if rec.reference_value else 0.0
+            rec.context_total_score_percentage = (rec.context_total_score / rec.reference_value) *100 if rec.reference_value else 0.0
 
     @api.onchange('start_date', 'end_date')
     def _onchange_dates(self):
@@ -323,6 +332,8 @@ class BizdomScore(models.Model):
                     total_dept_charges = sum(dept_records.mapped('charge_amount'))
                     total_cars = len(set(dept_records.mapped('car_number')))
                     rec.context_total_score = total_dept_charges / total_cars if total_cars > 0 else 0.0
+                    rec.context_total_score_percentage = (rec.context_total_score /rec.reference_value) * 100 if rec.reference_value else 0.0
+
                 elif rec.score_name == "Parts Profit":
                     dept_records = self.env['department.charges'].search([
                         ('date', '>=', start_date),
@@ -1094,6 +1105,8 @@ class BizdomScore(models.Model):
                     total_cars = len(set(dept_records.mapped('car_number')))
                     # total_customers=len(set(customer_records.mapped('customer_id.id')))
                     rec.total_score_value = total_dept_charges / total_cars if total_cars > 0 else 0.0
+                    rec.total_score_value_percentage = (rec.total_score_value/rec.reference_value) if rec.reference_value else 0.0
+                    print("hello",rec.total_score_value_percentage)
 
                 elif rec.score_name =="Parts Profit":
                     dept_records = self.env['department.charges'].search([

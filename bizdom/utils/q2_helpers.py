@@ -165,6 +165,10 @@ class Q2Helpers:
             # This avoids the singleton check issue
             values = cat_rec_with_context.mapped('context_score_category_lvl1')
             dept_actual_value = values[0] if values else 0.0
+
+            # if score_record.type == 'percentage':
+            #     percentage_values = cat_rec_with_context.mapped('context_score_category_lvl1_percentage')
+            #     dept_actual_value = percentage_values[0] if percentage_values else 0.0
             
             # Round if numeric
             if isinstance(dept_actual_value, (int, float)):
@@ -196,8 +200,8 @@ class Q2Helpers:
                     print(f"WARNING: Q2 min/max are both 0 for {dept.name} (category: {single_rec.name}). Check if min/max values are set in category_lvl1 record!")
             else:
                 if score_record.type == 'percentage':
-                    min_base = single_rec.min_category_percentage_lvl1
-                    max_base = single_rec.max_category_percentage_lvl1
+                    min_base = single_rec.min_category_percentage_lvl1*100
+                    max_base = single_rec.max_category_percentage_lvl1*100
                 else:
                     min_base = single_rec.min_category_value_lvl1
                     max_base = single_rec.max_category_value_lvl1

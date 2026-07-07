@@ -92,9 +92,21 @@ class BizdomCategoryLvl2(models.Model):
         store=True
     )
 
+    score_category_lvl2_percentage = fields.Float(
+        string="Category Score Percentage",
+        # compute='_compute_score_category_lvl2_percentage',
+        store=True
+    )
+
     context_score_category_lvl2 = fields.Float(
         string="Context Category Score",
         compute='_compute_context_score_category_lvl2',
+        store=False
+    )
+
+    context_score_category_lvl2_percentage = fields.Float(
+        string="Context Category Score Percentage",
+        compute='_compute_context_score_category_lvl2_percentage',
         store=False
     )
 

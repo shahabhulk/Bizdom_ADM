@@ -27,13 +27,15 @@ class BizdomCategoryLvl1(models.Model):
     start_date = fields.Date(string="Start Date")
     end_date = fields.Date(string="End Date")
     score_category_lvl1 = fields.Float(string="Category Score", compute='_compute_score_category_lvl1', store=False)
-
+    score_category_lvl1_percentage = fields.Float(string="Category Score", store=False)
     # Add a context-based computed field similar to context_total_score
     context_score_category_lvl1 = fields.Float(
         string="Context Category Score",
         compute='_compute_context_score_category_lvl1',
         store=False
     )
+    context_score_category_lvl1_percentage = fields.Float(string="Context Category Score", store=False)
+    reference_value = fields.Float(string="Reference Value")
 
     score_id = fields.Many2one('bizdom.score', string='Score')
     category_lvl1_id = fields.Many2one('bizdom.category_lvl1', string='Category Lvl1')
@@ -51,6 +53,14 @@ class BizdomCategoryLvl1(models.Model):
         string='Category Lvl2'
     )
     active = fields.Boolean(default=True, index=True)
+
+    @api.onchange('reference_value')
+    def _onchange_reference_value(self):
+        for rec in self:
+            rec.score_category_lvl1_percentage = (
+                        rec.score_category_lvl1 / rec.reference_value) if rec.reference_value else 0
+            rec.context_score_category_lvl1_percentage = (
+                        rec.context_score_category_lvl1 / rec.reference_value) if rec.reference_value else 0
 
     @api.depends('score_id', 'score_id.score_name')
     def _compute_name(self):
@@ -226,10 +236,16 @@ class BizdomCategoryLvl1(models.Model):
                 total_cars = len(set(car_records.mapped('car_number')))
                 dept_record_charges = self.env["department.charges"].search(dept_domain)
                 total_dept_sum = sum(dept_record_charges.mapped('charge_amount'))
-                rec.context_score_category_lvl1 = total_dept_sum / total_cars if total_cars > 0 else 0.0
+                rec.context_score_category_lvl1 = (total_dept_sum / total_cars) if total_cars > 0 else 0.0
+                if  rec.type=="percentage":
+                    rec.context_score_category_lvl1_percentage=(rec.context_score_category_lvl1 / rec.reference_value) * 100 if rec.reference_value else 0.0
+                    print("hello")
 
+                # rec.context_score_category_lvl1_percentage = (rec.context_score_category_lvl1 / rec.reference_value)*100 if rec.reference_value else 0.0
 
-            if rec.score_id.score_name=="Parts Profit":
+                print("frontend", rec.context_score_category_lvl1)
+
+            if rec.score_id.score_name == "Parts Profit":
                 department = rec.category_lvl1_selection
                 if department._name != 'hr.department':
                     continue
@@ -242,7 +258,6 @@ class BizdomCategoryLvl1(models.Model):
                 dept_margin_charges = self.env["department.charges"].search(dept_domain)
                 total_dept_margin_sum = sum(dept_margin_charges.mapped('parts_margin'))
                 rec.context_score_category_lvl1 = total_dept_margin_sum
-
 
             if rec.score_id.score_name == "Customer Retention":
                 department = rec.category_lvl1_selection
@@ -456,29 +471,32 @@ class BizdomCategoryLvl1(models.Model):
                 ]
                 car_records = self.env['department.charges'].search([
                     ('date', '>=', rec.start_date),
-                    ('date', '<=', rec.start_date),
+                    ('date', '<=', rec.end_date),
                     ('invoice_id.payment_state', '=', 'paid')
                 ])
+                print("car_records", car_records)
 
                 total_cars = len(set(car_records.mapped('car_number')))
                 dept_record_charges = self.env["department.charges"].search(dept_domain)
                 total_dept_sum = sum(dept_record_charges.mapped('charge_amount'))
                 rec.score_category_lvl1 = total_dept_sum / total_cars if total_cars > 0 else 0
+                rec.score_category_lvl1_percentage = (
+                                                                 rec.score_category_lvl1 / rec.reference_value) if rec.reference_value else 0
+                # print("score_category_lvl1_percentage", rec.score_category_lvl1_percentage)
 
             if rec.score_id.score_name == "Parts Profit":
                 department = rec.category_lvl1_selection
                 if department._name != 'hr.department':
                     continue
-                dept_domain=[
+                dept_domain = [
                     ('department_id', '=', department.id),
                     ('date', '>=', rec.start_date),
                     ('date', '<=', rec.end_date),
                     ('invoice_id.payment_state', '=', 'paid')
                 ]
-                dept_margin_charges=self.env["department.charges"].search(dept_domain)
+                dept_margin_charges = self.env["department.charges"].search(dept_domain)
                 total_dept_margin_sum = sum(dept_margin_charges.mapped('parts_margin'))
                 rec.score_category_lvl1 = total_dept_margin_sum
-
 
             if rec.score_id.score_name == "Leads":
                 medium = rec.category_lvl1_selection
