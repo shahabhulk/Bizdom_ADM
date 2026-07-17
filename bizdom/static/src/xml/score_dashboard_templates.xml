@@ -25,6 +25,12 @@
                             MTD
                         </button>
                         <button type="button"
+                                t-att-class="'btn btn-sm ' + (state.filterType === 'QTD' ? 'btn-primary text-white' : 'btn-outline-primary')"
+                                t-att-disabled="state.loading"
+                                t-on-click="() => this.switchFilter('QTD')">
+                            QTD
+                        </button>
+                        <button type="button"
                                 t-att-class="'btn btn-sm ' + (state.filterType === 'YTD' ? 'btn-primary text-white' : 'btn-outline-primary')"
                                 t-att-disabled="state.loading"
                                 t-on-click="() => this.switchFilter('YTD')">

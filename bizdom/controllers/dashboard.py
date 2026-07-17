@@ -495,6 +495,44 @@ class BizdomDashboard(http.Controller):
                 status=200
             ))
 
+        elif filter_type == "QTD":
+            today = date.today()
+            current_quarter = (today.month - 1) // 3  # 0=Q1, 1=Q2, 2=Q3, 3=Q4
+            quarter_start_month = current_quarter * 3 + 1
+            quarter_start = date(today.year, quarter_start_month, 1)
+            quarter_end = today
+            pillar_records = request.env['bizdom.pillar'].sudo().search(pillar_domain)
+
+            # Batch compute all scores at once
+            pillar_scores_map = self._batch_compute_scores(
+                pillar_records, quarter_start, quarter_end, favorites_only, company.id, filter_type="QTD",
+                is_owner=is_owner, allowed_pillar_ids=allowed_pillar_ids
+            )
+
+            # Build response
+            pillars = []
+            for p in pillar_records:
+                pillars.append({
+                    "pillar_id": p.id,
+                    "pillar_name": p.name,
+                    "pillar_identifier": p.pillar_identifier,
+                    "scores": pillar_scores_map.get(p.id, [])
+                })
+
+            response = {
+                "statusCode": 200,
+                "message": "Data fetched",
+                "company_id": company.id,
+                "start_date": quarter_start.strftime("%d-%m-%Y"),
+                "end_date": quarter_end.strftime("%d-%m-%Y"),
+                "pillars": pillars
+            }
+            return _with_cors(http.Response(
+                json.dumps(response),
+                content_type='application/json',
+                status=200
+            ))
+
     # controllers/dashboard.py
     # @http.route('/bizdom/score-dashboard/client-action', type='json', auth='user')
     # def score_dashboard_client_action(self, score_id, **kw):
