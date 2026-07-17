@@ -15,16 +15,15 @@ class FleetRepair(models.Model):
     _description = "Car Repair"
     _rec_name = 'sequence'
     _order = 'id desc'
-    
 
     license_plate = fields.Char(
         string='License Plate',
-        store=True, 
+        store=True,
         readonly=False,
         help='License plate number. Will create or update fleet.vehicle when entered.')
     vin_sn = fields.Char(
         string='Chassis Number',
-        store=True, 
+        store=True,
         readonly=False,
         help='VIN/Chassis number. Will create or update fleet.vehicle when entered.')
 
@@ -32,7 +31,7 @@ class FleetRepair(models.Model):
         'fleet.vehicle.model',
         string="Model",
         domain="[('brand_id', '=', fleet_id)]",
-        store=True # Temporarily not stored to avoid column conversion error
+        store=True  # Temporarily not stored to avoid column conversion error
     )
 
     kilometers_num = fields.Char(string="KMS")
@@ -182,97 +181,136 @@ class FleetRepair(models.Model):
     #                     'project_id': Project.create(project_vals).id
     #                 })
     #     return res
-    
-    @api.onchange('license_plate', 'vin_sn', 'client_id', 'model_name')
-    def _onchange_license_plate_vin_sn(self):
-        """Create or update fleet.vehicle when license plate or VIN is set or corrected"""
-        # Require model_name to create/update vehicle
-        if not self.model_name:
-            return
-        
-        # If vehicle_id is already set, update it (handles corrections)
-        if self.vehicle_id:
-            update_vals = {}
-            # Always update if license_plate is provided and different (handles corrections)
-            if self.license_plate and self.vehicle_id.license_plate != self.license_plate:
-                update_vals['license_plate'] = self.license_plate
-            # Always update if vin_sn is provided and different
-            if self.vin_sn and self.vehicle_id.vin_sn != self.vin_sn:
-                update_vals['vin_sn'] = self.vin_sn
-            # Update client if provided
-            if self.client_id and self.vehicle_id.driver_id != self.client_id:
-                update_vals['driver_id'] = self.client_id.id
-            # Update model if provided
-            if self.model_name and self.vehicle_id.model_id != self.model_name:
-                update_vals['model_id'] = self.model_name.id
-            
-            if update_vals:
-                self.vehicle_id.write(update_vals)
-                # Sync back the updated values
-                if 'license_plate' in update_vals:
-                    self.license_plate = self.vehicle_id.license_plate
-                if 'vin_sn' in update_vals:
-                    self.vin_sn = self.vehicle_id.vin_sn
-            return
-        
-        # Only search/create if we have license_plate or vin_sn
-        if not (self.license_plate or self.vin_sn):
-            return
-        
-        vehicle = False
-        
-        # Search by license_plate first (if provided)
+
+    @api.onchange('license_plate')
+    def _onchange_license_plate(self):
         if self.license_plate:
-            vehicle = self.env['fleet.vehicle'].search([
-                ('license_plate', '=', self.license_plate)
-            ], limit=1)
-        
-        # If not found and vin_sn is provided, search by vin_sn
-        if not vehicle and self.vin_sn:
-            vehicle = self.env['fleet.vehicle'].search([
-                ('vin_sn', '=', self.vin_sn)
-            ], limit=1)
-        
-        if not vehicle:
-            # Create new vehicle if it doesn't exist
-            vehicle_vals = {
-                'model_id': self.model_name.id,  # Model is required
-            }
-            if self.license_plate:
-                vehicle_vals['license_plate'] = self.license_plate
-            if self.vin_sn:
-                vehicle_vals['vin_sn'] = self.vin_sn
-            if self.client_id:
-                vehicle_vals['driver_id'] = self.client_id.id
-            
-            # Create the vehicle
-            vehicle = self.env['fleet.vehicle'].create(vehicle_vals)
-        else:
-            # Update existing vehicle with any missing or changed information
-            update_vals = {}
-            # Update license_plate if provided and different (handles corrections)
-            if self.license_plate and vehicle.license_plate != self.license_plate:
-                update_vals['license_plate'] = self.license_plate
-            # Update vin_sn if provided and different
-            if self.vin_sn and vehicle.vin_sn != self.vin_sn:
-                update_vals['vin_sn'] = self.vin_sn
-            # Update client if provided and missing
-            if self.client_id and not vehicle.driver_id:
-                update_vals['driver_id'] = self.client_id.id
-            # Update model if provided and different
-            if self.model_name and vehicle.model_id != self.model_name:
-                update_vals['model_id'] = self.model_name.id
-            
-            if update_vals:
-                vehicle.write(update_vals)
-        
-        # Set the vehicle_id to the vehicle
-        self.vehicle_id = vehicle.id
-        
-        # Sync license_plate and vin_sn from vehicle
-        self.license_plate = vehicle.license_plate
-        self.vin_sn = vehicle.vin_sn
-    
+            search_car = self.env['fleet.vehicle'].search([('license_plate', '=', self.license_plate)], limit=1)
+            print(f"Search result: {search_car}")
+            if search_car:
+                print(f"Vehicle ID: {search_car.id}")
+                print(f"Model ID: {search_car.model_id}")
+
+                self.vehicle_id = search_car.id
+                self.vin_sn = search_car.vin_sn
+
+                # Safely get brand and model
+                if search_car.model_id:
+                    print(f"Setting model_name to: {search_car.model_id.id}")
+                    self.model_name = search_car.model_id.id
+                    print(f"Model_name: {self.model_name.name}")
+                    if search_car.model_id.brand_id:
+                        self.fleet_id = search_car.model_id.brand_id.id
+                else:
+                    print("Vehicle has no model_id assigned")
+
+                # Get odometer if available
+                if search_car.odometer_unit:
+                    self.kilometers_num = str(search_car.odometer)
+
+                # Return values to force UI update
+                return {
+                    'value': {
+                        'vehicle_id': self.vehicle_id.id if self.vehicle_id else False,
+                        'vin_sn': self.vin_sn,
+                        'model_name': self.model_name.id if self.model_name else False,
+                        'fleet_id': self.fleet_id.id if self.fleet_id else False,
+                        'kilometers_num': self.kilometers_num,
+                    }
+                }
+            else:
+                print(f"No vehicle found with license plate: {self.license_plate}")
+
+    # @api.onchange('license_plate', 'vin_sn', 'client_id', 'model_name')
+    # def _onchange_license_plate_vin_sn(self):
+    #     """Create or update fleet.vehicle when license plate or VIN is set or corrected"""
+    #     # Require model_name to create/update vehicle
+    #     if not self.model_name:
+    #         return
+    #
+    #     # If vehicle_id is already set, update it (handles corrections)
+    #     if self.vehicle_id:
+    #         update_vals = {}
+    #         # Always update if license_plate is provided and different (handles corrections)
+    #         if self.license_plate and self.vehicle_id.license_plate != self.license_plate:
+    #             update_vals['license_plate'] = self.license_plate
+    #         # Always update if vin_sn is provided and different
+    #         if self.vin_sn and self.vehicle_id.vin_sn != self.vin_sn:
+    #             update_vals['vin_sn'] = self.vin_sn
+    #         # Update client if provided
+    #         if self.client_id and self.vehicle_id.driver_id != self.client_id:
+    #             update_vals['driver_id'] = self.client_id.id
+    #         # Update model if provided
+    #         if self.model_name and self.vehicle_id.model_id != self.model_name:
+    #             update_vals['model_id'] = self.model_name.id
+    #
+    #         if update_vals:
+    #             self.vehicle_id.write(update_vals)
+    #             # Sync back the updated values
+    #             if 'license_plate' in update_vals:
+    #                 self.license_plate = self.vehicle_id.license_plate
+    #             if 'vin_sn' in update_vals:
+    #                 self.vin_sn = self.vehicle_id.vin_sn
+    #         return
+    #
+    #     # Only search/create if we have license_plate or vin_sn
+    #     if not (self.license_plate or self.vin_sn):
+    #         return
+    #
+    #     vehicle = False
+    #
+    #     # Search by license_plate first (if provided)
+    #     if self.license_plate:
+    #         vehicle = self.env['fleet.vehicle'].search([
+    #             ('license_plate', '=', self.license_plate)
+    #         ], limit=1)
+    #
+    #     # If not found and vin_sn is provided, search by vin_sn
+    #     if not vehicle and self.vin_sn:
+    #         vehicle = self.env['fleet.vehicle'].search([
+    #             ('vin_sn', '=', self.vin_sn)
+    #         ], limit=1)
+    #
+    #     if not vehicle:
+    #         # Create new vehicle if it doesn't exist
+    #         vehicle_vals = {
+    #             'model_id': self.model_name.id,  # Model is required
+    #         }
+    #         if self.license_plate:
+    #             vehicle_vals['license_plate'] = self.license_plate
+    #         if self.vin_sn:
+    #             vehicle_vals['vin_sn'] = self.vin_sn
+    #         if self.client_id:
+    #             vehicle_vals['driver_id'] = self.client_id.id
+    #
+    #         # Create the vehicle
+    #         vehicle = self.env['fleet.vehicle'].create(vehicle_vals)
+    #     else:
+    #         # Update existing vehicle with any missing or changed information
+    #         update_vals = {}
+    #         # Update license_plate if provided and different (handles corrections)
+    #         if self.license_plate and vehicle.license_plate != self.license_plate:
+    #             update_vals['license_plate'] = self.license_plate
+    #         # Update vin_sn if provided and different
+    #         if self.vin_sn and vehicle.vin_sn != self.vin_sn:
+    #             update_vals['vin_sn'] = self.vin_sn
+    #         # Update client if provided and missing
+    #         if self.client_id and not vehicle.driver_id:
+    #             update_vals['driver_id'] = self.client_id.id
+    #         # Update model if provided and different
+    #         if self.model_name and vehicle.model_id != self.model_name:
+    #             update_vals['model_id'] = self.model_name.id
+    #
+    #         if update_vals:
+    #             vehicle.write(update_vals)
+    #
+    #     # Set the vehicle_id to the vehicle
+    #     self.vehicle_id = vehicle.id
+    #
+    #     # Sync license_plate and vin_sn from vehicle
+    #     self.license_plate = vehicle.license_plate
+    #     self.vin_sn = vehicle.vin_sn
+
     # @api.onchange('vehicle_id')
     # def _onchange_vehicle_id(self):
     #     """When vehicle is selected, update related fields"""
@@ -293,14 +331,16 @@ class FleetRepair(models.Model):
     #         # Clear license_plate and vin_sn when vehicle is cleared
     #         self.license_plate = False
     #         self.vin_sn = False
-    
+
     @api.onchange('fleet_id')
     def _onchange_fleet_id(self):
         """When manufacturer is selected, filter models and clear current model selection"""
         result = {}
         if self.fleet_id:
             # Clear the model selection when manufacturer changes
-            self.model_name = False
+            if self.model_name and self.model_name.brand_id != self.fleet_id:
+                self.model_name = False
+
             result = {
                 'domain': {
                     'model_name': [('brand_id', '=', self.fleet_id.id)]
@@ -318,7 +358,6 @@ class FleetRepair(models.Model):
                 }
             }
         return result
-    
 
     def _inverse_client_phone(self):
         for record in self:
@@ -396,7 +435,6 @@ class FleetRepair(models.Model):
         self.env.add_to_compute(field, repairs)
         # Trigger recomputation - this will call _compute_delivery_status_color
         repairs._recompute_recordset(['delivery_status_color'])
-
 
     @api.depends('product_line_ids.subtotal')
     def _compute_total(self):
@@ -491,7 +529,7 @@ class FleetRepair(models.Model):
             'invoice_date': fields.Date.today(),
             'invoice_line_ids': invoice_lines,
             'fleet_repair_invoice_id': self.id,
-            'create_form_fleet':True# custom field, define it if needed
+            'create_form_fleet': True  # custom field, define it if needed
         })
 
         self.invoice_order_id = invoice.id
@@ -1308,10 +1346,10 @@ class FleetRepairWorkLine(models.Model):
     _name = 'fleet.repair.work.line'
     _description = 'Fleet Repair Work Line'
 
-    employee_id=fields.Many2one('hr.employee', string='Employee')
+    employee_id = fields.Many2one('hr.employee', string='Employee')
     repair_id = fields.Many2one('fleet.repair', string='Repair Order', ondelete='cascade', required=True)
     department_type_id = fields.Many2one('hr.department', string='Department Type')
-    work_type=fields.Many2one('service.type', string='Work')
+    work_type = fields.Many2one('service.type', string='Work')
     timer_start = fields.Datetime('Start Timer')
     timer_end = fields.Datetime('End Timer')
     time_diff = fields.Float(
@@ -1343,7 +1381,7 @@ class FleetRepairWorkLine(models.Model):
             if rec.timer_start:
                 raise UserError('Timer is already started')
 
-            rec.timer_start=fields.Datetime.now()
+            rec.timer_start = fields.Datetime.now()
 
     def action_stop_timer(self):
         for rec in self:
@@ -1358,4 +1396,3 @@ class FleetRepairWorkLine(models.Model):
             rec.timer_start = False
             rec.timer_end = False
             rec.time_diff = 0.0
-
