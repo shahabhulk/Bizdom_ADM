@@ -185,7 +185,7 @@ class FleetRepair(models.Model):
     @api.onchange('license_plate')
     def _onchange_license_plate(self):
         if self.license_plate:
-            search_car = self.env['fleet.vehicle'].search([('license_plate', '=', self.license_plate)], limit=1)
+            search_car = self.env['fleet.vehicle'].search([('license_plate', '=', self.license_plate)], order='acquisition_date desc,  id desc', limit=1)
             print(f"Search result: {search_car}")
             if search_car:
                 print(f"Vehicle ID: {search_car.id}")
@@ -193,6 +193,9 @@ class FleetRepair(models.Model):
 
                 self.vehicle_id = search_car.id
                 self.vin_sn = search_car.vin_sn
+
+                if search_car.driver_id:
+                    self.client_id = search_car.driver_id.id
 
                 # Safely get brand and model
                 if search_car.model_id:
@@ -211,6 +214,12 @@ class FleetRepair(models.Model):
                 # Return values to force UI update
                 return {
                     'value': {
+                        # client detail
+                        'client_id': self.client_id.id if self.client_id else False,
+                        # 'client_name': self.client_id.name if self.client_id else False,
+                        'client_email': self.client_id.email if self.client_id else False,
+                        'client_phone': self.client_id.phone if self.client_id else False,
+                        # vehicle
                         'vehicle_id': self.vehicle_id.id if self.vehicle_id else False,
                         'vin_sn': self.vin_sn,
                         'model_name': self.model_name.id if self.model_name else False,
@@ -218,8 +227,64 @@ class FleetRepair(models.Model):
                         'kilometers_num': self.kilometers_num,
                     }
                 }
-            else:
-                print(f"No vehicle found with license plate: {self.license_plate}")
+        else:
+            return {
+                'value': {
+                    'vehicle_id': False,
+                    'vin_sn': False,
+                    'model_name': False,
+                    'fleet_id': False,
+                    'kilometers_num': False,
+                    'client_id': False,
+                    'client_phone': False,
+                    'client_mobile': False,
+                    'client_email': False,
+                }
+            }
+
+    @api.model
+    def check_owner_change(self, license_plate, client_id):
+        vehicle = self.env['fleet.vehicle'].search(
+            [('license_plate', '=', license_plate)],
+            order='acquisition_date desc, id desc',
+            limit=1,
+        )
+
+        if not vehicle:
+            return {
+                "changed": False,
+            }
+
+        if vehicle.driver_id.id != client_id:
+            return {
+                "changed": True,
+                "vehicle_id": vehicle.id,
+                "current_owner": vehicle.driver_id.name,
+                "current_owner_id": vehicle.driver_id.id,
+            }
+
+        return {
+            "changed": False,
+        }
+
+    @api.model
+    def create_new_owner(self, vehicle_id, partner_id):
+        vehicle = self.env["fleet.vehicle"].browse(vehicle_id)
+
+        new_vehicle = self.env["fleet.vehicle"].create({
+            "license_plate": vehicle.license_plate,
+            "vin_sn": vehicle.vin_sn,
+            "model_id": vehicle.model_id.id,
+            "driver_id": partner_id,
+            "acquisition_date": fields.Date.today(),
+        })
+
+        return {
+            "vehicle_id": new_vehicle.id,
+        }
+
+
+
 
     # @api.onchange('license_plate', 'vin_sn', 'client_id', 'model_name')
     # def _onchange_license_plate_vin_sn(self):
@@ -550,29 +615,50 @@ class FleetRepair(models.Model):
 
     @api.model_create_multi
     def create(self, vals_list):
-        # First, get the maximum sequence number
-        self.env.cr.execute("SELECT COALESCE(MAX(CAST(sequence AS INTEGER)), 0) FROM fleet_repair")
+        # Sequence
+        self.env.cr.execute(
+            "SELECT COALESCE(MAX(CAST(sequence AS INTEGER)), 0) FROM fleet_repair"
+        )
         last_seq = self.env.cr.fetchone()[0]
 
-        # Set sequence numbers in the vals_list
         for vals in vals_list:
             last_seq += 1
             vals['sequence'] = str(last_seq)
 
-        # Create the fleet repair records
-        repairs = super(FleetRepair, self).create(vals_list)
+        repairs = super().create(vals_list)
 
-        # Now create projects for each repair
         project = self.env['project.project']
+
         for repair in repairs:
-            company_id = repair.company_id.id if repair.company_id else self.env.company.id
-            project_vals = {
+
+            # Create vehicle if it doesn't exist
+            if repair.license_plate :
+                vehicle = self.env['fleet.vehicle'].search([
+                    ('license_plate', '=', repair.license_plate)
+                ], limit=1)
+
+                if not vehicle:
+                    try:
+                        vehicle = self.env['fleet.vehicle'].create({
+                            'license_plate': repair.license_plate,
+                            'vin_sn': repair.vin_sn,
+                            'driver_id': repair.client_id.id if repair.client_id else False,
+                            'model_id': repair.model_name.id if repair.model_name else False,
+                        })
+                    except Exception as e:
+                        raise UserError(str(e))
+
+                repair.vehicle_id = vehicle.id
+
+            # Create project
+            company_id = repair.company_id.id or self.env.company.id
+
+            repair.project_id = project.with_company(company_id).create({
                 'name': f"Job Card No: {repair.sequence}",
                 'allow_timesheets': True,
                 'partner_id': repair.client_id.id if repair.client_id else False,
                 'company_id': company_id,
-            }
-            repair.project_id = project.with_company(company_id).create(project_vals).id
+            }).id
 
         return repairs
 
