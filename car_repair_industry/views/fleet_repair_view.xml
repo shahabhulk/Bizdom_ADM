@@ -109,10 +109,23 @@
                         </group>
                         <notebook>
                             <page string="General">
-                                <group string="Client Info">
+                                <group string="Car Info">
+                                    <group>
+                                        <field name="license_plate"/>
+                                        <field name="fleet_id"/>
+                                    </group>
+                                    <group>
+                                        <field name="model_name"/>
+                                        <field name="vin_sn"/>
+                                        <field name="kilometers_num"/>
+                                    </group>
+                                </group>
+                                <separator string="Client Info"/>
+                                <group>
                                     <group>
                                         <field name="client_id" context="{'show_address': 1}"
-                                               options='{"always_reload": True,"no_create_edit":True}' readonly="state != 'draft'"
+                                               options='{"always_reload": True,"no_create_edit":True}'
+                                               readonly="state != 'draft'"
                                                string="Client"/>
                                         <field name="contact_name" string="Driver"/>
                                     </group>
@@ -122,18 +135,18 @@
                                         <field name="client_email" widget="email" readonly="state != 'draft'"/>
                                     </group>
                                 </group>
-                                <separator string="Car Info"/>
-                                <group>
-                                    <group>
-                                        <field name="fleet_id"/>
-                                        <field name="license_plate"/>
-                                    </group>
-                                    <group>
-                                        <field name="model_name"/>
-                                        <field name="vin_sn"/>
-                                        <field name="kilometers_num"/>
-                                    </group>
-                                </group>
+
+                                <!--                                <group>-->
+                                <!--                                    <group>-->
+                                <!--                                        <field name="fleet_id"/>-->
+                                <!--                                        <field name="license_plate"/>-->
+                                <!--                                    </group>-->
+                                <!--                                    <group>-->
+                                <!--                                        <field name="model_name"/>-->
+                                <!--                                        <field name="vin_sn"/>-->
+                                <!--                                        <field name="kilometers_num"/>-->
+                                <!--                                    </group>-->
+                                <!--                                </group>-->
 
                                 <!--                                <separator string="Car Info"/>-->
                                 <!--                                <field name="fleet_repair_line" readonly="state != 'draft'" widget="one2many_list"/>-->
@@ -145,7 +158,8 @@
                                     </list>
                                 </field>
                                 <separator string="Items"/>
-                                <field name="product_line_ids" readonly="state in ('done', 'cancel')" widget="one2many_list">
+                                <field name="product_line_ids" readonly="state in ('done', 'cancel')"
+                                       widget="one2many_list">
                                     <list editable="bottom">
                                         <field name="product_id" options="{'no_quick_create': True}"
                                                readonly="parent.state in ('done', 'cancel', 'invoiced')"/>
@@ -224,7 +238,7 @@
                             <page name="review_and_rating" string="Review and Ratings">
                                 <group>
                                     <field name="feedback_description"/>
-<!--                                    <field name="csat_rating" widget="priority"/>-->
+                                    <!--                                    <field name="csat_rating" widget="priority"/>-->
                                 </group>
                             </page>
 
@@ -282,7 +296,7 @@
                     <field name="state" widget="badge" decoration-success="state == 'done'"/>
                     <field name="promised_date" widget="remaining_days" invisible="state == 'done'"/>
                     <field name="delivery_status_color" widget="delivery_status" string="Signal"/>
-<!--                    <field name="csat_rating" widget="priority"/>-->
+                    <!--                    <field name="csat_rating" widget="priority"/>-->
                 </list>
             </field>
         </record>

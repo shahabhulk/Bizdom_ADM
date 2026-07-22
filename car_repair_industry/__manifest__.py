@@ -198,6 +198,7 @@ automotive workshop management software
             'car_repair_industry/static/src/js/fleet_repair_dashboard.js',
             'car_repair_industry/static/src/js/delivery_status_widget.js',
             'car_repair_industry/static/src/js/client_duplicate_warning.js',
+            'car_repair_industry/static/src/js/owner_change.js',
             'car_repair_industry/static/src/js/product_track_inventory_confirm.js',
             'car_repair_industry/static/src/xml/**/*',
         ],
