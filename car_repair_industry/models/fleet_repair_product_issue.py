@@ -40,9 +40,10 @@ class FleetRepairProductLineIssue(models.Model):
     cost_price = fields.Float(
         string='Cost Price',
         digits='Product Price',
-        copy=False,
+        compute='_compute_cost_price',
+        store=True,
         readonly=True,
-        help='Weighted average FIFO unit cost from stock valuation when parts are issued.',
+        help='Weighted average FIFO unit cost from stock valuation / purchase order when parts are issued or selected.',
     )
     cost_subtotal = fields.Monetary(
         string='Cost Total',
@@ -104,13 +105,29 @@ class FleetRepairProductLineIssue(models.Model):
                 )
             line.vendor_cost_summary = '; '.join(parts)
 
-    @api.depends('unit_price', 'qty_issued', 'cost_price')
+    @api.depends(
+        'product_id',
+        'uom_id',
+        'qty_issued',
+        'issue_cost_line_ids',
+        'issue_cost_line_ids.unit_cost',
+        'issue_cost_line_ids.quantity',
+    )
+    def _compute_cost_price(self):
+        for line in self:
+            if not line.product_id:
+                line.cost_price = 0.0
+                continue
+            line.cost_price = line._recompute_cost_price_from_cost_lines()
+
+    @api.depends('unit_price', 'qty_issued', 'cost_price', 'quantity')
     def _compute_cost_margin(self):
         for line in self:
-            revenue_issued = line.unit_price * line.qty_issued
-            line.cost_subtotal = line.cost_price * line.qty_issued
-            line.margin = revenue_issued - line.cost_subtotal
-            line.margin_percent = (line.margin / revenue_issued * 100.0) if revenue_issued else 0.0
+            qty = line.qty_issued if line.qty_issued > 0 else line.quantity
+            revenue = line.unit_price * qty
+            line.cost_subtotal = line.cost_price * qty
+            line.margin = revenue - line.cost_subtotal
+            line.margin_percent = (line.margin / revenue * 100.0) if revenue else 0.0
 
     @api.onchange('qty_issued')
     def _onchange_qty_issued_cap_return(self):
@@ -180,24 +197,42 @@ class FleetRepairProductLineIssue(models.Model):
         return self._convert_qty(qty, product.uom_id, line_uom)
 
     def _get_available_qty(self, product, warehouse):
-        """Shelf availability for display (adm/Stock), in line UoM."""
+        """Shelf availability for display (adm/Stock), in line UoM (allowing negative stock)."""
         if not product or not product.is_storable:
-            return float('inf')
+            return 0.0
         line_uom = self.uom_id or product.uom_id
-        location = warehouse.lot_stock_id
-        qty = self.env['stock.quant']._get_available_quantity(
-            product.sudo(), location, strict=True,
-        )
+        location = warehouse.lot_stock_id if warehouse else False
+        if location:
+            quants = self.env['stock.quant'].search([
+                ('product_id', '=', product.id),
+                ('location_id', 'child_of', location.id),
+            ])
+            if quants:
+                qty = sum(quants.mapped('quantity')) - sum(quants.mapped('reserved_quantity'))
+            else:
+                qty = self.env['stock.quant']._get_available_quantity(
+                    product.sudo(), location, strict=True, allow_negative=True,
+                )
+        else:
+            qty = product.with_context(warehouse_id=warehouse.id).free_qty if warehouse else 0.0
         return self._convert_qty(qty, product.uom_id, line_uom)
 
     def _get_product_available_qty(self, product, warehouse):
-        """Available on stock location in product default UoM."""
+        """Available on stock location in product default UoM (allowing negative stock)."""
         if not product or not product.is_storable:
-            return float('inf')
-        qty = self.env['stock.quant']._get_available_quantity(
-            product.sudo(), warehouse.lot_stock_id, strict=True,
-        )
-        return qty
+            return 0.0
+        location = warehouse.lot_stock_id if warehouse else False
+        if location:
+            quants = self.env['stock.quant'].search([
+                ('product_id', '=', product.id),
+                ('location_id', 'child_of', location.id),
+            ])
+            if quants:
+                return sum(quants.mapped('quantity')) - sum(quants.mapped('reserved_quantity'))
+            return self.env['stock.quant']._get_available_quantity(
+                product.sudo(), location, strict=True, allow_negative=True,
+            )
+        return product.with_context(warehouse_id=warehouse.id).free_qty if warehouse else 0.0
 
     def _get_repair_pending_issue_qty(self, product):
         """Sum (quantity - qty_issued) for product on this repair, in product UoM."""
@@ -559,9 +594,11 @@ class FleetRepairProductLineIssue(models.Model):
         for batch in returned_batches:
             if float_is_zero(batch['quantity'], precision_rounding=(self.uom_id or self.product_id.uom_id).rounding):
                 continue
+            vendor_id = batch.get('vendor_id') or False
+            vendor_name = batch.get('vendor_name') or _('Unknown')
             domain = [
                 ('repair_line_id', '=', self.id),
-                ('vendor_id', '=', batch['vendor_id']),
+                ('vendor_id', '=', vendor_id),
             ]
             if batch.get('unit_cost') is not None:
                 domain.append(('unit_cost', '=', batch['unit_cost']))
@@ -573,8 +610,8 @@ class FleetRepairProductLineIssue(models.Model):
             else:
                 ReturnedStock.create({
                     'repair_line_id': self.id,
-                    'vendor_id': batch['vendor_id'],
-                    'vendor_name': batch['vendor_name'],
+                    'vendor_id': vendor_id,
+                    'vendor_name': vendor_name,
                     'quantity': batch['quantity'],
                     'unit_cost': batch['unit_cost'],
                     'return_picking_id': return_picking.id if return_picking else False,
@@ -850,15 +887,69 @@ class FleetRepairProductLineIssue(models.Model):
             'quantity': issued_line_uom,
             'unit_cost': fifo_unit_cost,
             'issue_date': picking.date_done or fields.Datetime.now(),
+            'is_fallback': True,
         })
+
+    def _get_latest_purchase_cost_and_vendor(self):
+        self.ensure_one()
+        product = self.product_id
+        if not product:
+            return 0.0, False, ''
+        line_uom = self.uom_id or product.uom_id
+        company = self.repair_id.company_id or self.env.company
+
+        moves = self.env['stock.move'].search([
+            ('product_id', '=', product.id),
+            ('state', '=', 'done'),
+            ('company_id', '=', company.id),
+            '|',
+            ('purchase_line_id', '!=', False),
+            ('picking_id.purchase_id', '!=', False),
+        ], order='date DESC, id DESC', limit=1)
+
+        if moves:
+            move = moves[0]
+            vendor = self._get_vendor_from_stock_move(move)
+            unit_cost_product = self._get_move_unit_cost_product_uom(move, 0.0)
+            unit_cost_line = self._convert_qty(unit_cost_product, product.uom_id, line_uom)
+            return unit_cost_line, vendor.id if vendor else False, vendor.display_name if vendor else ''
+
+        po_line = self._get_last_purchase_order_line()
+        if po_line:
+            po_cost = po_line.price_unit
+            pol_uom = po_line.product_uom
+            if pol_uom and pol_uom != line_uom:
+                po_cost = pol_uom._compute_price(po_cost, line_uom)
+            vendor = po_line.order_id.partner_id
+            return po_cost, vendor.id if vendor else False, vendor.display_name if vendor else ''
+
+        std_price = self._convert_qty(product.standard_price, product.uom_id, line_uom)
+        return std_price, False, ''
+
+    def _update_fallback_cost_lines_from_latest_purchase(self):
+        for line in self:
+            fallback_cost_lines = line.issue_cost_line_ids.filtered(
+                lambda cl: cl.is_fallback or not cl.svl_source_id
+            )
+            if not fallback_cost_lines:
+                continue
+            unit_cost, vendor_id, vendor_name = line._get_latest_purchase_cost_and_vendor()
+            if unit_cost:
+                fallback_cost_lines.write({
+                    'unit_cost': unit_cost,
+                    'vendor_id': vendor_id,
+                    'vendor_name': vendor_name or _('Unknown'),
+                })
 
     def _recompute_cost_price_from_cost_lines(self):
         self.ensure_one()
+        self._update_fallback_cost_lines_from_latest_purchase()
         cost_lines = self.issue_cost_line_ids
-        rounding = (self.uom_id or self.product_id.uom_id).rounding
+        rounding = (self.uom_id or self.product_id.uom_id).rounding if self.product_id else 0.01
         total_qty = sum(cost_lines.mapped('quantity'))
         if float_is_zero(total_qty, precision_rounding=rounding):
-            return 0.0
+            unit_cost, _vendor_id, _vendor_name = self._get_latest_purchase_cost_and_vendor()
+            return unit_cost
         total_value = sum(line.quantity * line.unit_cost for line in cost_lines)
         return total_value / total_qty
 
@@ -913,25 +1004,32 @@ class FleetRepairProductLineIssue(models.Model):
         if float_is_zero(qty_product_uom, precision_rounding=rounding):
             raise UserError(_('Nothing left to issue on this line.'))
 
-        available_product_uom = self._get_product_available_qty(
-            product, self._get_warehouse(),
-        )
-        if float_compare(qty_product_uom, available_product_uom, precision_rounding=rounding) > 0:
-            raise UserError(_(
-                'Not enough stock for "%(product)s". '
-                'To issue: %(req)s %(uom)s, Available on shelf: %(avail)s %(uom)s.',
-                product=product.display_name,
-                req=qty_product_uom,
-                avail=available_product_uom,
-                uom=product.uom_id.name,
-            ))
 
         warehouse = self._get_warehouse()
         src = self._get_stock_location()
         dest = self._get_production_location()
-        picking_type = warehouse.int_type_id
+        picking_type = (
+            warehouse.int_type_id
+            or self.env['stock.picking.type'].search([
+                ('code', '=', 'internal'),
+                ('warehouse_id', '=', warehouse.id),
+            ], limit=1)
+            or self.env['stock.picking.type'].search([
+                ('code', '=', 'internal'),
+                ('company_id', '=', warehouse.company_id.id),
+            ], limit=1)
+            or self.env['stock.picking.type'].search([
+                ('code', '=', 'internal'),
+            ], limit=1)
+        )
         if not picking_type:
-            raise UserError(_('No internal operation type on warehouse %s.') % warehouse.name)
+            picking_type = self.env['stock.picking.type'].create({
+                'name': _('Internal Transfers'),
+                'code': 'internal',
+                'warehouse_id': warehouse.id if warehouse else False,
+                'company_id': warehouse.company_id.id if warehouse else self.env.company.id,
+                'sequence_code': 'INT',
+            })
 
         repair = self.repair_id
         fifo_candidates = self._get_fifo_candidate_layers()
@@ -982,6 +1080,7 @@ class FleetRepairProductLineIssue(models.Model):
             'cost_price': new_cost_price,
             'issue_picking_ids': [(4, picking.id)],
         })
+        self.invalidate_recordset(['onhand_qty', 'available_qty'])
 
     def action_return_part(self):
         for line in self:
@@ -1027,7 +1126,28 @@ class FleetRepairProductLineIssue(models.Model):
         warehouse = self._get_warehouse()
         src = self._get_production_location()
         dest = self._get_stock_location()
-        picking_type = warehouse.int_type_id
+        picking_type = (
+            warehouse.int_type_id
+            or self.env['stock.picking.type'].search([
+                ('code', '=', 'internal'),
+                ('warehouse_id', '=', warehouse.id),
+            ], limit=1)
+            or self.env['stock.picking.type'].search([
+                ('code', '=', 'internal'),
+                ('company_id', '=', warehouse.company_id.id),
+            ], limit=1)
+            or self.env['stock.picking.type'].search([
+                ('code', '=', 'internal'),
+            ], limit=1)
+        )
+        if not picking_type:
+            picking_type = self.env['stock.picking.type'].create({
+                'name': _('Internal Transfers'),
+                'code': 'internal',
+                'warehouse_id': warehouse.id if warehouse else False,
+                'company_id': warehouse.company_id.id if warehouse else self.env.company.id,
+                'sequence_code': 'INT',
+            })
         repair = self.repair_id
 
         picking = self.env['stock.picking'].create({
@@ -1069,6 +1189,7 @@ class FleetRepairProductLineIssue(models.Model):
         if float_is_zero(new_qty_issued, precision_rounding=rounding):
             write_vals['cost_price'] = 0.0
         self.write(write_vals)
+        self.invalidate_recordset(['onhand_qty', 'available_qty'])
 
     @api.constrains('qty_to_return', 'qty_issued', 'product_id', 'uom_id')
     def _check_qty_to_return(self):
@@ -1108,60 +1229,5 @@ class FleetRepairProductLineIssue(models.Model):
                 ))
         return super().unlink()
 
-    @api.constrains('quantity', 'product_id', 'uom_id', 'qty_issued')
-    def _check_stock_quantity(self):
-        checked = set()
-        for line in self:
-            if not line.product_id or not line.product_id.is_storable:
-                continue
-            key = (line.repair_id.id, line.product_id.id)
-            if key in checked:
-                continue
-            checked.add(key)
-            warehouse = line._get_warehouse()
-            if not warehouse:
-                raise ValidationError(
-                    _('No warehouse configured for company %s.')
-                    % (line.repair_id.company_id.name or line.env.company.name)
-                )
-            product = line.product_id
-            available = line._get_product_available_qty(product, warehouse)
-            requested = line._get_repair_pending_issue_qty(product)
-            if float_compare(requested, available, precision_rounding=product.uom_id.rounding) > 0:
-                raise ValidationError(_(
-                    'Not enough stock for "%(product)s". '
-                    'Pending issue: %(req)s %(uom)s, Available on shelf: %(avail)s %(uom)s (%(wh)s).',
-                    product=product.display_name,
-                    req=requested,
-                    avail=available,
-                    uom=product.uom_id.name,
-                    wh=warehouse.name,
-                ))
 
-    @api.onchange('quantity', 'product_id', 'uom_id')
-    def _onchange_quantity_stock(self):
-        for line in self:
-            if not line.product_id or not line.product_id.is_storable:
-                continue
-            warehouse = line._get_warehouse()
-            if not warehouse:
-                continue
-            available = line._get_available_qty(line.product_id, warehouse)
-            pending = line.quantity - line.qty_issued
-            if float_compare(pending, available, precision_rounding=(line.uom_id or line.product_id.uom_id).rounding or 0.01) > 0:
-                uom_name = (line.uom_id or line.product_id.uom_id).name
-                return {
-                    'warning': {
-                        'title': _('Insufficient Stock'),
-                        'message': _(
-                            'Product "%(product)s": pending issue %(req)s %(uom)s, '
-                            'available on shelf %(avail)s %(uom)s (%(wh)s).',
-                            product=line.product_id.display_name,
-                            req=pending,
-                            avail=available,
-                            uom=uom_name,
-                            wh=warehouse.name,
-                        ),
-                    }
-                }
 
