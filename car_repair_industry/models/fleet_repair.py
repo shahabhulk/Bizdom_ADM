@@ -118,8 +118,11 @@ class FleetRepair(models.Model):
     )
 
     product_line_ids = fields.One2many('fleet.repair.product.line', 'repair_id', string='Product Lines')
+    service_line_ids = fields.One2many('fleet.repair.service.line', 'repair_id', string='Service Lines')
     # amount_total = fields.Monetary(string="Total Amount", compute="_compute_amount_total", store=True)
     # currency_id = fields.Many2one('res.currency', default=lambda self: self.env.company.currency_id)
+    amount_parts = fields.Monetary(string='Parts Total', compute='_compute_total', store=True)
+    amount_service = fields.Monetary(string='Service Total', compute='_compute_total', store=True)
     amount_untaxed = fields.Monetary(string='Untaxed Amount', compute='_compute_total', store=True)
     amount_total = fields.Monetary(string='Total', compute='_compute_total', store=True)
     invoice_paid_amount = fields.Monetary(
@@ -485,10 +488,10 @@ class FleetRepair(models.Model):
 
             record.delivery_status_color = color
 
-    @api.depends('product_line_ids.subtotal')
+    @api.depends('product_line_ids.subtotal', 'service_line_ids.subtotal')
     def _compute_amount_total(self):
         for rec in self:
-            rec.amount_total = sum(line.subtotal for line in rec.product_line_ids)
+            rec.amount_total = sum(line.subtotal for line in rec.product_line_ids) + sum(line.subtotal for line in rec.service_line_ids)
 
     def _cron_update_delivery_colors(self):
         """Cron job to update delivery status colors for all repairs"""
@@ -501,10 +504,12 @@ class FleetRepair(models.Model):
         # Trigger recomputation - this will call _compute_delivery_status_color
         repairs._recompute_recordset(['delivery_status_color'])
 
-    @api.depends('product_line_ids.subtotal')
+    @api.depends('product_line_ids.subtotal', 'service_line_ids.subtotal')
     def _compute_total(self):
         for rec in self:
-            rec.amount_untaxed = sum(line.subtotal for line in rec.product_line_ids)
+            rec.amount_parts = sum(line.subtotal for line in rec.product_line_ids)
+            rec.amount_service = sum(line.subtotal for line in rec.service_line_ids)
+            rec.amount_untaxed = rec.amount_parts + rec.amount_service
             rec.amount_total = rec.amount_untaxed
 
     def _compute_invoice_paid_amount(self):
@@ -581,6 +586,19 @@ class FleetRepair(models.Model):
                 'price_unit': line.unit_price,
                 'product_uom_id': line.uom_id.id,
                 'margin_parts': line.margin,
+                'tax_ids': [(6, 0, [])],
+            }))
+
+        for line in self.service_line_ids:
+            if not line.product_id:
+                continue
+
+            invoice_lines.append((0, 0, {
+                'product_id': line.product_id.id,
+                'name': line.name or line.product_id.name,
+                'quantity': line.quantity,
+                'price_unit': line.unit_price,
+                'product_uom_id': line.uom_id.id,
                 'tax_ids': [(6, 0, [])],
             }))
 
@@ -1078,7 +1096,7 @@ class FleetRepairProductLine(models.Model):
     repair_id = fields.Many2one('fleet.repair', string='Repair Order', ondelete='cascade', required=True)
 
     # Both product and item_code point to product.template now
-    product_id = fields.Many2one('product.product', string='Item')
+    product_id = fields.Many2one('product.product', domain=[('type', '=', 'consu')], string='Item')
     item_code_id = fields.Many2one(
         'product.product',
         string='Item Code Search',
@@ -1315,6 +1333,38 @@ class FleetRepairProductLine(models.Model):
                     uom=product.uom_id.name,
                     wh=warehouse.name,
                 ))
+
+
+class FleetRepairServiceLine(models.Model):
+    _name = 'fleet.repair.service.line'
+    _description = 'Fleet Repair Service Line'
+
+    repair_id = fields.Many2one('fleet.repair', string='Repair Order', ondelete='cascade', required=True)
+    product_id = fields.Many2one('product.product', domain=[('type', '=', 'service')], string='Service')
+    name = fields.Text(string='Description')
+    quantity = fields.Float(string='Quantity', default=1.0)
+    uom_id = fields.Many2one('uom.uom', string='Unit of Measure')
+    unit_price = fields.Float(string='Price')
+    subtotal = fields.Monetary(string='Subtotal', compute='_compute_subtotal', store=True)
+    currency_id = fields.Many2one('res.currency', related='repair_id.currency_id', store=True, readonly=True)
+
+    @api.depends('quantity', 'unit_price')
+    def _compute_subtotal(self):
+        for line in self:
+            line.subtotal = line.quantity * line.unit_price
+
+    @api.onchange('product_id')
+    def _onchange_product_id(self):
+        for line in self:
+            product = line.product_id
+            if product:
+                line.name = product.name
+                line.unit_price = product.list_price
+                line.uom_id = product.uom_id
+            else:
+                line.name = False
+                line.unit_price = 0.0
+                line.uom_id = False
 
 
 class ServiceDetailLine(models.Model):
