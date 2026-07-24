@@ -20,7 +20,7 @@
 
             <div class="col-md-12 mt64 row activity_content_main">
                 <div class="col-md-3" t-on-click="clickCarRepair">
-                    <a class="CarRepairList">
+                    <a class="CarRepairList" data-domain="[('state', '!=', 'done')]">
                         <div class="activity_block">
                             <div class="activity_block_left nth1">
                                 <i class="fa fa-cogs"></i>

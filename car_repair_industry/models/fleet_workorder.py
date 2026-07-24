@@ -3,12 +3,22 @@
 
 from odoo import fields, models, api, _
 from datetime import date, time, datetime, timedelta
+from odoo.tools import SQL
+import re
 
 
 class FleetWorkOrder(models.Model):
 	_name = 'fleet.workorder'
 	_inherit = ['mail.thread']
 	_description = "Fleet WorkOrder"
+
+	def _order_field_to_sql(self, alias, field_name, direction, nulls, query):
+		if field_name == 'sequence':
+			sql_field = SQL("COALESCE(NULLIF(regexp_replace(%s, '\\D', '', 'g'), '')::INTEGER, 0)", self._field_to_sql(alias, field_name, query))
+			if query.groupby:
+				query.groupby = SQL('%s, %s', query.groupby, sql_field)
+			return SQL("%s %s %s", sql_field, direction, nulls)
+		return super()._order_field_to_sql(alias, field_name, direction, nulls, query)
 
 	name = fields.Char(string='Work Order', required=True)
 	sequence = fields.Char(string='Sequence', readonly=True, copy =False)

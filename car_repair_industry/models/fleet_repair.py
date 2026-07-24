@@ -6,7 +6,8 @@ from datetime import date, time, datetime
 from odoo import tools
 from pytz import timezone
 from odoo.exceptions import UserError, ValidationError
-from odoo.tools import float_compare
+from odoo.tools import float_compare, SQL
+import re
 
 
 class FleetRepair(models.Model):
@@ -630,6 +631,24 @@ class FleetRepair(models.Model):
         for rec in self:
             seq = rec.sequence or ''
             rec.job_card_display = f"Job Card No : {seq}"
+
+    def _order_field_to_sql(self, alias, field_name, direction, nulls, query):
+        if field_name == 'sequence':
+            sql_field = SQL("COALESCE(NULLIF(regexp_replace(%s, '\\D', '', 'g'), '')::INTEGER, 0)", self._field_to_sql(alias, field_name, query))
+            if query.groupby:
+                query.groupby = SQL('%s, %s', query.groupby, sql_field)
+            return SQL("%s %s %s", sql_field, direction, nulls)
+        return super()._order_field_to_sql(alias, field_name, direction, nulls, query)
+
+    @api.model
+    def _search(self, domain, offset=0, limit=None, order=None):
+        has_state_filter = any(
+            isinstance(term, (list, tuple)) and len(term) >= 1 and term[0] == 'state'
+            for term in domain
+        )
+        if not has_state_filter and not self._context.get('show_all_states'):
+            domain = [('state', '!=', 'done')] + list(domain)
+        return super()._search(domain, offset=offset, limit=limit, order=order)
 
     @api.model_create_multi
     def create(self, vals_list):
