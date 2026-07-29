@@ -47,9 +47,11 @@ class CustomAuthController(http.Controller):
 
             host = request.httprequest.host
             if "laptop-uijcccph:8070" in host:
-                db = "bizapp_april23"
+                db = "biz_test1.2"
+                # db = "bizapp_april23"
             elif "13.204.226.141" in host:
-                db = "bitnami_odoo"
+                db = "bn_odoo_sample"
+                # db = "bitnami_odoo"
             else:
                 return http.Response(
                     json.dumps({
@@ -207,9 +209,11 @@ class CustomAuthController(http.Controller):
             # Determine DB from host (same logic as login)
             host = request.httprequest.host
             if "laptop-uijcccph:8070" in host:
-                db = "bizapp_april23"
-            elif "13.233.223.127" in host:
-                db = "bitnami_odoo"
+                db = "biz_test1.2"
+                # db = "bizapp_april23"
+            elif "13.204.226.141" in host:
+                # db = "bitnami_odoo"
+                db = "bn_odoo_sample"
             else:
                 return http.Response(
                     json.dumps({
