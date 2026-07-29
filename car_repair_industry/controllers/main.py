@@ -135,8 +135,7 @@ class Appointment(http.Controller):
             ('company_id', '=', company_id)
         ])
         feedback_count = request.env['fleet.repair.feedback'].sudo().search([])  # Add this line
-        parts_purchase_count = request.env['account.move'].sudo().search_count([
-            ('move_type', '=', 'in_invoice'),
+        parts_purchase_count = request.env['purchase.order'].sudo().search_count([
             ('company_id', '=', company_id),
         ])
         company_expense_count = request.env['hr.expense'].sudo().search_count([

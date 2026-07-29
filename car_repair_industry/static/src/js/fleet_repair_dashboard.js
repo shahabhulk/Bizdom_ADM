@@ -151,15 +151,11 @@ export class FleetRepairDasboard extends Component{
     clickPartsPurchase(ev) {
         ev.preventDefault();
         this.action.doAction({
-            name: 'Parts Purchase',
-            res_model: 'account.move',
+            name: 'Purchase Orders',
+            res_model: 'purchase.order',
             res_id: false,
             views: [[false, 'list'], [false, 'form']],
             type: 'ir.actions.act_window',
-            domain: [['move_type', '=', 'in_invoice']],
-            context: {
-                'default_move_type': 'in_invoice',
-            },
         }, {
             on_reverse_breadcrumb: this.on_reverse_breadcrumb
         });
