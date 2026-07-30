@@ -1122,7 +1122,8 @@ class FleetRepairProductLine(models.Model):
     product_id = fields.Many2one('product.product', domain=[('type', '=', 'consu')], string='Item')
     item_code_id = fields.Many2one(
         'product.product',
-        string='Item Code Search',
+        domain=[('type', '=', 'consu')],
+        string='Item Code',
     )
 
     item_code_display = fields.Char(
@@ -1283,7 +1284,7 @@ class FleetRepairProductLine(models.Model):
                 line.name = product.name
                 line.unit_price = product.list_price
                 line.uom_id = product.uom_id
-                line.item_code_id = product if product.item_code else False
+                line.item_code_id = product
             else:
                 line.item_code_id = False
                 line.name = False

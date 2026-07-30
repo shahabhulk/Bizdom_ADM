@@ -147,9 +147,10 @@
                                 <separator string="Parts"/>
                                 <field name="product_line_ids" readonly="state in ('done', 'cancel')" widget="one2many_list">
                                     <list editable="bottom">
-                                        <field name="product_id" options="{'no_quick_create': True}"
+                                        <field name="item_code_id" column_invisible="1"/>
+                                        <field name="item_code_display" widget="item_code_autocomplete" string="Item Code"
                                                readonly="parent.state in ('done', 'cancel', 'invoiced')"/>
-                                        <field name="item_code_display"
+                                        <field name="product_id" options="{'no_quick_create': True}"
                                                readonly="parent.state in ('done', 'cancel', 'invoiced')"/>
                                         <field name="quantity"
                                                readonly="parent.state in ('done', 'cancel', 'invoiced')"/>
