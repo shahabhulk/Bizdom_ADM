@@ -646,7 +646,11 @@ class FleetRepair(models.Model):
             isinstance(term, (list, tuple)) and len(term) >= 1 and term[0] == 'state'
             for term in domain
         )
-        if not has_state_filter and not self._context.get('show_all_states'):
+        has_id_filter = any(
+            isinstance(term, (list, tuple)) and len(term) >= 1 and term[0] == 'id'
+            for term in domain
+        )
+        if not has_state_filter and not has_id_filter and not self._context.get('show_all_states'):
             domain = [('state', '!=', 'done')] + list(domain)
         return super()._search(domain, offset=offset, limit=limit, order=order)
 
