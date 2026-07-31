@@ -140,7 +140,7 @@ class AccountInvoice(models.Model):
 
     create_form_fleet = fields.Boolean(string='Fleet')
     fleet_repair_invoice_id = fields.Many2one('fleet.repair')
-    license_plate = fields.Char(related='fleet_repair_invoice_id.license_plate', store=True)
+    license_plate = fields.Char(related='fleet_repair_invoice_id.license_plate.license_plate', store=True)
     model_name = fields.Char(related='fleet_repair_invoice_id.model_name.name', store=True)
     vin_sn = fields.Char(related='fleet_repair_invoice_id.vin_sn', store=True)
     fleet_feedback_count = fields.Integer(compute='_compute_feedback_count', string='Feedback Count')

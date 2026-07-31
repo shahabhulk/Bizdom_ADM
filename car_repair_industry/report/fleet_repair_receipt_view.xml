@@ -100,7 +100,7 @@
                                         </td>
                                         <td style="padding-right:10px;">
                                             :
-                                            <span t-if="o.license_plate" t-field="o.license_plate"/>
+                                            <span t-if="o.license_plate" t-field="o.license_plate.license_plate"/>
                                         </td>
                                     </tr>
                                     <tr>

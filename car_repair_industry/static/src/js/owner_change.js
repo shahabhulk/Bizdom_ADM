@@ -35,12 +35,19 @@ patch(Many2OneField.prototype, {
 
         console.log("Checking ownership...");
 
+        const licensePlateParam = Array.isArray(record.data.license_plate)
+            ? record.data.license_plate[0]
+            : record.data.license_plate;
+        const clientIdParam = Array.isArray(record.data.client_id)
+            ? record.data.client_id[0]
+            : record.data.client_id;
+
         const result = await this.orm.call(
             "fleet.repair",
             "check_owner_change",
             [
-                record.data.license_plate,
-                record.data.client_id[0],
+                licensePlateParam,
+                clientIdParam,
             ]
         );
 

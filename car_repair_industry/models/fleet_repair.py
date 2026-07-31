@@ -17,37 +17,95 @@ class FleetRepair(models.Model):
     _rec_name = 'sequence'
     _order = 'id desc'
 
-    license_plate = fields.Char(
+    license_plate = fields.Many2one(
+        'fleet.vehicle',
         string='License Plate',
         store=True,
         readonly=False,
-        help='License plate number. Will create or update fleet.vehicle when entered.')
+        required=True,
+        help='License plate number / vehicle selection.')
+
+    def _auto_init(self):
+        cr = self.env.cr
+        cr.execute("""
+            SELECT data_type 
+            FROM information_schema.columns 
+            WHERE table_name = 'fleet_repair' AND column_name = 'license_plate'
+        """)
+        res = cr.fetchone()
+        if res and res[0] in ('character varying', 'text', 'varchar'):
+            # Match existing string license plates to fleet_vehicle IDs
+            cr.execute("""
+                UPDATE fleet_repair fr
+                SET license_plate = (
+                    SELECT fv.id::text 
+                    FROM fleet_vehicle fv 
+                    WHERE LOWER(fv.license_plate) = LOWER(fr.license_plate) 
+                    ORDER BY fv.id DESC LIMIT 1
+                )
+                WHERE fr.license_plate IS NOT NULL 
+                AND fr.license_plate !~ '^[0-9]+$';
+            """)
+            # Clear any remaining non-numeric string values
+            cr.execute("""
+                UPDATE fleet_repair 
+                SET license_plate = NULL 
+                WHERE license_plate IS NOT NULL AND license_plate !~ '^[0-9]+$';
+            """)
+            # Convert column type to integer
+            cr.execute("""
+                ALTER TABLE fleet_repair 
+                ALTER COLUMN license_plate TYPE integer 
+                USING (
+                    CASE 
+                        WHEN license_plate ~ '^[0-9]+$' THEN license_plate::integer 
+                        ELSE NULL 
+                    END
+                );
+            """)
+
+        cr.execute("""
+            SELECT data_type 
+            FROM information_schema.columns 
+            WHERE table_name = 'fleet_repair' AND column_name = 'promised_date'
+        """)
+        res_promised = cr.fetchone()
+        if res_promised and res_promised[0] in ('timestamp without time zone', 'timestamp'):
+            cr.execute("""
+                ALTER TABLE fleet_repair 
+                ALTER COLUMN promised_date TYPE date 
+                USING promised_date::date;
+            """)
+
+        super()._auto_init()
     vin_sn = fields.Char(
         string='Chassis Number',
         store=True,
         readonly=False,
+        required=True,
         help='VIN/Chassis number. Will create or update fleet.vehicle when entered.')
 
     model_name = fields.Many2one(
         'fleet.vehicle.model',
         string="Model",
         domain="[('brand_id', '=', fleet_id)]",
-        store=True  # Temporarily not stored to avoid column conversion error
+        store=True,
+        required=True
     )
 
-    kilometers_num = fields.Char(string="KMS")
+    kilometers_num = fields.Char(string="KMS", required=True)
     name = fields.Char(string='Subject')
     sequence = fields.Char(string='Sequence', readonly=True, copy=False)
     client_id = fields.Many2one('res.partner', string='Client', required=True, tracking=True)
     client_phone = fields.Char(related='client_id.phone', store=True, readonly=False, string='Phone',
-                               inverse='_inverse_client_phone')
+                               inverse='_inverse_client_phone', required=True)
     client_mobile = fields.Char(related='client_id.mobile', store=True, readonly=False, string='Mobile',
                                 inverse='_inverse_client_phone')
-    client_email = fields.Char(string='Email')
-    receipt_date = fields.Datetime(string='JC Date', default=fields.Datetime.now)
+    client_email = fields.Char(string='Email', required=True)
+    receipt_date = fields.Datetime(string='JC Date', default=fields.Datetime.now, readonly=True)
     contact_name = fields.Char(string='Contact Name')
     phone = fields.Char(string='Contact Number')
-    fleet_id = fields.Many2one('fleet.vehicle.model.brand', 'Car')
+    fleet_id = fields.Many2one('fleet.vehicle.model.brand', 'Car', required=True)
     vehicle_id = fields.Many2one('fleet.vehicle', string='Vehicle')
     # license_plate = fields.Char('License Plate', help='License plate number of the vehicle (ie: plate number for a car)')
     # vin_sn = fields.Char('Chassis Number', help='Unique number written on the vehicle motor (VIN/SN number)')
@@ -67,7 +125,7 @@ class FleetRepair(models.Model):
     guarantee_type = fields.Selection(
         [('paid', 'paid'), ('free', 'Free')], string='Guarantee Type')
     service_type = fields.Many2one('service.type', string='Nature of Service')
-    user_id = fields.Many2one('res.users', string='Assigned to', tracking=True)
+    user_id = fields.Many2one('res.users', string='Service Advisor', tracking=True)
     priority = fields.Selection([('0', 'Low'), ('1', 'Normal'), ('2', 'High')], 'Priority')
     description = fields.Text(string='Notes')
     service_detail = fields.Text(string='Service Details')
@@ -143,7 +201,7 @@ class FleetRepair(models.Model):
         readonly=True
     )
 
-    promised_date = fields.Datetime(string="Promised Delivery Date", default=fields.Datetime.now, required=True)
+    promised_date = fields.Date(string="Promised Date", required=True)
     # csat_rating = fields.Selection(
     #     [
     #         ("0", "No comments"),
@@ -189,49 +247,45 @@ class FleetRepair(models.Model):
     @api.onchange('license_plate')
     def _onchange_license_plate(self):
         if self.license_plate:
-            search_car = self.env['fleet.vehicle'].search([('license_plate', '=', self.license_plate)], order='acquisition_date desc,  id desc', limit=1)
-            print(f"Search result: {search_car}")
-            if search_car:
-                print(f"Vehicle ID: {search_car.id}")
-                print(f"Model ID: {search_car.model_id}")
+            search_car = self.license_plate
+            self.vehicle_id = search_car.id
+            self.vin_sn = search_car.vin_sn
 
-                self.vehicle_id = search_car.id
-                self.vin_sn = search_car.vin_sn
+            if search_car.driver_id:
+                self.client_id = search_car.driver_id.id
 
-                if search_car.driver_id:
-                    self.client_id = search_car.driver_id.id
+            # Safely get brand and model
+            if search_car.model_id:
+                self.model_name = search_car.model_id.id
+                if search_car.model_id.brand_id:
+                    self.fleet_id = search_car.model_id.brand_id.id
 
-                # Safely get brand and model
-                if search_car.model_id:
-                    print(f"Setting model_name to: {search_car.model_id.id}")
-                    self.model_name = search_car.model_id.id
-                    print(f"Model_name: {self.model_name.name}")
-                    if search_car.model_id.brand_id:
-                        self.fleet_id = search_car.model_id.brand_id.id
-                else:
-                    print("Vehicle has no model_id assigned")
+            # Get odometer if available
+            if hasattr(search_car, 'odometer') and search_car.odometer:
+                self.kilometers_num = str(search_car.odometer)
 
-                # Get odometer if available
-                if search_car.odometer_unit:
-                    self.kilometers_num = str(search_car.odometer)
-
-                # Return values to force UI update
-                return {
-                    'value': {
-                        # client detail
-                        'client_id': self.client_id.id if self.client_id else False,
-                        # 'client_name': self.client_id.name if self.client_id else False,
-                        'client_email': self.client_id.email if self.client_id else False,
-                        'client_phone': self.client_id.phone if self.client_id else False,
-                        # vehicle
-                        'vehicle_id': self.vehicle_id.id if self.vehicle_id else False,
-                        'vin_sn': self.vin_sn,
-                        'model_name': self.model_name.id if self.model_name else False,
-                        'fleet_id': self.fleet_id.id if self.fleet_id else False,
-                        'kilometers_num': self.kilometers_num,
-                    }
+            return {
+                'value': {
+                    'client_id': self.client_id.id if self.client_id else False,
+                    'client_email': self.client_id.email if self.client_id else False,
+                    'client_phone': self.client_id.phone if self.client_id else False,
+                    'vehicle_id': self.vehicle_id.id if self.vehicle_id else False,
+                    'vin_sn': self.vin_sn,
+                    'model_name': self.model_name.id if self.model_name else False,
+                    'fleet_id': self.fleet_id.id if self.fleet_id else False,
+                    'kilometers_num': self.kilometers_num,
                 }
+            }
         else:
+            self.vehicle_id = False
+            self.vin_sn = False
+            self.model_name = False
+            self.fleet_id = False
+            self.kilometers_num = False
+            self.client_id = False
+            self.client_phone = False
+            self.client_mobile = False
+            self.client_email = False
             return {
                 'value': {
                     'vehicle_id': False,
@@ -248,18 +302,24 @@ class FleetRepair(models.Model):
 
     @api.model
     def check_owner_change(self, license_plate, client_id):
-        vehicle = self.env['fleet.vehicle'].search(
-            [('license_plate', '=', license_plate)],
-            order='acquisition_date desc, id desc',
-            limit=1,
-        )
+        vehicle = False
+        if isinstance(license_plate, int):
+            vehicle = self.env['fleet.vehicle'].browse(license_plate)
+        elif isinstance(license_plate, (list, tuple)) and license_plate:
+            vehicle = self.env['fleet.vehicle'].browse(license_plate[0])
+        elif isinstance(license_plate, str) and license_plate:
+            vehicle = self.env['fleet.vehicle'].search(
+                [('license_plate', '=', license_plate)],
+                order='acquisition_date desc, id desc',
+                limit=1,
+            )
 
-        if not vehicle:
+        if not vehicle or not vehicle.exists():
             return {
                 "changed": False,
             }
 
-        if vehicle.driver_id.id != client_id:
+        if vehicle.driver_id and vehicle.driver_id.id != client_id:
             return {
                 "changed": True,
                 "vehicle_id": vehicle.id,
@@ -682,24 +742,9 @@ class FleetRepair(models.Model):
 
         for repair in repairs:
 
-            # Create vehicle if it doesn't exist
-            if repair.license_plate :
-                vehicle = self.env['fleet.vehicle'].search([
-                    ('license_plate', '=', repair.license_plate)
-                ], limit=1)
-
-                if not vehicle:
-                    try:
-                        vehicle = self.env['fleet.vehicle'].create({
-                            'license_plate': repair.license_plate,
-                            'vin_sn': repair.vin_sn,
-                            'driver_id': repair.client_id.id if repair.client_id else False,
-                            'model_id': repair.model_name.id if repair.model_name else False,
-                        })
-                    except Exception as e:
-                        raise UserError(str(e))
-
-                repair.vehicle_id = vehicle.id
+            # Sync vehicle_id from selected license_plate
+            if repair.license_plate:
+                repair.vehicle_id = repair.license_plate.id
 
             # Create project
             company_id = repair.company_id.id or self.env.company.id
@@ -1418,6 +1463,12 @@ class ServiceDetailLine(models.Model):
         return super().create(vals)
 
     def write(self, vals):
+        if 'receipt_date' in vals and not self.env.context.get('skip_receipt_date_check'):
+            for rec in self:
+                if rec.receipt_date and vals.get('receipt_date'):
+                    new_dt = fields.Datetime.to_datetime(vals['receipt_date'])
+                    if rec.receipt_date != new_dt:
+                        raise UserError(_("JC Date cannot be edited once the Job Card is created."))
         res = super().write(vals)
         for rec in self:
             if rec.service_detail_id and len(rec.service_detail_id.service_detail_line) > 10:
@@ -1566,3 +1617,17 @@ class FleetRepairWorkLine(models.Model):
             rec.timer_start = False
             rec.timer_end = False
             rec.time_diff = 0.0
+
+
+class FleetVehicle(models.Model):
+    _inherit = 'fleet.vehicle'
+    _rec_name = 'license_plate'
+
+    @api.depends('license_plate')
+    def _compute_display_name(self):
+        for record in self:
+            if record.license_plate:
+                record.display_name = record.license_plate
+            else:
+                super()._compute_display_name()
+
