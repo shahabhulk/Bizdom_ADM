@@ -1189,10 +1189,14 @@ class FleetRepairProductLine(models.Model):
     )
 
     name = fields.Text(string='Description')
-    quantity = fields.Float(string='Quantity', default=1.0)
+    quantity = fields.Float(string='Quantity', default=0.0)
     available_qty = fields.Float(
         string='Available',
         compute='_compute_available_qty',
+    )
+    onhand_qty = fields.Float(
+        string='On-Hand',
+        compute='_compute_onhand_qty',
     )
     uom_id = fields.Many2one('uom.uom', string='Unit of Measure')
     unit_price = fields.Float(string='Unit Price')
@@ -1212,12 +1216,23 @@ class FleetRepairProductLine(models.Model):
         )
 
     def _get_available_qty(self, product, warehouse):
-        """Return free_qty in the line UoM."""
+        """Return free_qty in the line UoM (allowing negative stock)."""
         if not product or not product.is_storable:
-            return float('inf')
-        product = product.with_context(warehouse_id=warehouse.id)
-        qty = product.free_qty
+            return 0.0
         line_uom = self.uom_id or product.uom_id
+        if warehouse and warehouse.lot_stock_id:
+            quants = self.env['stock.quant'].search([
+                ('product_id', '=', product.id),
+                ('location_id', 'child_of', warehouse.lot_stock_id.id),
+            ])
+            if quants:
+                qty = sum(quants.mapped('quantity')) - sum(quants.mapped('reserved_quantity'))
+            else:
+                qty = self.env['stock.quant']._get_available_quantity(
+                    product.sudo(), warehouse.lot_stock_id, strict=True, allow_negative=True,
+                )
+        else:
+            qty = product.with_context(warehouse_id=warehouse.id).free_qty if warehouse else 0.0
         if line_uom and product.uom_id and line_uom != product.uom_id:
             qty = product.uom_id._compute_quantity(qty, line_uom)
         return qty
@@ -1250,7 +1265,7 @@ class FleetRepairProductLine(models.Model):
             return float('inf')
         return product.with_context(warehouse_id=warehouse.id).free_qty
 
-    @api.depends('product_id', 'uom_id', 'quantity', 'repair_id', 'repair_id.company_id')
+    @api.depends('product_id', 'uom_id', 'quantity', 'repair_id', 'repair_id.company_id', 'repair_id.product_line_ids.quantity', 'repair_id.product_line_ids.product_id')
     def _compute_available_qty(self):
         for line in self:
             if not line.product_id or not line.product_id.is_storable:
@@ -1258,9 +1273,53 @@ class FleetRepairProductLine(models.Model):
                 continue
             warehouse = line._get_warehouse()
             if warehouse:
-                line.available_qty = line._get_available_qty(line.product_id, warehouse)
+                base_qty = line._get_available_qty(line.product_id, warehouse)
+                pending_qty = 0.0
+                repair = line.repair_id or line._find_repair_order() if hasattr(line, '_find_repair_order') else line.repair_id
+                if repair and repair.product_line_ids:
+                    for sibling in repair.product_line_ids.filtered(lambda l: l.product_id == line.product_id):
+                        unissued = max(sibling.quantity - (getattr(sibling, 'qty_issued', 0.0) or 0.0), 0.0)
+                        line_uom = sibling.uom_id or sibling.product_id.uom_id
+                        target_uom = line.uom_id or line.product_id.uom_id
+                        if line_uom != target_uom:
+                            unissued = line_uom._compute_quantity(unissued, target_uom)
+                        pending_qty += unissued
+                line.available_qty = max(0.0, base_qty - pending_qty)
             else:
                 line.available_qty = 0.0
+
+    @api.depends('product_id', 'uom_id', 'quantity', 'repair_id', 'repair_id.company_id', 'repair_id.product_line_ids.quantity', 'repair_id.product_line_ids.product_id')
+    def _compute_onhand_qty(self):
+        for line in self:
+            if not line.product_id or not line.product_id.is_storable:
+                line.onhand_qty = 0.0
+                continue
+            warehouse = line._get_warehouse()
+            if warehouse and warehouse.lot_stock_id:
+                quants = self.env['stock.quant'].search([
+                    ('product_id', '=', line.product_id.id),
+                    ('location_id', 'child_of', warehouse.lot_stock_id.id),
+                ])
+                raw_qty = sum(quants.mapped('quantity'))
+                raw_qty = max(0.0, raw_qty)
+            else:
+                raw_qty = max(0.0, line.product_id.with_context(warehouse_id=warehouse.id).qty_available) if warehouse else 0.0
+
+            pending_qty = 0.0
+            repair = line.repair_id or line._find_repair_order() if hasattr(line, '_find_repair_order') else line.repair_id
+            if repair and repair.product_line_ids:
+                for sibling in repair.product_line_ids.filtered(lambda l: l.product_id == line.product_id):
+                    unissued = max(sibling.quantity - (getattr(sibling, 'qty_issued', 0.0) or 0.0), 0.0)
+                    line_uom = sibling.uom_id or sibling.product_id.uom_id
+                    if line_uom != line.product_id.uom_id:
+                        unissued = line_uom._compute_quantity(unissued, line.product_id.uom_id)
+                    pending_qty += unissued
+
+            effective_qty = max(0.0, raw_qty - pending_qty)
+            line_uom = line.uom_id or line.product_id.uom_id
+            if line_uom and line.product_id.uom_id and line_uom != line.product_id.uom_id:
+                effective_qty = line.product_id.uom_id._compute_quantity(effective_qty, line_uom)
+            line.onhand_qty = effective_qty
 
     @api.model
     def action_enable_inventory_tracking(self, product_id):
@@ -1356,62 +1415,7 @@ class FleetRepairProductLine(models.Model):
             if error:
                 raise ValidationError(error)
 
-    @api.onchange('quantity', 'product_id', 'uom_id')
-    def _onchange_quantity_stock(self):
-        for line in self:
-            if not line.product_id or not line.product_id.is_storable:
-                continue
-            warehouse = line._get_warehouse()
-            if not warehouse:
-                continue
-            available = line._get_available_qty(line.product_id, warehouse)
-            requested = line._get_total_requested_qty(line.product_id)
-            if float_compare(requested, available, precision_rounding=line.uom_id.rounding or 0.01) > 0:
-                uom_name = (line.uom_id or line.product_id.uom_id).name
-                return {
-                    'warning': {
-                        'title': _('Insufficient Stock'),
-                        'message': _(
-                            'Product "%(product)s": requested %(req)s %(uom)s, '
-                            'available %(avail)s %(uom)s in %(wh)s.',
-                            product=line.product_id.display_name,
-                            req=requested,
-                            avail=available,
-                            uom=uom_name,
-                            wh=warehouse.name,
-                        ),
-                    }
-                }
 
-    @api.constrains('quantity', 'product_id', 'uom_id')
-    def _check_stock_quantity(self):
-        checked = set()
-        for line in self:
-            if not line.product_id or not line.product_id.is_storable:
-                continue
-            key = (line.repair_id.id, line.product_id.id)
-            if key in checked:
-                continue
-            checked.add(key)
-            warehouse = line._get_warehouse()
-            if not warehouse:
-                raise ValidationError(
-                    _('No warehouse configured for company %s.')
-                    % (line.repair_id.company_id.name or line.env.company.name)
-                )
-            product = line.product_id
-            available = line._get_product_available_qty(product, warehouse)
-            requested = line._get_repair_requested_qty(product)
-            if float_compare(requested, available, precision_rounding=product.uom_id.rounding) > 0:
-                raise ValidationError(_(
-                    'Not enough stock for "%(product)s". '
-                    'Requested: %(req)s %(uom)s, Available: %(avail)s %(uom)s (%(wh)s).',
-                    product=product.display_name,
-                    req=requested,
-                    avail=available,
-                    uom=product.uom_id.name,
-                    wh=warehouse.name,
-                ))
 
 
 class FleetRepairServiceLine(models.Model):

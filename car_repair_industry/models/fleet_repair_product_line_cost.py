@@ -78,6 +78,10 @@ class FleetRepairProductLineCost(models.Model):
         string='Issued On',
         readonly=True,
     )
+    is_fallback = fields.Boolean(
+        string='Is Fallback Cost',
+        default=False,
+    )
 
     @api.depends('quantity', 'unit_cost')
     def _compute_cost_subtotal(self):

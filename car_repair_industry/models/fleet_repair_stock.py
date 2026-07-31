@@ -74,7 +74,18 @@ class StockPickingFleetRepair(models.Model):
         )
         if job_card_pickings:
             job_card_pickings._fleet_prepare_moves_for_valuation()
-        return super().button_validate()
+        res = super().button_validate()
+        for picking in self:
+            if picking.picking_type_id.code == 'incoming' or picking.purchase_id:
+                products = picking.move_ids.mapped('product_id')
+                if products:
+                    lines = self.env['fleet.repair.product.line'].search([
+                        ('product_id', 'in', products.ids),
+                        ('repair_id.state', 'not in', ('cancel', 'done')),
+                    ])
+                    if lines:
+                        lines._update_fallback_cost_lines_from_latest_purchase()
+        return res
 
     def fleet_validate_picking(self):
         """Confirm, reserve, pick move lines, validate — required for FIFO SVLs."""
@@ -184,19 +195,6 @@ class AccountMoveFleetRepairStock(models.Model):
                 issued_remaining[product.id] -= offset
                 if float_is_zero(qty, precision_rounding=product.uom_id.rounding):
                     continue
-                available = self.env['stock.quant']._get_available_quantity(
-                    product, warehouse.lot_stock_id, strict=True,
-                )
-                if float_compare(qty, available, precision_rounding=product.uom_id.rounding) > 0:
-                    raise UserError(_(
-                        'Not enough stock for "%(product)s". '
-                        'Required: %(req)s %(uom)s, Available: %(avail)s %(uom)s (%(wh)s).',
-                        product=product.display_name,
-                        req=qty,
-                        avail=available,
-                        uom=product.uom_id.name,
-                        wh=warehouse.name,
-                    ))
                 move_commands.append((0, 0, {
                     'name': product.display_name,
                     'product_id': product.id,
@@ -210,8 +208,22 @@ class AccountMoveFleetRepairStock(models.Model):
             if not move_commands:
                 continue
 
+            out_picking_type = (
+                warehouse.out_type_id
+                or self.env['stock.picking.type'].search([
+                    ('code', '=', 'outgoing'),
+                    ('warehouse_id', '=', warehouse.id),
+                ], limit=1)
+                or self.env['stock.picking.type'].search([
+                    ('code', '=', 'outgoing'),
+                    ('company_id', '=', invoice.company_id.id),
+                ], limit=1)
+                or self.env['stock.picking.type'].search([
+                    ('code', '=', 'outgoing'),
+                ], limit=1)
+            )
             picking = Picking.create({
-                'picking_type_id': warehouse.out_type_id.id,
+                'picking_type_id': out_picking_type.id if out_picking_type else False,
                 'partner_id': invoice.partner_id.id,
                 'origin': _('Job Card %s / %s') % (
                     repair.sequence or repair.display_name,

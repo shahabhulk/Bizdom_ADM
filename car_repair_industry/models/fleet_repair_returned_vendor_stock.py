@@ -23,8 +23,8 @@ class FleetRepairReturnedVendorStock(models.Model):
         store=True,
         readonly=True,
     )
-    vendor_id = fields.Many2one('res.partner', string='Vendor', required=True, index=True)
-    vendor_name = fields.Char(string='Vendor Name', required=True)
+    vendor_id = fields.Many2one('res.partner', string='Vendor', index=True)
+    vendor_name = fields.Char(string='Vendor Name', default='Unknown')
     quantity = fields.Float(
         string='Qty Available',
         digits='Product Unit of Measure',
