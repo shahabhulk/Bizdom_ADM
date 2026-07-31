@@ -494,16 +494,26 @@ class FleetRepair(models.Model):
         for rec in self:
             rec.amount_total = sum(line.subtotal for line in rec.product_line_ids) + sum(line.subtotal for line in rec.service_line_ids)
 
+    @api.model
+    def search_fetch(self, domain, field_names, offset=0, limit=None, order=None):
+        """Ensure outdated delivery signal colors are refreshed before search/sort queries run."""
+        if not self.env.context.get('skip_signal_refresh'):
+            today = fields.Date.today()
+            outdated = self.with_context(skip_signal_refresh=True).sudo().search([
+                ('promised_date', '<', today),
+                ('delivery_status_color', '!=', 'red'),
+            ])
+            if outdated:
+                outdated.with_context(skip_signal_refresh=True)._compute_delivery_status_color()
+                outdated.flush_recordset(['delivery_status_color'])
+        return super().search_fetch(domain, field_names, offset=offset, limit=limit, order=order)
+
     def _cron_update_delivery_colors(self):
         """Cron job to update delivery status colors for all repairs"""
         repairs = self.sudo().search([])
-        if not repairs:
-            return
-        # Mark the field as needing recomputation
-        field = self._fields['delivery_status_color']
-        self.env.add_to_compute(field, repairs)
-        # Trigger recomputation - this will call _compute_delivery_status_color
-        repairs._recompute_recordset(['delivery_status_color'])
+        if repairs:
+            repairs._compute_delivery_status_color()
+            repairs.flush_recordset(['delivery_status_color'])
 
     @api.depends('product_line_ids.subtotal', 'service_line_ids.subtotal')
     def _compute_total(self):
