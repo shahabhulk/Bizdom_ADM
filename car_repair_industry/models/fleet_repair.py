@@ -1265,7 +1265,7 @@ class FleetRepairProductLine(models.Model):
             return float('inf')
         return product.with_context(warehouse_id=warehouse.id).free_qty
 
-    @api.depends('product_id', 'uom_id', 'quantity', 'repair_id', 'repair_id.company_id')
+    @api.depends('product_id', 'uom_id', 'quantity', 'repair_id', 'repair_id.company_id', 'repair_id.product_line_ids.quantity', 'repair_id.product_line_ids.product_id')
     def _compute_available_qty(self):
         for line in self:
             if not line.product_id or not line.product_id.is_storable:
@@ -1273,11 +1273,22 @@ class FleetRepairProductLine(models.Model):
                 continue
             warehouse = line._get_warehouse()
             if warehouse:
-                line.available_qty = line._get_available_qty(line.product_id, warehouse)
+                base_qty = line._get_available_qty(line.product_id, warehouse)
+                pending_qty = 0.0
+                repair = line.repair_id or line._find_repair_order() if hasattr(line, '_find_repair_order') else line.repair_id
+                if repair and repair.product_line_ids:
+                    for sibling in repair.product_line_ids.filtered(lambda l: l.product_id == line.product_id):
+                        unissued = max(sibling.quantity - (getattr(sibling, 'qty_issued', 0.0) or 0.0), 0.0)
+                        line_uom = sibling.uom_id or sibling.product_id.uom_id
+                        target_uom = line.uom_id or line.product_id.uom_id
+                        if line_uom != target_uom:
+                            unissued = line_uom._compute_quantity(unissued, target_uom)
+                        pending_qty += unissued
+                line.available_qty = max(0.0, base_qty - pending_qty)
             else:
                 line.available_qty = 0.0
 
-    @api.depends('product_id', 'uom_id', 'quantity', 'repair_id', 'repair_id.company_id')
+    @api.depends('product_id', 'uom_id', 'quantity', 'repair_id', 'repair_id.company_id', 'repair_id.product_line_ids.quantity', 'repair_id.product_line_ids.product_id')
     def _compute_onhand_qty(self):
         for line in self:
             if not line.product_id or not line.product_id.is_storable:
@@ -1289,14 +1300,26 @@ class FleetRepairProductLine(models.Model):
                     ('product_id', '=', line.product_id.id),
                     ('location_id', 'child_of', warehouse.lot_stock_id.id),
                 ])
-                qty = sum(quants.mapped('quantity'))
-                qty = max(0.0, qty)
+                raw_qty = sum(quants.mapped('quantity'))
+                raw_qty = max(0.0, raw_qty)
             else:
-                qty = max(0.0, line.product_id.with_context(warehouse_id=warehouse.id).qty_available) if warehouse else 0.0
+                raw_qty = max(0.0, line.product_id.with_context(warehouse_id=warehouse.id).qty_available) if warehouse else 0.0
+
+            pending_qty = 0.0
+            repair = line.repair_id or line._find_repair_order() if hasattr(line, '_find_repair_order') else line.repair_id
+            if repair and repair.product_line_ids:
+                for sibling in repair.product_line_ids.filtered(lambda l: l.product_id == line.product_id):
+                    unissued = max(sibling.quantity - (getattr(sibling, 'qty_issued', 0.0) or 0.0), 0.0)
+                    line_uom = sibling.uom_id or sibling.product_id.uom_id
+                    if line_uom != line.product_id.uom_id:
+                        unissued = line_uom._compute_quantity(unissued, line.product_id.uom_id)
+                    pending_qty += unissued
+
+            effective_qty = max(0.0, raw_qty - pending_qty)
             line_uom = line.uom_id or line.product_id.uom_id
             if line_uom and line.product_id.uom_id and line_uom != line.product_id.uom_id:
-                qty = line.product_id.uom_id._compute_quantity(qty, line_uom)
-            line.onhand_qty = qty
+                effective_qty = line.product_id.uom_id._compute_quantity(effective_qty, line_uom)
+            line.onhand_qty = effective_qty
 
     @api.model
     def action_enable_inventory_tracking(self, product_id):

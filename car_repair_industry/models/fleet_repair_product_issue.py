@@ -145,15 +145,33 @@ class FleetRepairProductLineIssue(models.Model):
             return self.repair_id
         if self._origin and self._origin.repair_id:
             return self._origin.repair_id
-        repair_id = self._context.get('default_repair_id')
+        ctx = self.env.context
+        repair_id = ctx.get('default_repair_id') or ctx.get('repair_id')
         if repair_id:
             return self.env['fleet.repair'].browse(repair_id)
-        if self._context.get('active_model') == 'fleet.repair' and self._context.get('active_id'):
-            return self.env['fleet.repair'].browse(self._context.get('active_id'))
-        params = self._context.get('params') or {}
-        if params.get('model') == 'fleet.repair' and params.get('id'):
-            return self.env['fleet.repair'].browse(params.get('id'))
+        if ctx.get('active_model') == 'fleet.repair' and ctx.get('active_id'):
+            return self.env['fleet.repair'].browse(ctx.get('active_id'))
+        params = ctx.get('params') or {}
+        if isinstance(params, dict):
+            if params.get('model') == 'fleet.repair' and params.get('id'):
+                return self.env['fleet.repair'].browse(params.get('id'))
+            if params.get('id'):
+                return self.env['fleet.repair'].browse(params.get('id'))
         return self.env['fleet.repair']
+
+    def _refresh_stock_qty_cache(self):
+        """Invalidate and recompute onhand_qty and available_qty across all product lines on the repair order."""
+        for line in self:
+            repair = line.repair_id or line._find_repair_order()
+            if repair and repair.product_line_ids:
+                lines = repair.product_line_ids
+                lines.invalidate_recordset(['onhand_qty', 'available_qty'])
+                lines._compute_onhand_qty()
+                lines._compute_available_qty()
+            else:
+                line.invalidate_recordset(['onhand_qty', 'available_qty'])
+                line._compute_onhand_qty()
+                line._compute_available_qty()
 
     @api.onchange('quantity', 'product_id', 'uom_id')
     def _onchange_quantity_sync_stock_instant(self):
@@ -170,21 +188,9 @@ class FleetRepairProductLineIssue(models.Model):
                     origin._auto_sync_stock_issue_return()
                     line.qty_issued = origin.qty_issued
                     line.cost_price = origin.cost_price
-            elif not origin and line.quantity > 0:
-                # Create database line immediately for new row on repair order to issue stock instantly
-                repair = line._find_repair_order()
-                if repair and repair.id:
-                    db_line = self.env['fleet.repair.product.line'].create({
-                        'repair_id': repair.id,
-                        'product_id': line.product_id.id,
-                        'item_code_id': line.item_code_id.id if line.item_code_id else False,
-                        'quantity': line.quantity,
-                        'uom_id': (line.uom_id or line.product_id.uom_id).id,
-                        'unit_price': line.unit_price,
-                        'name': line.name or line.product_id.name,
-                    })
-                    line.qty_issued = db_line.qty_issued
-                    line.cost_price = db_line.cost_price
+
+            line._compute_onhand_qty()
+            line._compute_available_qty()
 
     @api.depends('quantity', 'qty_issued', 'product_id', 'product_id.is_storable')
     def _compute_issue_flags(self):
@@ -1186,7 +1192,7 @@ class FleetRepairProductLineIssue(models.Model):
             'cost_price': new_cost_price,
             'issue_picking_ids': [(4, picking.id)],
         })
-        self.invalidate_recordset(['onhand_qty', 'available_qty'])
+        self._refresh_stock_qty_cache()
 
     def action_return_part(self):
         for line in self:
@@ -1293,7 +1299,7 @@ class FleetRepairProductLineIssue(models.Model):
             write_vals['cost_price'] = 0.0
 
         self.with_context(skip_auto_stock_sync=True).write(write_vals)
-        self.invalidate_recordset(['onhand_qty', 'available_qty'])
+        self._refresh_stock_qty_cache()
 
     @api.constrains('qty_to_return', 'qty_issued', 'product_id', 'uom_id')
     def _check_qty_to_return(self):

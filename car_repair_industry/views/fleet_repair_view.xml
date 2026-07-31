@@ -145,7 +145,7 @@
                                     </list>
                                 </field>
                                 <separator string="Parts"/>
-                                <field name="product_line_ids" readonly="state in ('done', 'cancel')" widget="one2many_list">
+                                <field name="product_line_ids" readonly="state in ('done', 'cancel')" widget="one2many_list" context="{'default_repair_id': id}">
                                     <list editable="bottom">
                                         <field name="item_code_id" column_invisible="1"/>
                                         <field name="item_code_display" widget="item_code_autocomplete" string="Item Code"
