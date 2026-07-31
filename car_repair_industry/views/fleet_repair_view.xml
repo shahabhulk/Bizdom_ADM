@@ -155,20 +155,17 @@
                                         <field name="quantity"
                                                readonly="parent.state in ('done', 'cancel', 'invoiced')"/>
                                         <field name="qty_issued" readonly="1" optional="show"/>
-                                        <field name="qty_to_return"
-                                               readonly="parent.state in ('done', 'cancel', 'invoiced')"
-                                               optional="show"
-                                               invisible="not can_return"/>
-                                         <field name="onhand_qty" readonly="1" optional="show" string="Physical Stock"/>
-                                         <field name="available_qty" readonly="1" optional="show" string="Available Balance"/>
+                                        <field name="qty_to_return" column_invisible="1"/>
+                                        <field name="onhand_qty" readonly="1" optional="show" string="Physical Stock"/>
+                                        <field name="available_qty" readonly="1" optional="show" string="Available Balance"/>
                                         <field name="can_issue" column_invisible="1"/>
                                         <field name="can_return" column_invisible="1"/>
                                         <button name="action_issue_part" type="object" string="Issue"
                                                 class="btn-link" icon="fa-arrow-right"
-                                                invisible="not can_issue"/>
+                                                column_invisible="1"/>
                                         <button name="action_return_part" type="object" string="Return"
                                                 class="btn-link" icon="fa-undo"
-                                                invisible="not can_return"/>
+                                                column_invisible="1"/>
                                         <field name="uom_id"
                                                readonly="parent.state in ('done', 'cancel', 'invoiced')"/>
                                         <field name="unit_price" widget="monetary"

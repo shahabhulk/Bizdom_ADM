@@ -1189,7 +1189,7 @@ class FleetRepairProductLine(models.Model):
     )
 
     name = fields.Text(string='Description')
-    quantity = fields.Float(string='Quantity', default=1.0)
+    quantity = fields.Float(string='Quantity', default=0.0)
     available_qty = fields.Float(
         string='Available',
         compute='_compute_available_qty',

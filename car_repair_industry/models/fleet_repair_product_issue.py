@@ -92,7 +92,8 @@ class FleetRepairProductLineIssue(models.Model):
     def _compute_vendor_cost_summary(self):
         for line in self:
             parts = []
-            for cost_line in line.issue_cost_line_ids:
+            rounding = (line.uom_id or line.product_id.uom_id).rounding if line.product_id else 0.01
+            for cost_line in line.issue_cost_line_ids.filtered(lambda c: float_compare(c.quantity, 0.0, precision_rounding=rounding) > 0):
                 vendor = cost_line.vendor_name or _('Unknown')
                 parts.append(
                     '%(vendor)s: %(cost).2f × %(qty).2f %(uom)s'
@@ -137,6 +138,53 @@ class FleetRepairProductLineIssue(models.Model):
             rounding = (line.uom_id or line.product_id.uom_id).rounding
             if float_compare(line.qty_to_return, line.qty_issued, precision_rounding=rounding) > 0:
                 line.qty_to_return = line.qty_issued
+
+    def _find_repair_order(self):
+        self.ensure_one()
+        if self.repair_id:
+            return self.repair_id
+        if self._origin and self._origin.repair_id:
+            return self._origin.repair_id
+        repair_id = self._context.get('default_repair_id')
+        if repair_id:
+            return self.env['fleet.repair'].browse(repair_id)
+        if self._context.get('active_model') == 'fleet.repair' and self._context.get('active_id'):
+            return self.env['fleet.repair'].browse(self._context.get('active_id'))
+        params = self._context.get('params') or {}
+        if params.get('model') == 'fleet.repair' and params.get('id'):
+            return self.env['fleet.repair'].browse(params.get('id'))
+        return self.env['fleet.repair']
+
+    @api.onchange('quantity', 'product_id', 'uom_id')
+    def _onchange_quantity_sync_stock_instant(self):
+        for line in self:
+            if not line.product_id or not line.product_id.is_storable:
+                continue
+
+            origin = line._origin
+            if origin and origin.exists() and origin.repair_id:
+                # Update existing database line and execute stock transfer in real-time
+                rounding = (line.uom_id or line.product_id.uom_id).rounding
+                if float_compare(line.quantity, origin.quantity, precision_rounding=rounding) != 0:
+                    origin.with_context(skip_auto_stock_sync=True).write({'quantity': line.quantity})
+                    origin._auto_sync_stock_issue_return()
+                    line.qty_issued = origin.qty_issued
+                    line.cost_price = origin.cost_price
+            elif not origin and line.quantity > 0:
+                # Create database line immediately for new row on repair order to issue stock instantly
+                repair = line._find_repair_order()
+                if repair and repair.id:
+                    db_line = self.env['fleet.repair.product.line'].create({
+                        'repair_id': repair.id,
+                        'product_id': line.product_id.id,
+                        'item_code_id': line.item_code_id.id if line.item_code_id else False,
+                        'quantity': line.quantity,
+                        'uom_id': (line.uom_id or line.product_id.uom_id).id,
+                        'unit_price': line.unit_price,
+                        'name': line.name or line.product_id.name,
+                    })
+                    line.qty_issued = db_line.qty_issued
+                    line.cost_price = db_line.cost_price
 
     @api.depends('quantity', 'qty_issued', 'product_id', 'product_id.is_storable')
     def _compute_issue_flags(self):
@@ -581,9 +629,8 @@ class FleetRepairProductLineIssue(models.Model):
                 take_line = self.product_id.uom_id._compute_quantity(
                     item['consumed_qty'], line_uom,
                 )
-            stock.quantity -= take_line
-            if float_compare(stock.quantity, 0.0, precision_rounding=rounding) <= 0:
-                stock.unlink()
+            new_qty = max(stock.quantity - take_line, 0.0)
+            stock.quantity = new_qty
 
     def _restore_returned_vendor_stock(self, returned_batches, return_picking):
         """Remember which vendor batches were returned so re-issue uses the same vendors."""
@@ -944,8 +991,8 @@ class FleetRepairProductLineIssue(models.Model):
     def _recompute_cost_price_from_cost_lines(self):
         self.ensure_one()
         self._update_fallback_cost_lines_from_latest_purchase()
-        cost_lines = self.issue_cost_line_ids
         rounding = (self.uom_id or self.product_id.uom_id).rounding if self.product_id else 0.01
+        cost_lines = self.issue_cost_line_ids.filtered(lambda c: float_compare(c.quantity, 0.0, precision_rounding=rounding) > 0)
         total_qty = sum(cost_lines.mapped('quantity'))
         if float_is_zero(total_qty, precision_rounding=rounding):
             unit_cost, _vendor_id, _vendor_name = self._get_latest_purchase_cost_and_vendor()
@@ -959,7 +1006,7 @@ class FleetRepairProductLineIssue(models.Model):
         rounding = (self.uom_id or self.product_id.uom_id).rounding
         qty_left = qty_line_uom
         returned_batches = []
-        for cost_line in self.issue_cost_line_ids.sorted('id', reverse=True):
+        for cost_line in self.issue_cost_line_ids.filtered(lambda c: float_compare(c.quantity, 0.0, precision_rounding=rounding) > 0).sorted('id', reverse=True):
             if float_is_zero(qty_left, precision_rounding=rounding):
                 break
             if float_compare(cost_line.quantity, qty_left, precision_rounding=rounding) <= 0:
@@ -977,11 +1024,62 @@ class FleetRepairProductLineIssue(models.Model):
                 'unit_cost': cost_line.unit_cost,
                 'svl_source_id': cost_line.svl_source_id.id if cost_line.svl_source_id else False,
             })
-            if float_compare(cost_line.quantity, take, precision_rounding=rounding) <= 0:
-                cost_line.unlink()
-            else:
-                cost_line.quantity -= take
+            new_qty = max(cost_line.quantity - take, 0.0)
+            cost_line.quantity = new_qty
         return returned_batches
+
+    def _auto_sync_stock_issue_return(self):
+        """Automatically issue or return stock based on line quantity vs qty_issued."""
+        if self.env.context.get('skip_auto_stock_sync'):
+            return
+        for line in self:
+            if not line.product_id or not line.product_id.is_storable or not line.repair_id:
+                continue
+            line_uom = line.uom_id or line.product_id.uom_id
+            rounding = line_uom.rounding
+            diff = line.quantity - line.qty_issued
+            if float_compare(diff, 0.0, precision_rounding=rounding) > 0:
+                line._action_issue_part(qty_to_issue_override=diff)
+            elif float_compare(diff, 0.0, precision_rounding=rounding) < 0:
+                line._action_return_part(qty_to_return_override=abs(diff), reduce_quantity=False)
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        lines = super().create(vals_list)
+        if not self.env.context.get('skip_auto_stock_sync'):
+            lines._auto_sync_stock_issue_return()
+        return lines
+
+    def write(self, vals):
+        if self.env.context.get('skip_auto_stock_sync'):
+            return super().write(vals)
+
+        # Return old product's issued stock if product_id changes
+        if 'product_id' in vals:
+            for line in self:
+                new_prod_id = vals['product_id']
+                if (
+                    line.product_id
+                    and line.product_id.id != new_prod_id
+                    and line.product_id.is_storable
+                    and float_compare(line.qty_issued, 0.0, precision_rounding=(line.uom_id or line.product_id.uom_id).rounding) > 0
+                ):
+                    line._action_return_part(qty_to_return_override=line.qty_issued, reduce_quantity=False)
+
+        res = super().write(vals)
+
+        if any(f in vals for f in ('quantity', 'product_id', 'uom_id', 'repair_id')):
+            self.filtered(lambda l: not l.env.context.get('skip_auto_stock_sync'))._auto_sync_stock_issue_return()
+
+        # Clean up any zero-quantity cost/stock sub-records on save
+        zero_cost_lines = self.issue_cost_line_ids.filtered(lambda c: float_is_zero(c.quantity, precision_rounding=0.001))
+        if zero_cost_lines:
+            zero_cost_lines.unlink()
+        zero_vendor_stocks = self.returned_vendor_stock_ids.filtered(lambda s: float_is_zero(s.quantity, precision_rounding=0.001))
+        if zero_vendor_stocks:
+            zero_vendor_stocks.unlink()
+
+        return res
 
     def _validate_stock_picking(self, picking):
         return picking.fleet_validate_picking()
@@ -991,7 +1089,7 @@ class FleetRepairProductLineIssue(models.Model):
             line._action_issue_part()
         return True
 
-    def _action_issue_part(self):
+    def _action_issue_part(self, qty_to_issue_override=None):
         self.ensure_one()
         if not self.product_id:
             raise UserError(_('Select a product before issuing.'))
@@ -999,11 +1097,20 @@ class FleetRepairProductLineIssue(models.Model):
             raise UserError(_('Only storable products can be issued from stock.'))
 
         product = self.product_id
+        line_uom = self.uom_id or product.uom_id
         rounding = product.uom_id.rounding
-        qty_product_uom = self._prepare_issue_qty_product_uom()
-        if float_is_zero(qty_product_uom, precision_rounding=rounding):
-            raise UserError(_('Nothing left to issue on this line.'))
 
+        if qty_to_issue_override is not None:
+            qty_line_uom = qty_to_issue_override
+            qty_product_uom = line_uom._compute_quantity(qty_line_uom, product.uom_id)
+        else:
+            qty_product_uom = self._prepare_issue_qty_product_uom()
+            qty_line_uom = max(self.quantity - self.qty_issued, 0.0)
+
+        if float_is_zero(qty_product_uom, precision_rounding=rounding):
+            if qty_to_issue_override is not None:
+                return True
+            raise UserError(_('Nothing left to issue on this line.'))
 
         warehouse = self._get_warehouse()
         src = self._get_stock_location()
@@ -1059,7 +1166,6 @@ class FleetRepairProductLineIssue(models.Model):
         if validate_result is not True:
             return validate_result
 
-        line_uom = self.uom_id or product.uom_id
         issued_line_uom = product.uom_id._compute_quantity(qty_product_uom, line_uom)
         stock_move = picking.move_ids.filtered(lambda m: m.product_id == product)[:1]
         created_cost_lines = self._create_issue_cost_lines_from_plan(
@@ -1075,7 +1181,7 @@ class FleetRepairProductLineIssue(models.Model):
                 picking, stock_move, qty_product_uom,
             )
         new_cost_price = self._recompute_cost_price_from_cost_lines()
-        self.write({
+        self.with_context(skip_auto_stock_sync=True).write({
             'qty_issued': self.qty_issued + issued_line_uom,
             'cost_price': new_cost_price,
             'issue_picking_ids': [(4, picking.id)],
@@ -1087,7 +1193,7 @@ class FleetRepairProductLineIssue(models.Model):
             line._action_return_part()
         return True
 
-    def _action_return_part(self):
+    def _action_return_part(self, qty_to_return_override=None, reduce_quantity=False):
         self.ensure_one()
         if not self.product_id or not self.product_id.is_storable:
             raise UserError(_('Only storable products can be returned to stock.'))
@@ -1096,10 +1202,14 @@ class FleetRepairProductLineIssue(models.Model):
         line_uom = self.uom_id or product.uom_id
         rounding = line_uom.rounding
         if float_is_zero(self.qty_issued, precision_rounding=rounding):
+            if qty_to_return_override is not None:
+                return True
             raise UserError(_('No issued quantity to return on this line.'))
 
-        qty_line_uom = self.qty_to_return
+        qty_line_uom = qty_to_return_override if qty_to_return_override is not None else self.qty_to_return
         if float_is_zero(qty_line_uom, precision_rounding=rounding):
+            if qty_to_return_override is not None:
+                return True
             raise UserError(_(
                 'Enter a return quantity for "%(product)s" (max %(max)s %(uom)s).',
                 product=product.display_name,
@@ -1111,13 +1221,6 @@ class FleetRepairProductLineIssue(models.Model):
                 'Return quantity (%(ret)s %(uom)s) cannot exceed issued quantity (%(issued)s %(uom)s).',
                 ret=qty_line_uom,
                 issued=self.qty_issued,
-                uom=line_uom.name,
-            ))
-        if float_compare(qty_line_uom, self.quantity, precision_rounding=rounding) > 0:
-            raise UserError(_(
-                'Return quantity (%(ret)s %(uom)s) cannot exceed line quantity (%(qty)s %(uom)s).',
-                ret=qty_line_uom,
-                qty=self.quantity,
                 uom=line_uom.name,
             ))
 
@@ -1172,23 +1275,24 @@ class FleetRepairProductLineIssue(models.Model):
         if validate_result is not True:
             return validate_result
 
-        new_quantity = self.quantity - qty_line_uom
-        if float_compare(new_quantity, 0.0, precision_rounding=rounding) < 0:
-            new_quantity = 0.0
-
         returned_batches = self._reverse_issue_cost_lines(qty_line_uom)
         self._restore_returned_vendor_stock(returned_batches, picking)
-        new_qty_issued = self.qty_issued - qty_line_uom
+        new_qty_issued = max(self.qty_issued - qty_line_uom, 0.0)
+
         write_vals = {
-            'quantity': new_quantity,
             'qty_issued': new_qty_issued,
             'qty_to_return': 0.0,
             'issue_picking_ids': [(4, picking.id)],
             'cost_price': self._recompute_cost_price_from_cost_lines(),
         }
+        if reduce_quantity:
+            new_quantity = max(self.quantity - qty_line_uom, 0.0)
+            write_vals['quantity'] = new_quantity
+
         if float_is_zero(new_qty_issued, precision_rounding=rounding):
             write_vals['cost_price'] = 0.0
-        self.write(write_vals)
+
+        self.with_context(skip_auto_stock_sync=True).write(write_vals)
         self.invalidate_recordset(['onhand_qty', 'available_qty'])
 
     @api.constrains('qty_to_return', 'qty_issued', 'product_id', 'uom_id')
@@ -1205,29 +1309,17 @@ class FleetRepairProductLineIssue(models.Model):
                     issued=line.qty_issued,
                 ))
 
-    @api.constrains('quantity', 'qty_issued')
-    def _check_quantity_not_below_issued(self):
-        for line in self:
-            if not line.product_id:
-                continue
-            rounding = (line.uom_id or line.product_id.uom_id).rounding
-            if float_compare(line.quantity, line.qty_issued, precision_rounding=rounding) < 0:
-                raise ValidationError(_(
-                    'Quantity cannot be less than issued quantity (%(issued)s) for "%(product)s". '
-                    'Return the part first.',
-                    issued=line.qty_issued,
-                    product=line.product_id.display_name,
-                ))
-
     def unlink(self):
         for line in self:
-            rounding = (line.uom_id or line.product_id.uom_id).rounding if line.product_id else 0.01
-            if float_compare(line.qty_issued, 0.0, precision_rounding=rounding) > 0:
-                raise UserError(_(
-                    'Cannot delete line for "%(product)s": return issued stock first.',
-                    product=line.product_id.display_name,
-                ))
+            if not line.env.context.get('skip_auto_stock_sync'):
+                if (
+                    line.product_id
+                    and line.product_id.is_storable
+                    and float_compare(line.qty_issued, 0.0, precision_rounding=(line.uom_id or line.product_id.uom_id).rounding) > 0
+                ):
+                    line._action_return_part(qty_to_return_override=line.qty_issued, reduce_quantity=False)
         return super().unlink()
+
 
 
 
