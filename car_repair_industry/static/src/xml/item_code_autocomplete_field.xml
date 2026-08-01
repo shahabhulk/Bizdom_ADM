@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <templates xml:space="preserve">
     <t t-name="car_repair_industry.ItemCodeAutoCompleteField">
-        <div class="o_field_widget o_field_char">
+        <div class="o_field_widget o_field_char" t-on-keydown="onKeyDown">
             <t t-if="props.readonly">
                 <span t-esc="value"/>
             </t>

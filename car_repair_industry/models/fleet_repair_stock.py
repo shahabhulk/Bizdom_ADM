@@ -92,9 +92,37 @@ class StockPickingFleetRepair(models.Model):
         for picking in self:
             picking.action_confirm()
             picking.action_assign()
-        validate_result = self.button_validate()
-        if validate_result is not True and isinstance(validate_result, dict):
-            return validate_result
+            for move in picking.move_ids:
+                if not move.move_line_ids:
+                    self.env['stock.move.line'].create({
+                        'move_id': move.id,
+                        'picking_id': picking.id,
+                        'product_id': move.product_id.id,
+                        'product_uom_id': move.product_uom.id,
+                        'location_id': move.location_id.id,
+                        'location_dest_id': move.location_dest_id.id,
+                        'quantity': move.product_uom_qty,
+                    })
+                else:
+                    for line in move.move_line_ids:
+                        line.quantity = move.product_uom_qty
+                move.quantity = move.product_uom_qty
+
+            res = picking.with_context(
+                skip_backorder=True,
+                skip_immediate=True,
+                skip_sanity_check=True,
+                skip_expired=True,
+            ).button_validate()
+
+            if res is not True and isinstance(res, dict) and res.get('res_model'):
+                wizard_model = res['res_model']
+                wizard_ctx = res.get('context', {})
+                wizard = self.env[wizard_model].with_context(wizard_ctx).create({})
+                if hasattr(wizard, 'process'):
+                    wizard.process()
+                elif hasattr(wizard, 'action_confirm'):
+                    wizard.action_confirm()
         self.env.flush_all()
         return True
 

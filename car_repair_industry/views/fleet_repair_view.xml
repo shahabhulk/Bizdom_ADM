@@ -150,14 +150,18 @@
                                         <field name="item_code_id" column_invisible="1"/>
                                         <field name="item_code_display" widget="item_code_autocomplete" string="Item Code"
                                                readonly="parent.state in ('done', 'cancel', 'invoiced')"/>
-                                        <field name="product_id" options="{'no_quick_create': True}"
+                                        <field name="product_id" options="{'no_quick_create': True}" context="{'default_categ_id': False}"
+                                               readonly="parent.state in ('done', 'cancel', 'invoiced')"/>
+                                        <field name="department_id" required="1" optional="show" options="{'no_create': True, 'no_create_edit': True}"
                                                readonly="parent.state in ('done', 'cancel', 'invoiced')"/>
                                         <field name="quantity"
                                                readonly="parent.state in ('done', 'cancel', 'invoiced')"/>
-                                        <field name="qty_issued" readonly="1" optional="show"/>
+                                        <field name="uom_id"
+                                               readonly="parent.state in ('done', 'cancel', 'invoiced')"/>
+                                        <field name="qty_issued" readonly="1" optional="hide"/>
                                         <field name="qty_to_return" column_invisible="1"/>
-                                        <field name="onhand_qty" readonly="1" optional="show" string="Physical Stock"/>
-                                        <field name="available_qty" readonly="1" optional="show" string="Available Balance"/>
+                                        <field name="onhand_qty" readonly="1" optional="hide" string="Physical Stock"/>
+                                        <field name="available_qty" readonly="1" optional="show" string="Available Stock"/>
                                         <field name="can_issue" column_invisible="1"/>
                                         <field name="can_return" column_invisible="1"/>
                                         <button name="action_issue_part" type="object" string="Issue"
@@ -166,13 +170,11 @@
                                         <button name="action_return_part" type="object" string="Return"
                                                 class="btn-link" icon="fa-undo"
                                                 column_invisible="1"/>
-                                        <field name="uom_id"
-                                               readonly="parent.state in ('done', 'cancel', 'invoiced')"/>
                                         <field name="unit_price" widget="monetary"
                                                options="{'currency_field': 'currency_id'}"
                                                readonly="parent.state in ('done', 'cancel', 'invoiced')"/>
-                                        <field name="vendor_cost_summary" readonly="1" optional="show"/>
-                                        <field name="issue_cost_line_ids" readonly="1" optional="show">
+                                        <field name="vendor_cost_summary" readonly="1" optional="hide"/>
+                                        <field name="issue_cost_line_ids" readonly="1" optional="hide">
                                             <list create="0" edit="0" delete="0">
                                                 <field name="vendor_name"/>
                                                 <field name="quantity"/>
@@ -186,13 +188,13 @@
                                         </field>
                                         <field name="cost_price" widget="monetary"
                                                options="{'currency_field': 'currency_id'}"
-                                               readonly="1" optional="show"/>
+                                               readonly="1" optional="hide"/>
                                         <field name="cost_subtotal" widget="monetary"
                                                options="{'currency_field': 'currency_id'}"
-                                               readonly="1" optional="show"/>
+                                               readonly="1" optional="hide"/>
                                         <field name="margin" widget="monetary"
                                                options="{'currency_field': 'currency_id'}"
-                                               readonly="1" optional="show"/>
+                                               readonly="1" optional="hide"/>
                                         <field name="margin_percent" readonly="1" optional="hide"/>
                                         <field name="subtotal" widget="monetary"
                                                options="{'currency_field': 'currency_id'}"/>
@@ -202,7 +204,11 @@
                                 <separator string="Service"/>
                                 <field name="service_line_ids" readonly="state in ('done', 'cancel')" widget="one2many_list">
                                     <list editable="bottom">
-                                        <field name="product_id" string="Service" domain="[('type', '=', 'service')]" options="{'no_quick_create': True}"
+                                        <field name="product_id" string="Service" domain="[('type', '=', 'service')]" context="{'default_type': 'service', 'default_categ_id': False}" options="{'no_quick_create': True}"
+                                               readonly="parent.state in ('done', 'cancel', 'invoiced')"/>
+                                        <field name="department_id" required="1" optional="show" options="{'no_create': True, 'no_create_edit': True}"
+                                               readonly="parent.state in ('done', 'cancel', 'invoiced')"/>
+                                        <field name="employee_id" required="1" optional="show" options="{'no_create': True, 'no_create_edit': True}"
                                                readonly="parent.state in ('done', 'cancel', 'invoiced')"/>
                                         <field name="quantity"
                                                readonly="parent.state in ('done', 'cancel', 'invoiced')"/>
@@ -264,8 +270,8 @@
                                 <field name="fleet_work_line_ids" widget="one2many_list">
                                     <list editable="bottom">
                                         <field name="repair_id" column_invisible="1"/>
-                                        <field name="employee_id"/>
-                                        <field name="department_type_id"/>
+                                        <field name="employee_id" options="{'no_create': True, 'no_create_edit': True}"/>
+                                        <field name="department_type_id" options="{'no_create': True, 'no_create_edit': True}"/>
                                         <field name="work_type"/>
                                         <field name="timer_start"/>
                                         <field name="timer_end"/>
@@ -274,16 +280,19 @@
                                                 type="object"
                                                 class="oe_stat_button"
                                                 icon="fa-play"
+                                                title="Start Timer"
                                         />
                                         <button name="action_stop_timer"
                                                 type="object"
                                                 class="oe_stat_button"
                                                 icon="fa-stop"
+                                                title="Stop Timer"
                                         />
                                         <button name="action_reset_timer"
                                                 type="object"
                                                 class="oe_stat_button"
-                                                icon="fa-refresh"/>
+                                                icon="fa-refresh"
+                                                title="Reset Timer"/>
                                     </list>
                                 </field>
                             </page>

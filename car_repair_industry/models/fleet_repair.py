@@ -8,6 +8,9 @@ from pytz import timezone
 from odoo.exceptions import UserError, ValidationError
 from odoo.tools import float_compare, SQL
 import re
+import logging
+
+_logger = logging.getLogger(__name__)
 
 
 class FleetRepair(models.Model):
@@ -246,37 +249,46 @@ class FleetRepair(models.Model):
 
     @api.onchange('license_plate')
     def _onchange_license_plate(self):
-        if self.license_plate:
-            search_car = self.license_plate
-            self.vehicle_id = search_car.id
-            self.vin_sn = search_car.vin_sn
+        print("=== DEBUG _onchange_license_plate CALLED ===")
+        print(f"self.license_plate: {self.license_plate}")
+        _logger.info("DEBUG: _onchange_license_plate called. license_plate=%s, vehicle_id=%s", self.license_plate, self.vehicle_id)
+        car = self.license_plate or self.vehicle_id
+        if car:
+            print(f"Car found: ID={car.id}, Plate={car.license_plate}, Driver={car.driver_id}")
+            _logger.info("DEBUG: Car found ID=%s, Plate=%s, Driver=%s", car.id, car.license_plate, car.driver_id)
+            self.vehicle_id = car
+            self.vin_sn = car.vin_sn
 
-            if search_car.driver_id:
-                self.client_id = search_car.driver_id.id
+            if car.driver_id:
+                print(f"Setting client_id to car.driver_id: {car.driver_id.name} (ID: {car.driver_id.id})")
+                _logger.info("DEBUG: Setting client_id to %s (ID %s)", car.driver_id.name, car.driver_id.id)
+                self.client_id = car.driver_id
+                if car.driver_id.email:
+                    self.client_email = car.driver_id.email
+                if car.driver_id.phone:
+                    self.client_phone = car.driver_id.phone
+                if car.driver_id.mobile:
+                    self.client_mobile = car.driver_id.mobile
+            elif self.client_id and not car.driver_id:
+                print(f"Car has no driver. Linking self.client_id ({self.client_id.name}) to car.driver_id")
+                _logger.info("DEBUG: Linking client_id %s to car.driver_id", self.client_id.name)
+                car.driver_id = self.client_id
+            else:
+                print("Car has NO driver_id and self.client_id is empty!")
+                _logger.info("DEBUG: Car has no driver_id and self.client_id is empty!")
 
             # Safely get brand and model
-            if search_car.model_id:
-                self.model_name = search_car.model_id.id
-                if search_car.model_id.brand_id:
-                    self.fleet_id = search_car.model_id.brand_id.id
+            if car.model_id:
+                self.model_name = car.model_id
+                if car.model_id.brand_id:
+                    self.fleet_id = car.model_id.brand_id
 
             # Get odometer if available
-            if hasattr(search_car, 'odometer') and search_car.odometer:
-                self.kilometers_num = str(search_car.odometer)
-
-            return {
-                'value': {
-                    'client_id': self.client_id.id if self.client_id else False,
-                    'client_email': self.client_id.email if self.client_id else False,
-                    'client_phone': self.client_id.phone if self.client_id else False,
-                    'vehicle_id': self.vehicle_id.id if self.vehicle_id else False,
-                    'vin_sn': self.vin_sn,
-                    'model_name': self.model_name.id if self.model_name else False,
-                    'fleet_id': self.fleet_id.id if self.fleet_id else False,
-                    'kilometers_num': self.kilometers_num,
-                }
-            }
+            if hasattr(car, 'odometer') and car.odometer:
+                self.kilometers_num = str(car.odometer)
         else:
+            print("=== DEBUG _onchange_license_plate: No car selected ===")
+            _logger.info("DEBUG: No car selected")
             self.vehicle_id = False
             self.vin_sn = False
             self.model_name = False
@@ -286,19 +298,6 @@ class FleetRepair(models.Model):
             self.client_phone = False
             self.client_mobile = False
             self.client_email = False
-            return {
-                'value': {
-                    'vehicle_id': False,
-                    'vin_sn': False,
-                    'model_name': False,
-                    'fleet_id': False,
-                    'kilometers_num': False,
-                    'client_id': False,
-                    'client_phone': False,
-                    'client_mobile': False,
-                    'client_email': False,
-                }
-            }
 
     @api.onchange('vin_sn', 'kilometers_num')
     def _onchange_vin_sn_kilometers_num(self):
@@ -342,6 +341,7 @@ class FleetRepair(models.Model):
     def write(self, vals):
         res = super().write(vals)
         self._sync_vehicle_data()
+        self._sync_draft_invoices()
         return res
 
 
@@ -699,10 +699,65 @@ class FleetRepair(models.Model):
 
         }
 
+    def _sync_draft_invoices(self):
+        for rec in self:
+            draft_invoices = self.env['account.move'].search([
+                ('fleet_repair_invoice_id', '=', rec.id),
+                ('state', '=', 'draft')
+            ])
+            if not draft_invoices and rec.invoice_order_id and rec.invoice_order_id.state == 'draft':
+                draft_invoices = rec.invoice_order_id
+
+            for invoice in draft_invoices:
+                invoice_lines = []
+                for line in rec.product_line_ids:
+                    if not line.product_id:
+                        continue
+                    invoice_lines.append((0, 0, {
+                        'item_code': line.item_code_display,
+                        'product_id': line.product_id.id,
+                        'name': line.product_id.name,
+                        'quantity': line.quantity,
+                        'price_unit': line.unit_price,
+                        'product_uom_id': line.uom_id.id if line.uom_id else False,
+                        'margin_parts': line.margin,
+                        'department_id': line.department_id.id if line.department_id else False,
+                        'tax_ids': [(6, 0, [])],
+                    }))
+
+                for line in rec.service_line_ids:
+                    if not line.product_id:
+                        continue
+                    invoice_lines.append((0, 0, {
+                        'product_id': line.product_id.id,
+                        'name': line.name or line.product_id.name,
+                        'quantity': line.quantity,
+                        'price_unit': line.unit_price,
+                        'product_uom_id': line.uom_id.id if line.uom_id else False,
+                        'department_id': line.department_id.id if line.department_id else False,
+                        'employee_id': line.employee_id.id if line.employee_id else False,
+                        'tax_ids': [(6, 0, [])],
+                    }))
+
+                invoice.write({
+                    'partner_id': rec.client_id.id if rec.client_id else invoice.partner_id.id,
+                    'invoice_line_ids': [(5, 0, 0)] + invoice_lines
+                })
+
     def action_create_invoice_fleet(self):
         self.ensure_one()
 
+        if not self.invoice_order_id:
+            existing_invoice = self.env['account.move'].search([
+                ('fleet_repair_invoice_id', '=', self.id),
+                ('state', '!=', 'cancel')
+            ], limit=1)
+            if existing_invoice:
+                self.invoice_order_id = existing_invoice.id
+
         if self.invoice_order_id:
+            if self.invoice_order_id.state == 'draft':
+                self._sync_draft_invoices()
             return {
                 'type': 'ir.actions.act_window',
                 'name': 'Invoice',
@@ -710,9 +765,6 @@ class FleetRepair(models.Model):
                 'view_mode': 'form',
                 'res_id': self.invoice_order_id.id,
             }
-
-        # if not self.product_line_ids:
-        #     raise UserError("Cannot create invoice: No product lines found.")
 
         journal = self.env['account.journal'].search([
             ('type', '=', 'sale'),
@@ -732,8 +784,9 @@ class FleetRepair(models.Model):
                 'name': line.product_id.name,
                 'quantity': line.quantity,
                 'price_unit': line.unit_price,
-                'product_uom_id': line.uom_id.id,
+                'product_uom_id': line.uom_id.id if line.uom_id else False,
                 'margin_parts': line.margin,
+                'department_id': line.department_id.id if line.department_id else False,
                 'tax_ids': [(6, 0, [])],
             }))
 
@@ -746,21 +799,20 @@ class FleetRepair(models.Model):
                 'name': line.name or line.product_id.name,
                 'quantity': line.quantity,
                 'price_unit': line.unit_price,
-                'product_uom_id': line.uom_id.id,
+                'product_uom_id': line.uom_id.id if line.uom_id else False,
+                'department_id': line.department_id.id if line.department_id else False,
+                'employee_id': line.employee_id.id if line.employee_id else False,
                 'tax_ids': [(6, 0, [])],
             }))
 
-        # if not invoice_lines:
-        #     raise UserError("All product lines are empty or invalid.")
-
         invoice = self.env['account.move'].create({
-            'partner_id': self.client_id.id,
+            'partner_id': self.client_id.id if self.client_id else False,
             'move_type': 'out_invoice',
             'journal_id': journal.id,
             'invoice_date': fields.Date.today(),
             'invoice_line_ids': invoice_lines,
             'fleet_repair_invoice_id': self.id,
-            'create_form_fleet': True  # custom field, define it if needed
+            'create_form_fleet': True
         })
 
         self.invoice_order_id = invoice.id
@@ -893,14 +945,25 @@ class FleetRepair(models.Model):
         }
 
     def button_view_invoice_fleet(self):
+        self._sync_draft_invoices()
         list = []
         context = dict(self._context or {})
         invoice_order_ids = self.env['account.move'].search([
-            ('state', 'in', ['draft', 'posted'])
-            , ('fleet_repair_invoice_id', '=', self.id)
+            ('state', 'in', ['draft', 'posted']),
+            ('fleet_repair_invoice_id', '=', self.id)
         ])
         for order in invoice_order_ids:
             list.append(order.id)
+
+        if len(list) == 1:
+            return {
+                'name': _('Invoice'),
+                'view_mode': 'form',
+                'res_model': 'account.move',
+                'res_id': list[0],
+                'type': 'ir.actions.act_window',
+                'context': context,
+            }
 
         return {
             'name': _('Invoice'),
@@ -1018,13 +1081,20 @@ class FleetRepair(models.Model):
 
     @api.onchange('client_id')
     def onchange_partner_id(self):
-        addr = {}
+        print("=== DEBUG onchange_partner_id CALLED ===")
+        print(f"self.client_id: {self.client_id}")
+        _logger.info("DEBUG: onchange_partner_id called. client_id=%s", self.client_id)
         if self.client_id:
-            addr = self.client_id.address_get(['contact'])
-            addr['client_phone'] = self.client_id.phone
-            addr['client_mobile'] = self.client_id.mobile
-            addr['client_email'] = self.client_id.email
-        return {'value': addr}
+            if self.client_id.email:
+                self.client_email = self.client_id.email
+            if self.client_id.phone:
+                self.client_phone = self.client_id.phone
+            if self.client_id.mobile:
+                self.client_mobile = self.client_id.mobile
+            if self.license_plate and not self.license_plate.driver_id:
+                print(f"Linking client_id {self.client_id.name} to self.license_plate.driver_id")
+                _logger.info("DEBUG: Linking client_id %s to license_plate.driver_id", self.client_id.name)
+                self.license_plate.driver_id = self.client_id
 
     def action_create_fleet_diagnosis(self):
         Diagnosis_obj = self.env['fleet.diagnose']
@@ -1254,7 +1324,7 @@ class FleetRepairProductLine(models.Model):
     product_id = fields.Many2one('product.product', domain=[('type', '=', 'consu')], string='Item')
     item_code_id = fields.Many2one(
         'product.product',
-        domain=[('type', '=', 'consu')],
+        domain=[('type', '=', 'consu'), ('item_code', '!=', False), ('item_code', '!=', '')],
         string='Item Code',
     )
 
@@ -1275,6 +1345,7 @@ class FleetRepairProductLine(models.Model):
         string='On-Hand',
         compute='_compute_onhand_qty',
     )
+    department_id = fields.Many2one('hr.department', string='Department', required=True)
     uom_id = fields.Many2one('uom.uom', string='Unit of Measure')
     unit_price = fields.Float(string='Unit Price')
     subtotal = fields.Monetary(string='Subtotal', compute='_compute_subtotal', store=True)
@@ -1342,33 +1413,44 @@ class FleetRepairProductLine(models.Model):
             return float('inf')
         return product.with_context(warehouse_id=warehouse.id).free_qty
 
-    @api.depends('product_id', 'uom_id', 'quantity', 'repair_id', 'repair_id.company_id', 'repair_id.product_line_ids.quantity', 'repair_id.product_line_ids.product_id')
+    @api.depends('product_id', 'uom_id', 'quantity', 'qty_issued', 'repair_id', 'repair_id.company_id', 'repair_id.product_line_ids.quantity', 'repair_id.product_line_ids.product_id', 'repair_id.product_line_ids.qty_issued')
     def _compute_available_qty(self):
         for line in self:
-            if not line.product_id or not line.product_id.is_storable:
+            if not line.product_id or line.product_id.type != 'consu':
                 line.available_qty = 0.0
                 continue
             warehouse = line._get_warehouse()
-            if warehouse:
-                base_qty = line._get_available_qty(line.product_id, warehouse)
-                pending_qty = 0.0
-                repair = line.repair_id or line._find_repair_order() if hasattr(line, '_find_repair_order') else line.repair_id
-                if repair and repair.product_line_ids:
-                    for sibling in repair.product_line_ids.filtered(lambda l: l.product_id == line.product_id):
-                        unissued = max(sibling.quantity - (getattr(sibling, 'qty_issued', 0.0) or 0.0), 0.0)
-                        line_uom = sibling.uom_id or sibling.product_id.uom_id
-                        target_uom = line.uom_id or line.product_id.uom_id
-                        if line_uom != target_uom:
-                            unissued = line_uom._compute_quantity(unissued, target_uom)
-                        pending_qty += unissued
-                line.available_qty = max(0.0, base_qty - pending_qty)
+            if warehouse and warehouse.lot_stock_id:
+                quants = self.env['stock.quant'].search([
+                    ('product_id', '=', line.product_id.id),
+                    ('location_id', 'child_of', warehouse.lot_stock_id.id),
+                ])
+                base_qty = sum(quants.mapped('quantity')) if quants else self.env['stock.quant']._get_available_quantity(
+                    line.product_id.sudo(), warehouse.lot_stock_id, strict=True, allow_negative=True,
+                )
             else:
-                line.available_qty = 0.0
+                base_qty = line.product_id.with_context(warehouse_id=warehouse.id).qty_available if warehouse else 0.0
 
-    @api.depends('product_id', 'uom_id', 'quantity', 'repair_id', 'repair_id.company_id', 'repair_id.product_line_ids.quantity', 'repair_id.product_line_ids.product_id')
+            line_uom = line.uom_id or line.product_id.uom_id
+            if line_uom and line.product_id.uom_id and line_uom != line.product_id.uom_id:
+                base_qty = line.product_id.uom_id._compute_quantity(base_qty, line_uom)
+
+            pending_qty = 0.0
+            repair = line.repair_id or (line._find_repair_order() if hasattr(line, '_find_repair_order') else line.repair_id)
+            if repair and repair.product_line_ids:
+                for sibling in repair.product_line_ids.filtered(lambda l: l.product_id == line.product_id):
+                    unissued = max(sibling.quantity - (getattr(sibling, 'qty_issued', 0.0) or 0.0), 0.0)
+                    sib_uom = sibling.uom_id or sibling.product_id.uom_id
+                    if line_uom and sib_uom and sib_uom != line_uom:
+                        unissued = sib_uom._compute_quantity(unissued, line_uom)
+                    pending_qty += unissued
+
+            line.available_qty = base_qty - pending_qty
+
+    @api.depends('product_id', 'uom_id', 'repair_id', 'repair_id.company_id')
     def _compute_onhand_qty(self):
         for line in self:
-            if not line.product_id or not line.product_id.is_storable:
+            if not line.product_id or line.product_id.type != 'consu':
                 line.onhand_qty = 0.0
                 continue
             warehouse = line._get_warehouse()
@@ -1377,26 +1459,16 @@ class FleetRepairProductLine(models.Model):
                     ('product_id', '=', line.product_id.id),
                     ('location_id', 'child_of', warehouse.lot_stock_id.id),
                 ])
-                raw_qty = sum(quants.mapped('quantity'))
-                raw_qty = max(0.0, raw_qty)
+                raw_qty = sum(quants.mapped('quantity')) if quants else self.env['stock.quant']._get_available_quantity(
+                    line.product_id.sudo(), warehouse.lot_stock_id, strict=True, allow_negative=True,
+                )
             else:
-                raw_qty = max(0.0, line.product_id.with_context(warehouse_id=warehouse.id).qty_available) if warehouse else 0.0
+                raw_qty = line.product_id.with_context(warehouse_id=warehouse.id).qty_available if warehouse else 0.0
 
-            pending_qty = 0.0
-            repair = line.repair_id or line._find_repair_order() if hasattr(line, '_find_repair_order') else line.repair_id
-            if repair and repair.product_line_ids:
-                for sibling in repair.product_line_ids.filtered(lambda l: l.product_id == line.product_id):
-                    unissued = max(sibling.quantity - (getattr(sibling, 'qty_issued', 0.0) or 0.0), 0.0)
-                    line_uom = sibling.uom_id or sibling.product_id.uom_id
-                    if line_uom != line.product_id.uom_id:
-                        unissued = line_uom._compute_quantity(unissued, line.product_id.uom_id)
-                    pending_qty += unissued
-
-            effective_qty = max(0.0, raw_qty - pending_qty)
             line_uom = line.uom_id or line.product_id.uom_id
             if line_uom and line.product_id.uom_id and line_uom != line.product_id.uom_id:
-                effective_qty = line.product_id.uom_id._compute_quantity(effective_qty, line_uom)
-            line.onhand_qty = effective_qty
+                raw_qty = line.product_id.uom_id._compute_quantity(raw_qty, line_uom)
+            line.onhand_qty = raw_qty
 
     @api.model
     def action_enable_inventory_tracking(self, product_id):
@@ -1503,6 +1575,13 @@ class FleetRepairServiceLine(models.Model):
     product_id = fields.Many2one('product.product', domain=[('type', '=', 'service')], string='Service')
     name = fields.Text(string='Description')
     quantity = fields.Float(string='Quantity', default=1.0)
+    department_id = fields.Many2one('hr.department', string='Department', required=True)
+    employee_id = fields.Many2one(
+        'hr.employee',
+        string='Employee',
+        domain="[('department_id', '=', department_id)] if department_id else []",
+        required=True
+    )
     uom_id = fields.Many2one('uom.uom', string='Unit of Measure')
     unit_price = fields.Float(string='Price')
     subtotal = fields.Monetary(string='Subtotal', compute='_compute_subtotal', store=True)
@@ -1711,6 +1790,10 @@ class FleetVehicle(models.Model):
     @api.model
     def default_get(self, fields_list):
         res = super().default_get(fields_list)
+        print("=== DEBUG FleetVehicle.default_get CALLED ===")
+        print(f"Context: {self._context}")
+        print(f"res: {res}")
+        _logger.info("DEBUG: FleetVehicle.default_get called with context=%s, res=%s", self._context, res)
         if self._context.get('default_name') and not res.get('license_plate'):
             res['license_plate'] = self._context.get('default_name')
         if self._context.get('default_vin_sn') and not res.get('vin_sn'):
@@ -1723,6 +1806,21 @@ class FleetVehicle(models.Model):
             except (ValueError, TypeError):
                 pass
         return res
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        print("=== DEBUG FleetVehicle.create CALLED ===")
+        print(f"vals_list: {vals_list}")
+        _logger.info("DEBUG: FleetVehicle.create called with vals_list=%s", vals_list)
+        records = super().create(vals_list)
+        for rec, vals in zip(records, vals_list):
+            if 'driver_id' in vals and vals['driver_id'] and not rec.driver_id:
+                rec.driver_id = vals['driver_id']
+                print(f"Explicitly assigned driver_id={vals['driver_id']} to FleetVehicle ID={rec.id}")
+                _logger.info("DEBUG: Explicitly assigned driver_id=%s to FleetVehicle ID=%s", vals['driver_id'], rec.id)
+            print(f"Created FleetVehicle ID={rec.id}, Plate={rec.license_plate}, Driver={rec.driver_id}")
+            _logger.info("DEBUG: Created FleetVehicle ID=%s, Plate=%s, Driver=%s", rec.id, rec.license_plate, rec.driver_id)
+        return records
 
     @api.depends('license_plate')
     def _compute_display_name(self):

@@ -73,8 +73,8 @@
                                         </td>
                                         <td style="padding-right:10px;">
                                             :
-                                            <t t-set="user_tz_date" t-value="context_timestamp(o.receipt_date)"/>
-                                            <span t-esc="user_tz_date.strftime('%d-%b-%y %I:%M %p') if user_tz_date else ''"
+                                            <t t-set="user_tz_receipt_date" t-value="context_timestamp(o.receipt_date) if o.receipt_date else False"/>
+                                            <span t-esc="user_tz_receipt_date.strftime('%d-%b-%y %I:%M %p') if user_tz_receipt_date else ''"
                                                   style="font-weight: bold;"/>
 
                                         </td>
@@ -85,8 +85,7 @@
                                         </td>
                                         <td style="padding-right:10px;">
                                             :
-                                            <t t-set="user_tz_date" t-value="context_timestamp(o.promised_date)"/>
-                                            <span t-esc="user_tz_date.strftime('%d-%b-%y %I:%M %p') if user_tz_date else ''"
+                                            <span t-esc="o.promised_date.strftime('%d-%b-%y') if o.promised_date else ''"
                                                   style="font-weight: bold;"/>
 
 
