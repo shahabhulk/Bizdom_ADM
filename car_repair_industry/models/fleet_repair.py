@@ -300,6 +300,53 @@ class FleetRepair(models.Model):
                 }
             }
 
+    @api.onchange('vin_sn', 'kilometers_num')
+    def _onchange_vin_sn_kilometers_num(self):
+        if self.license_plate:
+            update_vals = {}
+            if self.vin_sn and self.license_plate.vin_sn != self.vin_sn:
+                update_vals['vin_sn'] = self.vin_sn
+            if self.kilometers_num:
+                try:
+                    kms_val = float(self.kilometers_num)
+                    if hasattr(self.license_plate, 'odometer') and self.license_plate.odometer != kms_val:
+                        update_vals['odometer'] = kms_val
+                except (ValueError, TypeError):
+                    pass
+            if update_vals:
+                self.license_plate.write(update_vals)
+
+    def _sync_vehicle_data(self):
+        for record in self:
+            if record.license_plate:
+                vehicle = record.license_plate
+                update_vals = {}
+                if record.vin_sn and vehicle.vin_sn != record.vin_sn:
+                    update_vals['vin_sn'] = record.vin_sn
+                if record.kilometers_num:
+                    try:
+                        kms_val = float(record.kilometers_num)
+                        if hasattr(vehicle, 'odometer') and vehicle.odometer != kms_val:
+                            update_vals['odometer'] = kms_val
+                    except (ValueError, TypeError):
+                        pass
+                if update_vals:
+                    vehicle.write(update_vals)
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        records = super().create(vals_list)
+        records._sync_vehicle_data()
+        return records
+
+    def write(self, vals):
+        res = super().write(vals)
+        self._sync_vehicle_data()
+        return res
+
+
+
+
     @api.model
     def check_owner_change(self, license_plate, client_id):
         vehicle = False
@@ -493,6 +540,15 @@ class FleetRepair(models.Model):
             if record.client_id and record.client_phone or record.client_mobile:
                 record.client_id.phone = record.client_phone
                 record.client_id.mobile = record.client_mobile
+
+    @api.constrains('client_phone')
+    def _check_client_phone_digits(self):
+        for record in self:
+            if not record.client_phone:
+                raise ValidationError(_("Mobile 1 (Phone) is mandatory."))
+            digits = re.sub(r'\D', '', record.client_phone)
+            if len(digits) != 10:
+                raise ValidationError(_("Mobile 1 (Phone) must be exactly 10 digits."))
 
     @api.depends(
         'promised_date',
@@ -1627,6 +1683,26 @@ class FleetVehicle(models.Model):
     _inherit = 'fleet.vehicle'
     _rec_name = 'license_plate'
 
+    vin_sn = fields.Char(string='Chassis Number', required=True)
+    driver_id = fields.Many2one('res.partner', string='Driver', required=True)
+    odometer = fields.Float(string='Last Odometer', required=True)
+
+    @api.model
+    def default_get(self, fields_list):
+        res = super().default_get(fields_list)
+        if self._context.get('default_name') and not res.get('license_plate'):
+            res['license_plate'] = self._context.get('default_name')
+        if self._context.get('default_vin_sn') and not res.get('vin_sn'):
+            res['vin_sn'] = self._context.get('default_vin_sn')
+        if self._context.get('default_driver_id') and not res.get('driver_id'):
+            res['driver_id'] = self._context.get('default_driver_id')
+        if self._context.get('default_odometer') and not res.get('odometer'):
+            try:
+                res['odometer'] = float(self._context.get('default_odometer') or 0.0)
+            except (ValueError, TypeError):
+                pass
+        return res
+
     @api.depends('license_plate')
     def _compute_display_name(self):
         for record in self:
@@ -1634,4 +1710,8 @@ class FleetVehicle(models.Model):
                 record.display_name = record.license_plate
             else:
                 super()._compute_display_name()
+
+
+
+
 
