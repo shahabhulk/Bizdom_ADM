@@ -111,13 +111,13 @@
                             <page string="General">
                                 <group string="Car Info">
                                     <group>
-                                        <field name="license_plate" required="1"/>
-                                        <field name="fleet_id" required="1"/>
+                                        <field name="license_plate" required="1" context="{'default_model_id': model_name, 'default_vin_sn': vin_sn, 'default_driver_id': client_id, 'default_odometer': kilometers_num}"/>
+                                        <field name="fleet_id" string="Car" required="1"/>
                                     </group>
                                     <group>
                                         <field name="model_name" required="1"/>
                                         <field name="vin_sn" required="1"/>
-                                        <field name="kilometers_num" required="1"/>
+                                        <field name="kilometers_num" string="KMS" required="1"/>
                                     </group>
                                 </group>
                                 <separator string="Client Info"/>
@@ -131,7 +131,7 @@
                                     <group>
                                         <field string="Mobile 1" name="client_phone" readonly="state != 'draft'" required="1"/>
                                         <field string="Mobile 2" name="client_mobile" readonly="state != 'draft'"/>
-                                        <field name="client_email" widget="email" readonly="state != 'draft'" required="1"/>
+                                        <field name="client_email" string="Email" widget="email" readonly="state != 'draft'" required="1"/>
                                     </group>
                                 </group>
 
@@ -478,6 +478,23 @@
                     <field name="guarantee" widget="radio"/>
                     <field name="service_type"/>
                 </list>
+            </field>
+        </record>
+
+        <record id="fleet_vehicle_view_form_inherit_repair" model="ir.ui.view">
+            <field name="name">fleet.vehicle.form.inherit.repair</field>
+            <field name="model">fleet.vehicle</field>
+            <field name="inherit_id" ref="fleet.fleet_vehicle_view_form"/>
+            <field name="arch" type="xml">
+                <xpath expr="//field[@name='driver_id']" position="attributes">
+                    <attribute name="required">1</attribute>
+                </xpath>
+                <xpath expr="//field[@name='vin_sn']" position="attributes">
+                    <attribute name="required">1</attribute>
+                </xpath>
+                <xpath expr="//field[@name='odometer']" position="attributes">
+                    <attribute name="required">1</attribute>
+                </xpath>
             </field>
         </record>
 

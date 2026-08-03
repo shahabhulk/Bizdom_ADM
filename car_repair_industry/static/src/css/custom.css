@@ -28,3 +28,15 @@
 		box-shadow: 0 0 0 0 rgba(0, 0, 0, 0);
 	}
 }
+
+/* Mandatory fields asterisk indicator */
+.o_cell:has(+ .o_cell .o_required_modifier) .o_form_label::after,
+.o_cell:has(+ div .o_required_modifier) .o_form_label::after,
+.o_wrap_label:has(+ .o_cell .o_required_modifier) .o_form_label::after,
+.o_field_widget.o_required_modifier label::after,
+.o_form_label.o_required_modifier::after,
+label.o_required_modifier::after {
+    content: " *";
+    color: #dc3545;
+    font-weight: bold;
+}
