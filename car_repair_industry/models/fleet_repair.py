@@ -125,7 +125,7 @@ class FleetRepair(models.Model):
     guarantee_type = fields.Selection(
         [('paid', 'paid'), ('free', 'Free')], string='Guarantee Type')
     service_type = fields.Many2one('service.type', string='Nature of Service')
-    user_id = fields.Many2one('res.users', string='Service Advisor', tracking=True)
+    user_id = fields.Many2one('res.users', string='Service Advisor', required=True, tracking=True)
     priority = fields.Selection([('0', 'Low'), ('1', 'Normal'), ('2', 'High')], 'Priority')
     description = fields.Text(string='Notes')
     service_detail = fields.Text(string='Service Details')
