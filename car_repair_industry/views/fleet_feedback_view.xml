@@ -42,7 +42,7 @@
                             <field name="name" string="Reference"/>
                             <field name="job_card_name" string="Job Card No"/>
                             <field name="customer_id" string="Customer"/>
-                            <field name="service_advisor_id" string="Service Advisor"/>
+                            <field name="service_advisor_id" string="Service Advisor" options="{'no_create': True, 'no_create_edit': True}"/>
                         </group>
                         <group>
                             <field name="feedback_date" required="1"/>
