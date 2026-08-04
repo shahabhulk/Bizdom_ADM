@@ -157,7 +157,7 @@
                         </table>
                     </div>
                     <div style="margin-top: 50px;">
-                        <span style="font-size: 20.0; font-weight: bold;">SERVICE DETAILS:</span>
+                        <span style="font-size: 20.0; font-weight: bold;">REPAIR DETAILS:</span>
                         <table style="width: 100%; margin-top: 20px;">
                             <tr t-foreach="o.fleet_repair_line" t-as="line">
                                 <th style="width: 25%; height: 25px;border-right: 1px solid black;">

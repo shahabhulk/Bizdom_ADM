@@ -128,7 +128,7 @@ class FleetRepair(models.Model):
     user_id = fields.Many2one('res.users', string='Service Advisor', required=True, tracking=True)
     priority = fields.Selection([('0', 'Low'), ('1', 'Normal'), ('2', 'High')], 'Priority')
     description = fields.Text(string='Notes')
-    service_detail = fields.Text(string='Service Details')
+    service_detail = fields.Text(string='Repair Details')
     state = fields.Selection([
         ('draft', 'Received'),
         ('diagnosis', 'In Diagnosis'),
@@ -549,6 +549,23 @@ class FleetRepair(models.Model):
             digits = re.sub(r'\D', '', record.client_phone)
             if len(digits) != 10:
                 raise ValidationError(_("Mobile 1 (Phone) must be exactly 10 digits."))
+
+    @api.constrains('promised_date', 'receipt_date')
+    def _check_promised_date(self):
+        for record in self:
+            if record.promised_date and record.receipt_date:
+                promised_date = record.promised_date.date() if isinstance(record.promised_date, datetime) else record.promised_date
+                receipt_date = record.receipt_date.date() if isinstance(record.receipt_date, datetime) else record.receipt_date
+                if promised_date < receipt_date:
+                    raise ValidationError(_("Promised Date must be greater than or equal to JC Date."))
+
+    @api.onchange('promised_date', 'receipt_date')
+    def _onchange_promised_date(self):
+        if self.promised_date and self.receipt_date:
+            promised_date = self.promised_date.date() if isinstance(self.promised_date, datetime) else self.promised_date
+            receipt_date = self.receipt_date.date() if isinstance(self.receipt_date, datetime) else self.receipt_date
+            if promised_date < receipt_date:
+                raise ValidationError(_("Promised Date must be greater than or equal to JC Date."))
 
     @api.depends(
         'promised_date',
@@ -1162,7 +1179,7 @@ class FleetRepairLine(models.Model):
         [('paid', 'paid'), ('free', 'Free')], string='Guarantee Type')
     service_type = fields.Many2one('service.type', string='Nature of Service')
     fleet_repair_id = fields.Many2one('fleet.repair', string='Car.', copy=False)
-    service_detail = fields.Text(string='Service Details')
+    service_detail = fields.Text(string='Repair Details')
     diagnostic_result = fields.Text(string='Diagnostic Result')
     diagnose_id = fields.Many2one('fleet.diagnose', string='Car Diagnose', copy=False)
     workorder_id = fields.Many2one('fleet.workorder', string='Car Work Order', copy=False)
@@ -1512,14 +1529,14 @@ class ServiceDetailLine(models.Model):
 
     service_type = fields.Many2one('service.type', string='Nature of Service')
     service_detail_id = fields.Many2one('fleet.repair', string='Car.', copy=False)
-    service_detail = fields.Text(string='Service Details')
+    service_detail = fields.Text(string='Repair Details')
 
     @api.model
     def create(self, vals):
         if 'service_detail_id' in vals:
             repair = self.env['fleet.repair'].browse(vals['service_detail_id'])
             if len(repair.service_detail_line) >= 10:
-                raise ValidationError("You can't enter more than 10 service details.")
+                raise ValidationError("You can't enter more than 10 repair details.")
         return super().create(vals)
 
     def write(self, vals):
@@ -1532,7 +1549,7 @@ class ServiceDetailLine(models.Model):
         res = super().write(vals)
         for rec in self:
             if rec.service_detail_id and len(rec.service_detail_id.service_detail_line) > 10:
-                raise ValidationError("You can't enter more than 10 service details.")
+                raise ValidationError("You can't enter more than 10 repair details.")
         return res
 
 

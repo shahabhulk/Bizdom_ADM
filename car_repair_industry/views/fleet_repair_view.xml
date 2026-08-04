@@ -137,7 +137,7 @@
 
                                 <!--                                <separator string="Car Info"/>-->
                                 <!--                                <field name="fleet_repair_line" readonly="state != 'draft'" widget="one2many_list"/>-->
-                                <separator string="Service Details"/>
+                                <separator string="Repair Details"/>
                                 <field name="service_detail_line" readonly="state != 'draft'" widget="one2many_list">
                                     <list editable="bottom">
                                         <field name="service_detail"/>
@@ -422,7 +422,7 @@
                             </group>
                         </group>
                         <notebook>
-                            <page string="Service Details">
+                            <page string="Repair Details">
                                 <group>
                                     <group>
                                         <field name="guarantee" widget="radio" readonly="state != 'draft'"/>
@@ -433,7 +433,7 @@
                                         <field name="service_type" readonly="state != 'draft'"/>
                                     </group>
                                 </group>
-                                <separator string="Service Details"/>
+                                <separator string="Repair Details"/>
                                 <field name="service_detail" readonly="state != 'draft'"/>
                                 <separator string="List of Damage"/>
                                 <field name="list_of_damage" readonly="state != 'draft'"/>
