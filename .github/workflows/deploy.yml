@@ -34,9 +34,9 @@ jobs:
             echo "=========================================="
             
             cd /home/bitnami/Bizdom_ADM_new
-            git fetch --all
-            git checkout "$TARGET_BRANCH"
-            git pull origin "$TARGET_BRANCH"
+            git fetch origin "$TARGET_BRANCH"
+            git checkout -B "$TARGET_BRANCH" "origin/$TARGET_BRANCH"
+            git reset --hard "origin/$TARGET_BRANCH"
             
             # Sync files to Bitnami addons directory
             sudo rsync -av --exclude='__pycache__/' --exclude='*.pyc' --exclude='.git/' /home/bitnami/Bizdom_ADM_new/ /bitnami/odoo/addons/
