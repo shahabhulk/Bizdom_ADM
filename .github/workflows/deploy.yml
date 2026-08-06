@@ -23,13 +23,12 @@ jobs:
           EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
           TARGET_BRANCH: ${{ github.event.inputs.target_branch || 'master' }}
         run: |
-          # 1. Setup SSH Key
           mkdir -p ~/.ssh
           echo "$EC2_SSH_KEY" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
           
-          # 2. Run remote deployment via native OpenSSH
           ssh -o StrictHostKeyChecking=no "$EC2_USERNAME@$EC2_HOST" << EOF
+            set -e
             echo "=========================================="
             echo "Deploying branch: $TARGET_BRANCH"
             echo "=========================================="
@@ -39,9 +38,11 @@ jobs:
             git checkout "$TARGET_BRANCH"
             git pull origin "$TARGET_BRANCH"
             
-            sudo /opt/bitnami/ctlscript.sh stop odoo
+            # Sync files to Bitnami addons directory
             sudo rsync -av --exclude='__pycache__/' --exclude='*.pyc' --exclude='.git/' /home/bitnami/Bizdom_ADM_new/ /bitnami/odoo/addons/
-            sudo /opt/bitnami/ctlscript.sh start odoo
+            
+            # Restart Odoo atomically (so Odoo is never left stopped)
+            sudo /opt/bitnami/ctlscript.sh restart odoo
             
             echo "=========================================="
             echo "Successfully deployed branch: $TARGET_BRANCH to EC2!"
