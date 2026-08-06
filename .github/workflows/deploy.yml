@@ -1,0 +1,46 @@
+name: Deploy Branch to AWS EC2 (CD)
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_branch:
+        description: 'Select branch to deploy to EC2'
+        required: true
+        default: 'master'
+  push:
+    branches: [ master ]
+
+jobs:
+  deploy:
+    name: Deploy to Bitnami EC2
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Execute SSH Commands on EC2
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USERNAME }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            echo "=========================================="
+            echo "Deploying branch: ${{ github.event.inputs.target_branch || 'master' }}"
+            echo "=========================================="
+            
+            # 1. Navigate to repository directory on EC2
+            cd /home/bitnami/Bizdom_ADM_new
+            
+            # 2. Fetch all branches and checkout requested branch
+            TARGET_BRANCH="${{ github.event.inputs.target_branch || 'master' }}"
+            git fetch --all
+            git checkout "$TARGET_BRANCH"
+            git pull origin "$TARGET_BRANCH"
+            
+            # 3. Stop Odoo, sync files to Bitnami addons directory, and start Odoo
+            sudo /opt/bitnami/ctlscript.sh stop odoo
+            sudo rsync -av --exclude='__pycache__/' --exclude='*.pyc' --exclude='.git/' /home/bitnami/Bizdom_ADM_new/ /bitnami/odoo/addons/
+            sudo /opt/bitnami/ctlscript.sh start odoo
+            
+            echo "=========================================="
+            echo "Successfully deployed branch: $TARGET_BRANCH to EC2!"
+            echo "=========================================="
