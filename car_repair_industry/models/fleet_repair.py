@@ -541,14 +541,18 @@ class FleetRepair(models.Model):
                 record.client_id.phone = record.client_phone
                 record.client_id.mobile = record.client_mobile
 
-    @api.constrains('client_phone')
+    @api.constrains('client_phone', 'client_mobile')
     def _check_client_phone_digits(self):
         for record in self:
             if not record.client_phone:
                 raise ValidationError(_("Mobile 1 (Phone) is mandatory."))
             digits = re.sub(r'\D', '', record.client_phone)
-            if len(digits) != 10:
-                raise ValidationError(_("Mobile 1 (Phone) must be exactly 10 digits."))
+            if len(digits) < 10:
+                raise ValidationError(_("Mobile 1 (Phone) must be at least 10 digits."))
+            if record.client_mobile:
+                mobile_digits = re.sub(r'\D', '', record.client_mobile)
+                if len(mobile_digits) < 10:
+                    raise ValidationError(_("Mobile 2 must be at least 10 digits."))
 
     @api.constrains('promised_date', 'receipt_date')
     def _check_promised_date(self):
