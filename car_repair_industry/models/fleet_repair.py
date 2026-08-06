@@ -580,7 +580,7 @@ class FleetRepair(models.Model):
         'invoice_order_id.date',
     )
     def _compute_delivery_status_color(self):
-        today = fields.Date.today()
+        today = fields.Date.context_today(self)
         for record in self:
             color = 'yellow'
             promised_date = False
@@ -635,10 +635,11 @@ class FleetRepair(models.Model):
     def search_fetch(self, domain, field_names, offset=0, limit=None, order=None):
         """Ensure outdated delivery signal colors are refreshed before search/sort queries run."""
         if not self.env.context.get('skip_signal_refresh'):
-            today = fields.Date.today()
+            today = fields.Date.context_today(self)
             outdated = self.with_context(skip_signal_refresh=True).sudo().search([
-                ('promised_date', '<', today),
-                ('delivery_status_color', '!=', 'red'),
+                '|',
+                '&', ('promised_date', '<', today), ('delivery_status_color', '!=', 'red'),
+                '&', ('promised_date', '=', today), ('delivery_status_color', '!=', 'yellow'),
             ])
             if outdated:
                 outdated.with_context(skip_signal_refresh=True)._compute_delivery_status_color()

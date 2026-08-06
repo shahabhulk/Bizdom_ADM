@@ -20,7 +20,7 @@
             <field name="name">Auto Update Repair Status</field>
             <field name="model_id" ref="car_repair_industry.model_fleet_repair"/>
             <field name="state">code</field>
-            <field name="code">model._cron_update_delivery_colors</field>
+            <field name="code">model._cron_update_delivery_colors()</field>
             <field name="interval_number">1</field>
             <field name="interval_type">days</field>
             <field name="active" eval="True"/>
