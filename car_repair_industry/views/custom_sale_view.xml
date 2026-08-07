@@ -78,7 +78,7 @@
                     <field name="license_plate" column_invisible="True"/>
                 </xpath>
                 <xpath expr="//field[@name='invoice_line_ids']/list/field[@name='product_id']" position="after">
-                    <field name="item_code"/>
+                    <field name="item_code" column_invisible="True"/>
                     <field name="name" string="Description"/>
                     <field name="department_id" options="{'no_create': True, 'no_create_edit': True}" optional="hide"/>
                     <field name="employee_id" options="{'no_create': True, 'no_create_edit': True}"

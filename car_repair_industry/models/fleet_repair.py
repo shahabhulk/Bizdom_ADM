@@ -104,7 +104,10 @@ class FleetRepair(models.Model):
                                inverse='_inverse_client_phone', required=True)
     client_mobile = fields.Char(related='client_id.mobile', store=True, readonly=False, string='Mobile',
                                 inverse='_inverse_client_phone')
-    client_email = fields.Char(string='Email', required=True)
+    client_email = fields.Char(related='client_id.email', store=True, readonly=False, string='Email',
+                               inverse='_inverse_client_email', required=True)
+    client_address = fields.Char(related='client_id.contact_address', store=True, readonly=False, string='Address',
+                                 inverse='_inverse_client_address')
     receipt_date = fields.Datetime(string='JC Date', default=fields.Datetime.now, readonly=True)
     contact_name = fields.Char(string='Contact Name')
     phone = fields.Char(string='Contact Number')
@@ -165,7 +168,7 @@ class FleetRepair(models.Model):
     repair_checklist_ids = fields.Many2many('fleet.repair.checklist', 'checkbox_checklist_rel',
                                             'id', 'checklist_id',
                                             string='Repair Checklist')
-    feedback_description = fields.Char(string="Feedback")
+    client_description = fields.Char(string="Notes")
     rating = fields.Selection([('0', 'Low'), ('1', 'Normal'), ('2', 'High')], string="Rating")
     timesheet_ids = fields.One2many('account.analytic.line', 'repair_id', string="Timesheet")
     fleet_work_line_ids = fields.One2many('fleet.repair.work.line', 'repair_id', string="Work Lines")
@@ -249,46 +252,30 @@ class FleetRepair(models.Model):
 
     @api.onchange('license_plate')
     def _onchange_license_plate(self):
-        print("=== DEBUG _onchange_license_plate CALLED ===")
-        print(f"self.license_plate: {self.license_plate}")
-        _logger.info("DEBUG: _onchange_license_plate called. license_plate=%s, vehicle_id=%s", self.license_plate, self.vehicle_id)
-        car = self.license_plate or self.vehicle_id
+        car = self.license_plate
         if car:
-            print(f"Car found: ID={car.id}, Plate={car.license_plate}, Driver={car.driver_id}")
-            _logger.info("DEBUG: Car found ID=%s, Plate=%s, Driver=%s", car.id, car.license_plate, car.driver_id)
             self.vehicle_id = car
-            self.vin_sn = car.vin_sn
+            self.vin_sn = car.vin_sn or False
 
             if car.driver_id:
-                print(f"Setting client_id to car.driver_id: {car.driver_id.name} (ID: {car.driver_id.id})")
-                _logger.info("DEBUG: Setting client_id to %s (ID %s)", car.driver_id.name, car.driver_id.id)
                 self.client_id = car.driver_id
-                if car.driver_id.email:
-                    self.client_email = car.driver_id.email
-                if car.driver_id.phone:
-                    self.client_phone = car.driver_id.phone
-                if car.driver_id.mobile:
-                    self.client_mobile = car.driver_id.mobile
-            elif self.client_id and not car.driver_id:
-                print(f"Car has no driver. Linking self.client_id ({self.client_id.name}) to car.driver_id")
-                _logger.info("DEBUG: Linking client_id %s to car.driver_id", self.client_id.name)
-                car.driver_id = self.client_id
-            else:
-                print("Car has NO driver_id and self.client_id is empty!")
-                _logger.info("DEBUG: Car has no driver_id and self.client_id is empty!")
+                self.client_email = car.driver_id.email or False
+                self.client_phone = car.driver_id.phone or False
+                self.client_mobile = car.driver_id.mobile or False
+                self.client_address = car.driver_id.contact_address or False
 
-            # Safely get brand and model
             if car.model_id:
                 self.model_name = car.model_id
-                if car.model_id.brand_id:
-                    self.fleet_id = car.model_id.brand_id
+                self.fleet_id = car.model_id.brand_id or False
+            else:
+                self.model_name = False
+                self.fleet_id = False
 
-            # Get odometer if available
             if hasattr(car, 'odometer') and car.odometer:
                 self.kilometers_num = str(car.odometer)
+            else:
+                self.kilometers_num = False
         else:
-            print("=== DEBUG _onchange_license_plate: No car selected ===")
-            _logger.info("DEBUG: No car selected")
             self.vehicle_id = False
             self.vin_sn = False
             self.model_name = False
@@ -298,22 +285,12 @@ class FleetRepair(models.Model):
             self.client_phone = False
             self.client_mobile = False
             self.client_email = False
+            self.client_address = False
 
     @api.onchange('vin_sn', 'kilometers_num')
     def _onchange_vin_sn_kilometers_num(self):
-        if self.license_plate:
-            update_vals = {}
-            if self.vin_sn and self.license_plate.vin_sn != self.vin_sn:
-                update_vals['vin_sn'] = self.vin_sn
-            if self.kilometers_num:
-                try:
-                    kms_val = float(self.kilometers_num)
-                    if hasattr(self.license_plate, 'odometer') and self.license_plate.odometer != kms_val:
-                        update_vals['odometer'] = kms_val
-                except (ValueError, TypeError):
-                    pass
-            if update_vals:
-                self.license_plate.write(update_vals)
+        # Database updates are synced on save via _sync_vehicle_data
+        pass
 
     def _sync_vehicle_data(self):
         for record in self:
@@ -329,6 +306,8 @@ class FleetRepair(models.Model):
                             update_vals['odometer'] = kms_val
                     except (ValueError, TypeError):
                         pass
+                if record.client_id and not vehicle.driver_id:
+                    update_vals['driver_id'] = record.client_id.id
                 if update_vals:
                     vehicle.write(update_vals)
 
@@ -537,9 +516,28 @@ class FleetRepair(models.Model):
 
     def _inverse_client_phone(self):
         for record in self:
-            if record.client_id and record.client_phone or record.client_mobile:
-                record.client_id.phone = record.client_phone
-                record.client_id.mobile = record.client_mobile
+            if record.client_id:
+                if record.client_phone:
+                    record.client_id.phone = record.client_phone
+                if record.client_mobile:
+                    record.client_id.mobile = record.client_mobile
+
+    def _inverse_client_email(self):
+        for record in self:
+            if record.client_id and record.client_email:
+                record.client_id.email = record.client_email
+
+    def _inverse_client_address(self):
+        for record in self:
+            if record.client_id and record.client_address:
+                record.client_id.street = record.client_address
+
+    @api.constrains('client_email')
+    def _check_client_email_format(self):
+        for record in self:
+            if record.client_email:
+                if '@' not in record.client_email:
+                    raise ValidationError(_("Email address must contain '@' special character (e.g. client@example.com)."))
 
     @api.constrains('client_phone', 'client_mobile')
     def _check_client_phone_digits(self):
@@ -1082,20 +1080,16 @@ class FleetRepair(models.Model):
 
     @api.onchange('client_id')
     def onchange_partner_id(self):
-        print("=== DEBUG onchange_partner_id CALLED ===")
-        print(f"self.client_id: {self.client_id}")
-        _logger.info("DEBUG: onchange_partner_id called. client_id=%s", self.client_id)
         if self.client_id:
-            if self.client_id.email:
-                self.client_email = self.client_id.email
-            if self.client_id.phone:
-                self.client_phone = self.client_id.phone
-            if self.client_id.mobile:
-                self.client_mobile = self.client_id.mobile
-            if self.license_plate and not self.license_plate.driver_id:
-                print(f"Linking client_id {self.client_id.name} to self.license_plate.driver_id")
-                _logger.info("DEBUG: Linking client_id %s to license_plate.driver_id", self.client_id.name)
-                self.license_plate.driver_id = self.client_id
+            self.client_email = self.client_id.email or False
+            self.client_phone = self.client_id.phone or False
+            self.client_mobile = self.client_id.mobile or False
+            self.client_address = self.client_id.contact_address or False
+        else:
+            self.client_email = False
+            self.client_phone = False
+            self.client_mobile = False
+            self.client_address = False
 
     def action_create_fleet_diagnosis(self):
         Diagnosis_obj = self.env['fleet.diagnose']
@@ -1785,7 +1779,7 @@ class FleetVehicle(models.Model):
     _rec_name = 'license_plate'
 
     vin_sn = fields.Char(string='Chassis Number', required=True)
-    driver_id = fields.Many2one('res.partner', string='Driver', required=True)
+    driver_id = fields.Many2one('res.partner', string='Client', required=True)
     odometer = fields.Float(string='Last Odometer', required=True)
 
     @api.model
@@ -1831,6 +1825,12 @@ class FleetVehicle(models.Model):
             else:
                 super()._compute_display_name()
 
+
+
+class FleetVehicleModel(models.Model):
+    _inherit = 'fleet.vehicle.model'
+
+    default_fuel_type = fields.Selection(default=False)
 
 
 
