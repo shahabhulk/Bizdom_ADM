@@ -1039,8 +1039,10 @@ class FleetRepairProductLineIssue(models.Model):
         if self.env.context.get('skip_auto_stock_sync'):
             return
         for line in self:
-            if not line.product_id or not line.product_id.is_storable or not line.repair_id:
+            if not line.product_id or line.product_id.type != 'consu' or not line.repair_id:
                 continue
+            if not line.product_id.is_storable:
+                line.product_id.sudo().write({'is_storable': True})
             line_uom = line.uom_id or line.product_id.uom_id
             rounding = line_uom.rounding
             diff = line.quantity - line.qty_issued
@@ -1067,7 +1069,7 @@ class FleetRepairProductLineIssue(models.Model):
                 if (
                     line.product_id
                     and line.product_id.id != new_prod_id
-                    and line.product_id.is_storable
+                    and line.product_id.type == 'consu'
                     and float_compare(line.qty_issued, 0.0, precision_rounding=(line.uom_id or line.product_id.uom_id).rounding) > 0
                 ):
                     line._action_return_part(qty_to_return_override=line.qty_issued, reduce_quantity=False)
@@ -1099,7 +1101,9 @@ class FleetRepairProductLineIssue(models.Model):
         self.ensure_one()
         if not self.product_id:
             raise UserError(_('Select a product before issuing.'))
-        if not self.product_id.is_storable:
+        if self.product_id.type == 'consu' and not self.product_id.is_storable:
+            self.product_id.sudo().write({'is_storable': True})
+        elif not self.product_id.is_storable:
             raise UserError(_('Only storable products can be issued from stock.'))
 
         product = self.product_id

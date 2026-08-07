@@ -5,6 +5,7 @@ import { registry } from "@web/core/registry";
 import { standardFieldProps } from "@web/views/fields/standard_field_props";
 import { useService } from "@web/core/utils/hooks";
 import { AutoComplete } from "@web/core/autocomplete/autocomplete";
+import { FormViewDialog } from "@web/views/view_dialogs/form_view_dialog";
 import { Component } from "@odoo/owl";
 
 export class ItemCodeAutoCompleteField extends Component {
@@ -17,15 +18,19 @@ export class ItemCodeAutoCompleteField extends Component {
     setup() {
         this.orm = useService("orm");
         this.notification = useService("notification");
+        this.dialog = useService("dialog");
     }
 
     get value() {
         const rawVal = this.props.record.data[this.props.name];
+        if (!rawVal || rawVal === "false" || rawVal === false) {
+            return "";
+        }
         if (typeof rawVal === "string") {
             return rawVal;
         }
         if (Array.isArray(rawVal) && rawVal.length > 1 && typeof rawVal[1] === "string") {
-            return rawVal[1];
+            return rawVal[1] === "false" ? "" : rawVal[1];
         }
         return "";
     }
@@ -42,7 +47,11 @@ export class ItemCodeAutoCompleteField extends Component {
     }
 
     async loadOptions(request) {
-        const domain = [["type", "=", "consu"]];
+        const domain = [
+            ["type", "=", "consu"],
+            ["item_code", "!=", false],
+            ["item_code", "!=", ""]
+        ];
         if (request && request.trim()) {
             const searchStr = request.trim();
             domain.push("|", "|", ["item_code", "ilike", searchStr], ["default_code", "ilike", searchStr], ["name", "ilike", searchStr]);
@@ -55,49 +64,45 @@ export class ItemCodeAutoCompleteField extends Component {
             { limit: 15 }
         );
 
-        const options = products.map((p) => {
-            const rawCode = (p.item_code || p.default_code || "").trim();
-            const label = rawCode ? rawCode : "NIL";
-            return {
-                label: label,
-                value: p.id,
-                product: p,
-                code: label,
-                isCreate: false,
-            };
-        });
+        const options = products
+            .filter((p) => p.item_code && typeof p.item_code === "string" && p.item_code.trim() !== "" && p.item_code !== "false")
+            .map((p) => {
+                const rawCode = p.item_code.trim();
+                return {
+                    label: rawCode,
+                    value: p.id,
+                    product: p,
+                    code: rawCode,
+                    isCreate: false,
+                };
+            });
 
-        if (request && request.trim()) {
-            const reqCode = request.trim();
-            const exactMatch = products.some(
-                (p) => (p.item_code && p.item_code.toLowerCase() === reqCode.toLowerCase()) ||
-                       (p.default_code && p.default_code.toLowerCase() === reqCode.toLowerCase())
-            );
-            if (!exactMatch) {
-                options.push({
-                    label: _t(`Create "${reqCode}"...`),
-                    classList: "text-primary fw-bold",
-                    code: reqCode,
-                    isCreate: true,
-                });
-            }
-        }
+        const reqCode = request ? request.trim() : "";
+        options.push({
+            label: reqCode ? _t(`Create and Edit "${reqCode}"...`) : _t("Create and Edit..."),
+            classList: "text-primary fw-bold",
+            code: reqCode,
+            isCreateEdit: true,
+        });
 
         return options;
     }
 
     async onSelectOption(option) {
         if (!option) return;
-        if (option.isCreate) {
-            await this.createProduct(option.code);
+        if (option.isCreateEdit) {
+            await this.createAndEditProduct(option.code);
         } else if (option.product) {
             await this.selectProduct(option.product, option.code);
         }
     }
 
     async selectProduct(product, code) {
+        if (product && product.type === "consu" && !product.is_storable) {
+            await this.orm.call("fleet.repair.product.line", "action_enable_inventory_tracking", [product.id]);
+        }
         const rawCode = (product.item_code || product.default_code || "").trim();
-        const itemCode = rawCode ? rawCode : (code || "NIL");
+        const itemCode = rawCode ? rawCode : (code || "");
         const changes = {
             item_code_display: itemCode,
             product_id: [product.id, product.name],
@@ -108,31 +113,74 @@ export class ItemCodeAutoCompleteField extends Component {
         await this.props.record.update(changes);
     }
 
-    async createProduct(code) {
-        try {
-            const [newProductId] = await this.orm.create("product.product", [
-                {
-                    name: code,
-                    item_code: code,
-                    type: "consu",
-                    is_storable: true,
-                },
-            ]);
-            if (newProductId) {
-                const changes = {
-                    item_code_display: code,
-                    product_id: [newProductId, code],
-                };
-                if ("item_code_id" in this.props.record.fields) {
-                    changes.item_code_id = [newProductId, code];
+    async createAndEditProduct(code = "") {
+        const context = {
+            default_name: code,
+            default_item_code: code,
+            default_type: "consu",
+            default_is_storable: true,
+            default_categ_id: false,
+        };
+        this.dialog.add(FormViewDialog, {
+            resModel: "product.product",
+            context: context,
+            title: _t("Create Item"),
+            onRecordSaved: async (record) => {
+                if (record && record.resId) {
+                    const [product] = await this.orm.read(
+                        "product.product",
+                        [record.resId],
+                        ["id", "display_name", "name", "item_code", "default_code", "type", "is_storable"]
+                    );
+                    if (product) {
+                        if (product.type === "consu" && !product.is_storable) {
+                            await this.orm.call("fleet.repair.product.line", "action_enable_inventory_tracking", [product.id]);
+                        }
+                        const rawCode = (product.item_code || product.default_code || code || "").trim();
+                        const changes = {
+                            item_code_display: rawCode,
+                            product_id: [product.id, product.name],
+                        };
+                        if ("item_code_id" in this.props.record.fields) {
+                            changes.item_code_id = [product.id, product.name];
+                        }
+                        await this.props.record.update(changes);
+                    }
                 }
-                await this.props.record.update(changes);
+            },
+        });
+    }
+
+    async onKeyDown(ev) {
+        if (ev.key === "Tab" || ev.keyCode === 9) {
+            const inputValue = (ev.target?.value || this.value || "").trim();
+            if (!inputValue) {
+                return;
             }
-        } catch (error) {
-            this.notification.add(
-                error.data?.message || _t("Failed to create new item code product."),
-                { type: "danger" }
+
+            const domain = [
+                ["type", "=", "consu"],
+                ["item_code", "!=", false],
+                ["item_code", "!=", ""],
+                ["item_code", "=ilike", inputValue],
+            ];
+
+            const products = await this.orm.searchRead(
+                "product.product",
+                domain,
+                ["id", "display_name", "name", "item_code", "default_code", "type", "is_storable"],
+                { limit: 1 }
             );
+
+            if (products && products.length > 0) {
+                const product = products[0];
+                const rawCode = (product.item_code || product.default_code || inputValue).trim();
+                await this.selectProduct(product, rawCode);
+            } else {
+                ev.preventDefault();
+                ev.stopPropagation();
+                await this.createAndEditProduct(inputValue);
+            }
         }
     }
 

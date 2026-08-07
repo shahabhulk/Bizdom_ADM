@@ -6,6 +6,13 @@ class ProductTemplate(models.Model):
 
     item_code = fields.Char(string="Item Code")
 
+    @api.model
+    def default_get(self, fields_list):
+        res = super().default_get(fields_list)
+        if 'default_categ_id' in self._context and not self._context.get('default_categ_id'):
+            res['categ_id'] = False
+        return res
+
     # display_name = fields.Char(compute='_compute_display_name', store=True)
     #
     # @api.depends('name')
@@ -46,6 +53,13 @@ class ProductProduct(models.Model):
         store=True,
         readonly=False
     )
+
+    @api.model
+    def default_get(self, fields_list):
+        res = super().default_get(fields_list)
+        if 'default_categ_id' in self._context and not self._context.get('default_categ_id'):
+            res['categ_id'] = False
+        return res
 
     @api.model
     def name_search(self, name='', args=None, operator='ilike', limit=100):
