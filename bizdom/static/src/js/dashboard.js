@@ -371,10 +371,16 @@ class BizdomDashboard extends Component {
     const maxVal = Number(score.max_value ?? 0);
     const tolerance = 0.01;
     const isTATScore = score.score_name.toLowerCase() === 'tat';
+    const isPercentageType = score.type === 'percentage';
     if(minVal > 0 && maxVal > 0){
       if(isTATScore){
         if (actual <= minVal + tolerance) return '#198754';   // green
         if (actual > maxVal + tolerance) return '#dc3545';     // red
+        return '#ffc107';   // yellow (between)
+      }
+      if(isPercentageType){
+        if (actual >= maxVal) return '#198754';   // green if >= max
+        if (actual < minVal) return '#dc3545';     // red if < min
         return '#ffc107';   // yellow (between)
       }
       if(actual < minVal - tolerance){

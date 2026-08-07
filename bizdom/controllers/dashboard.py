@@ -99,7 +99,7 @@ class BizdomDashboard(http.Controller):
                 # Get the context-enabled record to access computed value
                 s_ctx = score_id_to_context_record.get(s.id, s)
                 score_value = s_ctx.context_total_score if hasattr(s_ctx, 'context_total_score') else 0.0
-                
+                display_value = score_value
                 # Special handling for TAT: Only show Delivered TAT (not pending) in dashboard
                 if s.score_name == "TAT":
                     score_value = self._calculate_delivered_tat_only(start_date, end_date, company_id)
@@ -113,11 +113,13 @@ class BizdomDashboard(http.Controller):
                     if max_value is None:
                         max_value = 0
                 elif s.type == "percentage":
-                    min_value = s.min_score_percentage
-                    max_value = s.max_score_percentage
+                    min_value = s.min_score_percentage * 100
+                    max_value = s.max_score_percentage * 100
+                    display_value = s_ctx.context_total_score_percentage if hasattr(s_ctx, 'context_total_score_percentage') else 0.0
                 else:
                     min_value = s.min_score_number
                     max_value = s.max_score_number
+                    display_value = score_value
                     
                 pillar_scores.append({
                     "score_id": s.id,
@@ -126,7 +128,7 @@ class BizdomDashboard(http.Controller):
                     "type": s.type,
                     "min_value": min_value,
                     "max_value": max_value,
-                    "total_score_value": round(score_value, 2)
+                    "total_score_value": round(display_value, 2)
                 })
             result[pillar_id] = pillar_scores
         

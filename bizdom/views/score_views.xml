@@ -22,6 +22,7 @@
                 <field name="score_identifier"/>
                 <field name="pillar_id"/>
                 <field name="favorite"/>
+                <field name="reference_value"/>
                 <field name="total_score_value" string="Score Value"/>
             </list>
         </field>
@@ -62,6 +63,7 @@
                                        invisible="type=='percentage'"/>
                                 <field name="min_score_number"
                                        invisible="type=='percentage'"/>
+                                <field name="reference_value"/>
                                 <!--                            </t>-->
                                 <field name="favorite" widget="boolean_toggle"/>
                                 <!--                            <t t-if="record.type.raw_value == 'percentage'">-->

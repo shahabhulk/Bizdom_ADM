@@ -176,21 +176,17 @@ class BizdomQuadrant(http.Controller):
         filter_type = kwargs.get('filterType')
         start_date_str = kwargs.get('startDate')
         end_date_str = kwargs.get('endDate')
-    
 
         company = user.company_id
         is_owner = user.has_group('bizdom.group_bizdom_owner')
         allowed_pillar_ids = user.bizdom_allowed_pillar_ids.ids
         pillar_domain = self._get_pillar_domain(company.id, is_owner, allowed_pillar_ids)
 
-
         if not is_owner and score_record.pillar_id.id not in allowed_pillar_ids:
             return request.make_response(
                 json.dumps({"statusCode": 403, "message": "score_id not allowed "}),
                 headers=_json_headers()
             )
-
-
 
         # Get date ranges using utility
         try:
@@ -222,7 +218,11 @@ class BizdomQuadrant(http.Controller):
                 force_date_end=end_date
             )
             score_with_context._compute_context_total_score()
-            actual_value = score_with_context.context_total_score
+            if score_record.type == "percentage":
+                actual_value = score_with_context.context_total_score_percentage if hasattr(score_with_context,
+                                                                                            'context_total_score_percentage') else 0.0
+            else:
+                actual_value = score_with_context.context_total_score
 
             # Round if it's a numeric value
             if isinstance(actual_value, (int, float)):
@@ -294,8 +294,8 @@ class BizdomQuadrant(http.Controller):
 
             if score_record.score_name == "AOV":
                 if score_record.type == "percentage":
-                    period_data["min_value"] = score_record.min_score_percentage
-                    period_data["max_value"] = score_record.max_score_percentage
+                    period_data["min_value"] = score_record.min_score_percentage * 100
+                    period_data["max_value"] = score_record.max_score_percentage * 100
                 else:
                     period_data["min_value"] = score_record.min_score_number
                     period_data["max_value"] = score_record.max_score_number
@@ -452,7 +452,6 @@ class BizdomQuadrant(http.Controller):
                 json.dumps({"statusCode": 403, "message": "score_id not allowed "}),
                 headers=_json_headers()
             )
-
 
         filter_type = kwargs.get('filterType')
         start_date_str = kwargs.get('startDate')

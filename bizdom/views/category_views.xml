@@ -8,18 +8,23 @@
                 <sheet>
                     <group>
                         <group>
-                           <field name="category_lvl1_selection"/>
+                            <field name="category_lvl1_selection"/>
                             <field name="score_id"/>
                             <field name="type"/>
-                            <field name="max_category_percentage_lvl1" widget="percentage"  invisible="type!='percentage'"/>
-                            <field name="min_category_percentage_lvl1"  widget="percentage"  invisible="type!='percentage'"/>
-                            <field name="max_category_value_lvl1"  invisible="type=='percentage'" />
-                            <field name="min_category_value_lvl1"  invisible="type=='percentage'" />
+                            <field name="max_category_percentage_lvl1" widget="percentage"
+                                   invisible="type!='percentage'"/>
+                            <field name="min_category_percentage_lvl1" widget="percentage"
+                                   invisible="type!='percentage'"/>
+                            <field name="max_category_value_lvl1" invisible="type=='percentage'"/>
+                            <field name="min_category_value_lvl1" invisible="type=='percentage'"/>
+                            <field name="reference_value" invisible="type!='percentage'"/>
                         </group>
                         <group>
                             <field name="start_date"/>
                             <field name="end_date"/>
-                            <field name="score_category_lvl1"/>
+                            <field name="score_category_lvl1" invisible="type=='percentage'"/>
+                            <field name="score_category_lvl1_percentage" widget="percentage"
+                                   invisible="type!='percentage'" string="Category Score"/>
                         </group>
                     </group>
                     <!--                    <field name="category_id"/>-->
@@ -45,7 +50,7 @@
         <field name="model">bizdom.category_lvl1</field>
         <field name="arch" type="xml">
             <list string="Category Lvl1">
-               <field name="category_lvl1_selection"/>
+                <field name="category_lvl1_selection"/>
                 <field name="score_id"/>
                 <field name="category_type"/>
                 <field name="score_category_lvl1"/>
@@ -59,14 +64,14 @@
         <field name="res_model">bizdom.category_lvl1</field>
         <field name="view_mode">list,form</field>
     </record>
-    
+
     <!-- Main Categories Menu -->
     <menuitem id="menu_bizdom_categories" name="Categories" parent="menu_bizdom_root" sequence="20"/>
-    
+
     <!-- Category Level 1 Menu -->
     <menuitem id="menu_bizdom_category_lvl1" name="Category Level 1" parent="menu_bizdom_categories"
               action="action_bizdom_category_lvl1" sequence="10"/>
-    
+
     <!-- List view for Category Level 2 in One2many -->
     <record id="view_bizdom_category_lvl2_list_inline" model="ir.ui.view">
         <field name="name">bizdom.category_lvl2.list.inline</field>
@@ -80,7 +85,7 @@
             </list>
         </field>
     </record>
-    
+
     <!-- Category Level 2 Views -->
     <record id="view_bizdom_category_lvl2_form" model="ir.ui.view">
         <field name="name">bizdom.category_lvl2.form</field>
@@ -98,8 +103,10 @@
                             <field name="department_id" readonly="1"/>
                             <field name="medium_id" readonly="1"/>
                             <field name="type"/>
-                            <field name="max_category_percentage_lvl2" widget="percentage" invisible="type!='percentage'"/>
-                            <field name="min_category_percentage_lvl2" widget="percentage" invisible="type!='percentage'"/>
+                            <field name="max_category_percentage_lvl2" widget="percentage"
+                                   invisible="type!='percentage'"/>
+                            <field name="min_category_percentage_lvl2" widget="percentage"
+                                   invisible="type!='percentage'"/>
                             <field name="max_category_value_lvl2" invisible="type=='percentage'"/>
                             <field name="min_category_value_lvl2" invisible="type=='percentage'"/>
                         </group>
@@ -113,7 +120,7 @@
             </form>
         </field>
     </record>
-    
+
     <record id="view_bizdom_category_lvl2_list" model="ir.ui.view">
         <field name="name">bizdom.category_lvl2.list</field>
         <field name="model">bizdom.category_lvl2</field>
@@ -122,8 +129,8 @@
                 <field name="category_lvl1_id"/>
                 <field name="score_id"/>
                 <field name="category_lvl2_selection"/>
-<!--                <field name="employee_id" invisible="1"/>-->
-<!--                <field name="source_id" invisible="1"/>-->
+                <!--                <field name="employee_id" invisible="1"/>-->
+                <!--                <field name="source_id" invisible="1"/>-->
                 <field name="department_id"/>
                 <field name="medium_id"/>
                 <field name="score_category_lvl2"/>
@@ -132,16 +139,16 @@
             </list>
         </field>
     </record>
-    
+
     <record id="action_bizdom_category_lvl2" model="ir.actions.act_window">
         <field name="name">Category Level 2</field>
         <field name="res_model">bizdom.category_lvl2</field>
         <field name="view_mode">list,form</field>
     </record>
-    
+
     <!-- Category Level 2 Menu -->
-    <menuitem id="menu_bizdom_category_lvl2" 
-              name="Category Level 2" 
+    <menuitem id="menu_bizdom_category_lvl2"
+              name="Category Level 2"
               parent="menu_bizdom_categories"
               action="action_bizdom_category_lvl2"
               sequence="20"/>
