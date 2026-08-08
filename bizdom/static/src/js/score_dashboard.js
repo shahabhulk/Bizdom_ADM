@@ -1964,8 +1964,11 @@ class ScoreDashboard extends Component {
             }
         }
         
-        // CRITICAL: If no specific period selected or not found, show EMPTY instead of all periods
-        // This prevents showing wrong data
+        // Fallback to first available period if exact period match is not found
+        if (!selectedPeriodData && this.state.employeeData && this.state.employeeData.length > 0) {
+            selectedPeriodData = this.state.employeeData[0];
+        }
+        
         if (!selectedPeriodData) {
             console.error('❌ No matching period found - showing empty chart');
             this.state.employeeChartData = {
@@ -2422,6 +2425,17 @@ class ScoreDashboard extends Component {
                 // For Expense score: single dataset with Expense label
                 datasets.push({
                     label: 'Expense',
+                    data: this.state.employeeChartData.values,
+                    backgroundColor: primaryColors,
+                    borderColor: primaryBorderColors,
+                    borderWidth: 1,
+                    borderRadius: 4
+                });
+            }
+            else if (isAOVScore) {
+                // For AOV score: single dataset with AOV label
+                datasets.push({
+                    label: 'AOV',
                     data: this.state.employeeChartData.values,
                     backgroundColor: primaryColors,
                     borderColor: primaryBorderColors,

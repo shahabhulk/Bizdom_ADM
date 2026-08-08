@@ -210,35 +210,36 @@ class BizdomCategoryLvl1(models.Model):
 
             if rec.score_id.score_name == "AOV":
                 department = rec.category_lvl1_selection
-                if department._name != 'hr.department':
+                if not department or department._name != 'hr.department':
                     continue
                 dept_domain = [
                     ('department_id', '=', department.id),
-                    ('date', '>=', start_date),
-                    ('date', '<=', end_date),
                     ('invoice_id.payment_state', '=', 'paid')
                 ]
-                car_records = self.env['department.charges'].search([
-                    ('date', '>=', start_date),
-                    ('date', '<=', end_date),
-                    ('invoice_id.payment_state', '=', 'paid')
-                ])
-                total_cars = len(set(car_records.mapped('car_number')))
+                if start_date:
+                    dept_domain.append(('date', '>=', start_date))
+                if end_date:
+                    dept_domain.append(('date', '<=', end_date))
+
                 dept_record_charges = self.env["department.charges"].search(dept_domain)
                 total_dept_sum = sum(dept_record_charges.mapped('charge_amount'))
+                total_cars = len(set(dept_record_charges.mapped('car_number')))
                 rec.context_score_category_lvl1 = total_dept_sum / total_cars if total_cars > 0 else 0.0
 
 
-            if rec.score_id.score_name=="Parts Profit":
+            if rec.score_id.score_name == "Parts Profit":
                 department = rec.category_lvl1_selection
-                if department._name != 'hr.department':
+                if not department or department._name != 'hr.department':
                     continue
                 dept_domain = [
                     ('department_id', '=', department.id),
-                    ('date', '>=', start_date),
-                    ('date', '<=', end_date),
                     ('invoice_id.payment_state', '=', 'paid')
                 ]
+                if start_date:
+                    dept_domain.append(('date', '>=', start_date))
+                if end_date:
+                    dept_domain.append(('date', '<=', end_date))
+
                 dept_margin_charges = self.env["department.charges"].search(dept_domain)
                 total_dept_margin_sum = sum(dept_margin_charges.mapped('parts_margin'))
                 rec.context_score_category_lvl1 = total_dept_margin_sum
@@ -446,36 +447,36 @@ class BizdomCategoryLvl1(models.Model):
 
             if rec.score_id.score_name == "AOV":
                 department = rec.category_lvl1_selection
-                if department._name != 'hr.department':
+                if not department or department._name != 'hr.department':
                     continue
                 dept_domain = [
                     ('department_id', '=', department.id),
-                    ('date', '>=', rec.start_date),
-                    ('date', '<=', rec.end_date),
                     ('invoice_id.payment_state', '=', 'paid')
                 ]
-                car_records = self.env['department.charges'].search([
-                    ('date', '>=', rec.start_date),
-                    ('date', '<=', rec.start_date),
-                    ('invoice_id.payment_state', '=', 'paid')
-                ])
+                if rec.start_date:
+                    dept_domain.append(('date', '>=', rec.start_date))
+                if rec.end_date:
+                    dept_domain.append(('date', '<=', rec.end_date))
 
-                total_cars = len(set(car_records.mapped('car_number')))
                 dept_record_charges = self.env["department.charges"].search(dept_domain)
                 total_dept_sum = sum(dept_record_charges.mapped('charge_amount'))
-                rec.score_category_lvl1 = total_dept_sum / total_cars if total_cars > 0 else 0
+                total_cars = len(set(dept_record_charges.mapped('car_number')))
+                rec.score_category_lvl1 = total_dept_sum / total_cars if total_cars > 0 else 0.0
 
             if rec.score_id.score_name == "Parts Profit":
                 department = rec.category_lvl1_selection
-                if department._name != 'hr.department':
+                if not department or department._name != 'hr.department':
                     continue
-                dept_domain=[
+                dept_domain = [
                     ('department_id', '=', department.id),
-                    ('date', '>=', rec.start_date),
-                    ('date', '<=', rec.end_date),
                     ('invoice_id.payment_state', '=', 'paid')
                 ]
-                dept_margin_charges=self.env["department.charges"].search(dept_domain)
+                if rec.start_date:
+                    dept_domain.append(('date', '>=', rec.start_date))
+                if rec.end_date:
+                    dept_domain.append(('date', '<=', rec.end_date))
+
+                dept_margin_charges = self.env["department.charges"].search(dept_domain)
                 total_dept_margin_sum = sum(dept_margin_charges.mapped('parts_margin'))
                 rec.score_category_lvl1 = total_dept_margin_sum
 
