@@ -123,10 +123,10 @@
                                 <separator string="Client Info"/>
                                 <group>
                                     <group>
-                                        <field name="client_id" context="{'show_address': 1}"
-                                               options='{"always_reload": True, "no_quick_create": True}' readonly="state != 'draft'"
-                                               string="Client" required="1"/>
-                                        <field name="contact_name" string="Driver"/>
+                                         <field name="client_id" options='{"no_quick_create": True}' readonly="state != 'draft'"
+                                                string="Client" required="1"/>
+                                         <field name="client_address" string="Address" readonly="state != 'draft'"/>
+                                         <field name="contact_name" string="Driver"/>
                                     </group>
                                     <group>
                                         <field string="Mobile 1" name="client_phone" readonly="state != 'draft'" required="1"/>
@@ -206,7 +206,7 @@
                                     <list editable="bottom">
                                         <field name="product_id" string="Service" domain="[('type', '=', 'service')]" context="{'default_type': 'service', 'default_categ_id': False}" options="{'no_quick_create': True}"
                                                readonly="parent.state in ('done', 'cancel', 'invoiced')"/>
-                                        <field name="department_id" required="1" optional="show" options="{'no_create': True, 'no_create_edit': True}"
+                                        <field name="department_id" required="1" optional="hide" options="{'no_create': True, 'no_create_edit': True}"
                                                readonly="parent.state in ('done', 'cancel', 'invoiced')"/>
                                         <field name="employee_id" required="1" optional="show" options="{'no_create': True, 'no_create_edit': True}"
                                                readonly="parent.state in ('done', 'cancel', 'invoiced')"/>
@@ -252,17 +252,17 @@
                                     </table>
                                 </div>
                             </page>
+                            <page name="Notes" string="Notes">
+                                <group>
+                                    <field name="client_description"/>
+<!--                                    <field name="csat_rating" widget="priority"/>-->
+                                </group>
+                            </page>
                             <page name="checklist" string="Service Repair Checklist">
                                 <group>
                                     <field name="repair_checklist_ids" colspan="2" nolabel="1"
                                            options="{'no_create': True}">
                                     </field>
-                                </group>
-                            </page>
-                            <page name="review_and_rating" string="Review and Ratings">
-                                <group>
-                                    <field name="feedback_description"/>
-<!--                                    <field name="csat_rating" widget="priority"/>-->
                                 </group>
                             </page>
 
@@ -497,6 +497,10 @@
             <field name="arch" type="xml">
                 <xpath expr="//field[@name='driver_id']" position="attributes">
                     <attribute name="required">1</attribute>
+                    <attribute name="string">Client</attribute>
+                </xpath>
+                <xpath expr="//field[@name='driver_id']/parent::group" position="attributes">
+                    <attribute name="string">Client</attribute>
                 </xpath>
                 <xpath expr="//field[@name='vin_sn']" position="attributes">
                     <attribute name="required">1</attribute>
