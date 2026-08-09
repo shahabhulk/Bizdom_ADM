@@ -107,10 +107,10 @@ class BizdomCategoryLvl2(models.Model):
             else:
                 rec.employee_id = False
 
-    @api.depends('employee_id', 'category_lvl1_id')
+    @api.depends('employee_id', 'category_lvl1_id', 'category_lvl1_id.category_lvl1_selection')
     def _compute_department_id(self):
         for rec in self:
-            if rec.employee_id:
+            if rec.employee_id and rec.employee_id.department_id:
                 rec.department_id = rec.employee_id.department_id
             elif rec.category_lvl1_id and rec.category_lvl1_id.category_lvl1_selection:
                 if rec.category_lvl1_id.category_lvl1_selection._name == 'hr.department':
@@ -120,7 +120,7 @@ class BizdomCategoryLvl2(models.Model):
             else:
                 rec.department_id = False
 
-    @api.depends('category_lvl1_id')
+    @api.depends('category_lvl1_id', 'category_lvl1_id.category_lvl1_selection')
     def _compute_medium_id(self):
         for rec in self:
             if rec.category_lvl1_id and rec.category_lvl1_id.category_lvl1_selection:
@@ -290,72 +290,81 @@ class BizdomCategoryLvl2(models.Model):
                 records = self.env['crm.lead'].search(domain)
                 rec.score_category_lvl2 = len(records)
 
-            # Conversion score - employee-specific
+            # Conversion score - employee-specific / salesperson
             if rec.score_id.score_name == "Conversion":
-                if rec.category_lvl2_selection._name != 'hr.employee':
+                if not rec.category_lvl2_selection or rec.category_lvl2_selection._name not in ('hr.employee', 'res.users'):
                     continue
-                employee = rec.category_lvl2_selection
-                medium = rec.medium_id
-                if not medium:
+                sel = rec.category_lvl2_selection
+                salesperson_user = sel if sel._name == 'res.users' else (sel.user_id or self.env['res.users'].search([('name', '=ilike', sel.name)], limit=1))
+                medium = rec.medium_id or (rec.category_lvl1_id.category_lvl1_selection if rec.category_lvl1_id and rec.category_lvl1_id.category_lvl1_selection._name == 'utm.medium' else False)
+                if not medium or not salesperson_user:
                     continue
-                # Get the user_id (salesperson) from the employee
-                if not employee.user_id:
-                    continue
-                company_id = rec.score_id.company_id.id
+                company_id = rec.score_id.company_id.id if rec.score_id and rec.score_id.company_id else False
 
                 domain = [
-                    ('lead_date', '>=', rec.start_date),
-                    ('lead_date', '<=', rec.end_date),
                     ('stage_id.sequence', '=', 2),
                     ('medium_id', '=', medium.id),
-                    ('user_id', '=', employee.user_id.id),
-                    ('company_id', '=', company_id)
+                    ('user_id', '=', salesperson_user.id),
                 ]
+                if company_id:
+                    domain.append(('company_id', '=', company_id))
+                if rec.start_date:
+                    domain.append(('lead_date', '>=', rec.start_date))
+                if rec.end_date:
+                    domain.append(('lead_date', '<=', rec.end_date))
+
                 records = self.env['crm.lead'].search(domain)
                 rec.score_category_lvl2 = len(records)
 
-            # AOV score - employee-specific
+            # AOV score - employee-specific / brand-level
             if rec.score_id.score_name == "AOV":
                 if rec.category_lvl2_selection._name != 'fleet.vehicle.model.brand':
                     continue
                 brand = rec.category_lvl2_selection
+                dept = rec.department_id or (rec.category_lvl1_id.category_lvl1_selection if rec.category_lvl1_id and rec.category_lvl1_id.category_lvl1_selection._name == 'hr.department' else False)
 
                 car_domain = [
+                    '|',
                     ('invoice_id.fleet_repair_invoice_id.fleet_id', '=', brand.id),
-                    ('department_id', '=', rec.department_id.id),
-                    ('date', '>=', rec.start_date),
-                    ('date', '<=', rec.end_date),
+                    ('car_name_line', '=ilike', brand.name if hasattr(brand, 'name') else str(brand.id)),
                     ('invoice_id.payment_state', '=', 'paid')
                 ]
-                car_records  = self.env["department.charges"].search(car_domain)
-                total_car_sum = sum(car_records.mapped('charge_amount'))
+                if rec.start_date:
+                    car_domain.append(('date', '>=', rec.start_date))
+                if rec.end_date:
+                    car_domain.append(('date', '<=', rec.end_date))
+                if dept:
+                    car_domain.append(('department_id', '=', dept.id))
 
-                car_number_records = self.env['department.charges'].search([
-                    ('date', '>=', rec.start_date),
-                    ('date', '<=', rec.end_date),
-                    ('invoice_id.payment_state', '=', 'paid')
-                ])
-                total_cars = len(set(car_number_records.mapped('car_number')))
+                car_records = self.env["department.charges"].search(car_domain)
+                total_car_sum = sum(car_records.mapped('charge_amount'))
+                total_cars = len(set(car_records.mapped('car_number')))
 
                 rec.score_category_lvl2 = total_car_sum / total_cars if total_cars > 0 else 0.0
 
 
             # Parts Profit
-            if rec.score_id.score_name=="Parts Profit":
+            if rec.score_id.score_name == "Parts Profit":
                 if rec.category_lvl2_selection._name != 'fleet.vehicle.model.brand':
                     continue
                 brand = rec.category_lvl2_selection
+                dept = rec.department_id or (rec.category_lvl1_id.category_lvl1_selection if rec.category_lvl1_id and rec.category_lvl1_id.category_lvl1_selection._name == 'hr.department' else False)
 
                 car_domain = [
+                    '|',
                     ('invoice_id.fleet_repair_invoice_id.fleet_id', '=', brand.id),
-                    ('department_id', '=', rec.department_id.id),
-                    ('date', '>=', rec.start_date),
-                    ('date', '<=', rec.end_date),
+                    ('car_name_line', '=ilike', brand.name if hasattr(brand, 'name') else str(brand.id)),
                     ('invoice_id.payment_state', '=', 'paid')
                 ]
-                car_records = self.env["department.charges"].search(car_domain)
-                total_car_parts_margin= sum(car_records.mapped('parts_margin'))
+                if rec.start_date:
+                    car_domain.append(('date', '>=', rec.start_date))
+                if rec.end_date:
+                    car_domain.append(('date', '<=', rec.end_date))
+                if dept:
+                    car_domain.append(('department_id', '=', dept.id))
 
+                car_records = self.env["department.charges"].search(car_domain)
+                total_car_parts_margin = sum(car_records.mapped('parts_margin'))
                 rec.score_category_lvl2 = total_car_parts_margin
 
 
@@ -493,25 +502,27 @@ class BizdomCategoryLvl2(models.Model):
 
             # Conversion score with context dates
             if rec.score_id.score_name == "Conversion":
-                if rec.category_lvl2_selection._name != 'hr.employee':
+                if not rec.category_lvl2_selection or rec.category_lvl2_selection._name not in ('hr.employee', 'res.users'):
                     continue
-                employee = rec.category_lvl2_selection
-                medium = rec.medium_id
-                if not medium:
+                sel = rec.category_lvl2_selection
+                salesperson_user = sel if sel._name == 'res.users' else (sel.user_id or self.env['res.users'].search([('name', '=ilike', sel.name)], limit=1))
+                medium = rec.medium_id or (rec.category_lvl1_id.category_lvl1_selection if rec.category_lvl1_id and rec.category_lvl1_id.category_lvl1_selection._name == 'utm.medium' else False)
+                if not medium or not salesperson_user:
                     continue
-                # Get the user_id (salesperson) from the employee
-                if not employee.user_id:
-                    continue
-                company_id = self._context.get('company_id', rec.score_id.company_id.id)
+                company_id = self._context.get('company_id', rec.score_id.company_id.id if rec.score_id and rec.score_id.company_id else False)
 
                 domain = [
-                    ('lead_date', '>=', start_date),
-                    ('lead_date', '<=', end_date),
                     ('stage_id.sequence', '=', 2),
                     ('medium_id', '=', medium.id),
-                    ('user_id', '=', employee.user_id.id),
-                    ('company_id', '=', company_id)
+                    ('user_id', '=', salesperson_user.id),
                 ]
+                if company_id:
+                    domain.append(('company_id', '=', company_id))
+                if start_date:
+                    domain.append(('lead_date', '>=', start_date))
+                if end_date:
+                    domain.append(('lead_date', '<=', end_date))
+
                 records = self.env['crm.lead'].search(domain)
                 rec.context_score_category_lvl2 = len(records)
 
@@ -520,24 +531,24 @@ class BizdomCategoryLvl2(models.Model):
                 if rec.category_lvl2_selection._name != 'fleet.vehicle.model.brand':
                     continue
                 brand = rec.category_lvl2_selection
+                dept = rec.department_id or (rec.category_lvl1_id.category_lvl1_selection if rec.category_lvl1_id and rec.category_lvl1_id.category_lvl1_selection._name == 'hr.department' else False)
 
                 car_domain = [
+                    '|',
                     ('invoice_id.fleet_repair_invoice_id.fleet_id', '=', brand.id),
-                    ('department_id','=',rec.department_id.id),
-                    ('date', '>=', start_date),
-                    ('date', '<=', end_date),
+                    ('car_name_line', '=ilike', brand.name if hasattr(brand, 'name') else str(brand.id)),
                     ('invoice_id.payment_state', '=', 'paid')
                 ]
+                if start_date:
+                    car_domain.append(('date', '>=', start_date))
+                if end_date:
+                    car_domain.append(('date', '<=', end_date))
+                if dept:
+                    car_domain.append(('department_id', '=', dept.id))
+
                 car_records = self.env["department.charges"].search(car_domain)
                 total_car_sum = sum(car_records.mapped('charge_amount'))
-
-                car_number_records = self.env['department.charges'].search([
-                    ('date', '>=', start_date),
-                    ('date', '<=', end_date),
-                    ('invoice_id.payment_state', '=', 'paid')
-                ])
-
-                total_cars = len(set(car_number_records.mapped('car_number')))
+                total_cars = len(set(car_records.mapped('car_number')))
 
                 rec.context_score_category_lvl2 = total_car_sum / total_cars if total_cars > 0 else 0.0
 
@@ -546,14 +557,20 @@ class BizdomCategoryLvl2(models.Model):
                 if rec.category_lvl2_selection._name != 'fleet.vehicle.model.brand':
                     continue
                 brand = rec.category_lvl2_selection
+                dept = rec.department_id or (rec.category_lvl1_id.category_lvl1_selection if rec.category_lvl1_id and rec.category_lvl1_id.category_lvl1_selection._name == 'hr.department' else False)
 
                 car_domain = [
+                    '|',
                     ('invoice_id.fleet_repair_invoice_id.fleet_id', '=', brand.id),
-                    ('department_id', '=', rec.department_id.id),
-                    ('date', '>=', start_date),
-                    ('date', '<=', end_date),
+                    ('car_name_line', '=ilike', brand.name if hasattr(brand, 'name') else str(brand.id)),
                     ('invoice_id.payment_state', '=', 'paid')
                 ]
+                if start_date:
+                    car_domain.append(('date', '>=', start_date))
+                if end_date:
+                    car_domain.append(('date', '<=', end_date))
+                if dept:
+                    car_domain.append(('department_id', '=', dept.id))
 
                 car_records = self.env["department.charges"].search(car_domain)
                 total_car_parts_margin = sum(car_records.mapped('parts_margin'))

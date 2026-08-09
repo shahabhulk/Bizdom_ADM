@@ -59,12 +59,22 @@ class Q3Helpers:
                           r.category_lvl2_selection._name == selection_type
             )
 
-        # For Labour/TAT: filter by department_id
-        # For Leads/Conversion: filter by medium_id
+        # For Labour/TAT/AOV: filter by department_id (with fallback to category_lvl1 selection)
+        # For Leads/Conversion: filter by medium_id (with fallback to category_lvl1 selection)
         if score_record.score_name in ["Leads", "Conversion"]:
-            filtered_records = filtered_records.filtered(lambda r: r.medium_id and r.medium_id.id == dept_id)
+            filtered_records = filtered_records.filtered(
+                lambda r: (r.medium_id and r.medium_id.id == dept_id) or
+                          (r.category_lvl1_id and r.category_lvl1_id.category_lvl1_selection and
+                           r.category_lvl1_id.category_lvl1_selection._name == 'utm.medium' and
+                           r.category_lvl1_id.category_lvl1_selection.id == dept_id)
+            )
         else:
-            filtered_records = filtered_records.filtered(lambda r: r.department_id and r.department_id.id == dept_id)
+            filtered_records = filtered_records.filtered(
+                lambda r: (r.department_id and r.department_id.id == dept_id) or
+                          (r.category_lvl1_id and r.category_lvl1_id.category_lvl1_selection and
+                           r.category_lvl1_id.category_lvl1_selection._name == 'hr.department' and
+                           r.category_lvl1_id.category_lvl1_selection.id == dept_id)
+            )
 
         # Group by unique employee/source
         seen_ids = set()
@@ -147,15 +157,18 @@ class Q3Helpers:
             elif score_record.score_name == "Conversion":
                 # Calculate quality leads (stage_id.sequence in [1, 2]) and converted (stage_id.sequence = 2)
                 lead_model = category_lvl2_records.env['crm.lead'].sudo()
-                employee = selection_obj if selection_obj._name == 'hr.employee' else None
+                salesperson_user = selection_obj if selection_obj._name == 'res.users' else (
+                    selection_obj.user_id or category_lvl2_records.env['res.users'].sudo().search([('name', '=ilike', selection_obj.name)], limit=1)
+                    if selection_obj._name == 'hr.employee' else None
+                )
 
-                if employee and employee.user_id:
+                if salesperson_user:
                     all_leads = lead_model.search_count([
                         ('lead_date', '>=', start_date),
                         ('lead_date', '<=', end_date),
                         ('stage_id.sequence', 'in', [1, 2]),
                         ('medium_id', '=', dept_id),
-                        ('user_id', '=', employee.user_id.id),
+                        ('user_id', '=', salesperson_user.id),
                         ('company_id', '=', user.company_id.id if hasattr(user, 'company_id') else None)
                     ])
                     converted_leads = lead_model.search_count([
@@ -163,7 +176,7 @@ class Q3Helpers:
                         ('lead_date', '<=', end_date),
                         ('stage_id.sequence', '=', 2),
                         ('medium_id', '=', dept_id),
-                        ('user_id', '=', employee.user_id.id),
+                        ('user_id', '=', salesperson_user.id),
                         ('company_id', '=', user.company_id.id if hasattr(user, 'company_id') else None)
                     ])
                     emp_data['quality_lead_value'] = all_leads
