@@ -1223,6 +1223,19 @@ class ServiceType(models.Model):
     _description = "Service Type"
 
     name = fields.Char(string='Name')
+    department_id = fields.Many2one(
+        'hr.department',
+        string='Department',
+        domain="[('model_ids.model', '=', 'service.type')]"
+    )
+
+    def write(self, vals):
+        res = super().write(vals)
+        if 'department_id' in vals:
+            for rec in self:
+                lines = self.env['service.detail.line'].search([('service_type', '=', rec.id)])
+                lines.write({'department_id': rec.department_id.id})
+        return res
 
 
 class FleetRepairLine(models.Model):
@@ -1346,7 +1359,12 @@ class FleetRepairProductLine(models.Model):
         string='On-Hand',
         compute='_compute_onhand_qty',
     )
-    department_id = fields.Many2one('hr.department', string='Department', required=True)
+    department_id = fields.Many2one(
+        'hr.department',
+        string='Department',
+        required=True,
+        domain="[('model_ids.model', '=', 'fleet.repair.product.line')]"
+    )
     uom_id = fields.Many2one('uom.uom', string='Unit of Measure')
     unit_price = fields.Float(string='Unit Price')
     subtotal = fields.Monetary(string='Subtotal', compute='_compute_subtotal', store=True)
@@ -1506,6 +1524,8 @@ class FleetRepairProductLine(models.Model):
                 line.name = product.name
                 line.unit_price = product.list_price
                 line.uom_id = product.uom_id
+                if product.department_id:
+                    line.department_id = product.department_id
             else:
                 line.product_id = False
                 line.name = False
@@ -1549,11 +1569,35 @@ class FleetRepairProductLine(models.Model):
                 line.unit_price = product.list_price
                 line.uom_id = product.uom_id
                 line.item_code_id = product
+                if product.department_id:
+                    line.department_id = product.department_id
             else:
                 line.item_code_id = False
                 line.name = False
                 line.unit_price = 0.0
                 line.uom_id = False
+
+    @api.onchange('department_id')
+    def _onchange_department_id_update_product(self):
+        for line in self:
+            if line.product_id and line.department_id and line.product_id.department_id != line.department_id:
+                line.product_id.department_id = line.department_id
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        lines = super().create(vals_list)
+        for line in lines:
+            if line.product_id and line.department_id and line.product_id.department_id != line.department_id:
+                line.product_id.sudo().write({'department_id': line.department_id.id})
+        return lines
+
+    def write(self, vals):
+        res = super().write(vals)
+        if 'department_id' in vals:
+            for line in self:
+                if line.product_id and line.department_id and line.product_id.department_id != line.department_id:
+                    line.product_id.sudo().write({'department_id': line.department_id.id})
+        return res
 
     @api.constrains('product_id')
     def _check_product_line_product(self):
@@ -1566,8 +1610,6 @@ class FleetRepairProductLine(models.Model):
                 raise ValidationError(error)
 
 
-
-
 class FleetRepairServiceLine(models.Model):
     _name = 'fleet.repair.service.line'
     _description = 'Fleet Repair Service Line'
@@ -1576,7 +1618,12 @@ class FleetRepairServiceLine(models.Model):
     product_id = fields.Many2one('product.product', domain=[('type', '=', 'service')], string='Service')
     name = fields.Text(string='Description')
     quantity = fields.Float(string='Quantity', default=1.0)
-    department_id = fields.Many2one('hr.department', string='Department', required=True)
+    department_id = fields.Many2one(
+        'hr.department',
+        string='Department',
+        required=True,
+        domain="[('model_ids.model', '=', 'fleet.repair.service.line')]"
+    )
     employee_id = fields.Many2one(
         'hr.employee',
         string='Employee',
@@ -1601,27 +1648,75 @@ class FleetRepairServiceLine(models.Model):
                 line.name = product.name
                 line.unit_price = product.list_price
                 line.uom_id = product.uom_id
+                if product.department_id:
+                    line.department_id = product.department_id
             else:
                 line.name = False
                 line.unit_price = 0.0
                 line.uom_id = False
+
+    @api.onchange('department_id')
+    def _onchange_department_id_update_product(self):
+        for line in self:
+            if line.product_id and line.department_id and line.product_id.department_id != line.department_id:
+                line.product_id.department_id = line.department_id
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        lines = super().create(vals_list)
+        for line in lines:
+            if line.product_id and line.department_id and line.product_id.department_id != line.department_id:
+                line.product_id.sudo().write({'department_id': line.department_id.id})
+        return lines
+
+    def write(self, vals):
+        res = super().write(vals)
+        if 'department_id' in vals:
+            for line in self:
+                if line.product_id and line.department_id and line.product_id.department_id != line.department_id:
+                    line.product_id.sudo().write({'department_id': line.department_id.id})
+        return res
 
 
 class ServiceDetailLine(models.Model):
     _name = 'service.detail.line'
     _description = 'Service Detail Line'
 
-    service_type = fields.Many2one('service.type', string='Nature of Service')
+    service_type = fields.Many2one('service.type', string='Repair Details')
+    department_id = fields.Many2one(
+        'hr.department',
+        string='Department',
+        domain="[('model_ids.model', '=', 'service.type')]",
+        store=True,
+        readonly=False
+    )
     service_detail_id = fields.Many2one('fleet.repair', string='Car.', copy=False)
     service_detail = fields.Text(string='Repair Details')
 
-    @api.model
-    def create(self, vals):
-        if 'service_detail_id' in vals:
-            repair = self.env['fleet.repair'].browse(vals['service_detail_id'])
-            if len(repair.service_detail_line) >= 10:
-                raise ValidationError("You can't enter more than 10 repair details.")
-        return super().create(vals)
+    @api.onchange('service_type')
+    def _onchange_service_type(self):
+        for line in self:
+            if line.service_type and line.service_type.department_id:
+                line.department_id = line.service_type.department_id
+
+    @api.onchange('department_id')
+    def _onchange_department_id_update_service_type(self):
+        for line in self:
+            if line.service_type and line.department_id and line.service_type.department_id != line.department_id:
+                line.service_type.department_id = line.department_id
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        for vals in vals_list:
+            if 'service_detail_id' in vals:
+                repair = self.env['fleet.repair'].browse(vals['service_detail_id'])
+                if len(repair.service_detail_line) >= 10:
+                    raise ValidationError("You can't enter more than 10 repair details.")
+        lines = super().create(vals_list)
+        for line in lines:
+            if line.service_type and line.department_id and line.service_type.department_id != line.department_id:
+                line.service_type.sudo().write({'department_id': line.department_id.id})
+        return lines
 
     def write(self, vals):
         if 'receipt_date' in vals and not self.env.context.get('skip_receipt_date_check'):
@@ -1634,6 +1729,8 @@ class ServiceDetailLine(models.Model):
         for rec in self:
             if rec.service_detail_id and len(rec.service_detail_id.service_detail_line) > 10:
                 raise ValidationError("You can't enter more than 10 repair details.")
+            if 'department_id' in vals and rec.service_type and rec.department_id and rec.service_type.department_id != rec.department_id:
+                rec.service_type.sudo().write({'department_id': rec.department_id.id})
         return res
 
 

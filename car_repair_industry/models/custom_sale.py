@@ -339,10 +339,18 @@ class AccountInvoiceLine(models.Model):
 
 
 
+    @api.onchange('product_id')
+    def _onchange_product_id_department(self):
+        for line in self:
+            if line.product_id and line.product_id.department_id:
+                line.department_id = line.product_id.department_id
+
     @api.onchange('department_id')
     def _onchange_department_id(self):
         if self.employee_id and self.employee_id.department_id != self.department_id:
             self.employee_id = False
+        if self.product_id and self.department_id and self.product_id.department_id != self.department_id:
+            self.product_id.department_id = self.department_id
 
     @api.onchange('employee_id')
     def _onchange_employee_id(self):

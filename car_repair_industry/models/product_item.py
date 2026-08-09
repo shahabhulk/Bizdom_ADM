@@ -1,10 +1,30 @@
 from odoo import models, fields, api
 
 
+class ProductCategory(models.Model):
+    _inherit = 'product.category'
+
+    model_ids = fields.Many2many(
+        'ir.model',
+        string='Models',
+        help="Models associated with this category for filtering."
+    )
+
+
 class ProductTemplate(models.Model):
     _inherit = 'product.template'
 
     item_code = fields.Char(string="Item Code")
+    department_id = fields.Many2one(
+        'hr.department',
+        string="Department",
+        domain="[('model_ids.model', '=', 'product.template')]"
+    )
+    categ_id = fields.Many2one(
+        'product.category',
+        string="Product Category",
+        domain="[('model_ids.model', '=', 'product.template')]"
+    )
 
     @api.model
     def default_get(self, fields_list):
@@ -52,6 +72,14 @@ class ProductProduct(models.Model):
         related='product_tmpl_id.item_code',
         store=True,
         readonly=False
+    )
+    department_id = fields.Many2one(
+        'hr.department',
+        string="Department",
+        related='product_tmpl_id.department_id',
+        store=True,
+        readonly=False,
+        domain="[('model_ids.model', '=', 'product.template')]"
     )
 
     @api.model
