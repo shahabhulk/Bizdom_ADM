@@ -1,9 +1,9 @@
+import logging
 from . import models
 from . import controllers
 from odoo import api, SUPERUSER_ID
 
-
-
+_logger = logging.getLogger(__name__)
 
 
 def post_init_rebuild_labour(env):
@@ -45,15 +45,15 @@ def post_init_add_performance_indexes(env):
                 WHERE indexname = %s
             """, (index_name,))
             if cr.fetchone():
-                env.logger.info(f"Index {index_name} already exists, skipping")
+                _logger.info(f"Index {index_name} already exists, skipping")
                 return
             
             # Create the index
             cr.execute(create_sql)
-            env.logger.info(f"Created index: {index_name}")
+            _logger.info(f"Created index: {index_name}")
         except Exception as e:
             # If index creation fails, log warning but continue
-            env.logger.warning(f"Could not create {index_name}: {e}")
+            _logger.warning(f"Could not create {index_name}: {e}")
     
     # 1. Indexes for labour.billing - Used in Labour and AOV scores
     create_index_if_not_exists(
@@ -111,4 +111,4 @@ def post_init_add_performance_indexes(env):
         "CREATE INDEX idx_bizdom_score_pillar_company_fav ON bizdom_score(pillar_id, company_id, favorite)"
     )
     
-    env.logger.info("Performance indexes creation completed")
+    _logger.info("Performance indexes creation completed")
