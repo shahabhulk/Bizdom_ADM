@@ -34,7 +34,14 @@ jobs:
             echo "=========================================="
             
             cd /home/bitnami/Bizdom_ADM_new
-            git fetch origin "$TARGET_BRANCH"
+            git fetch origin
+            if ! git rev-parse --verify "origin/$TARGET_BRANCH" &> /dev/null; then
+              echo "=========================================="
+              echo "ERROR: Branch '$TARGET_BRANCH' does not exist on remote origin!"
+              echo "Please check the branch name and verify it is pushed to GitHub."
+              echo "=========================================="
+              exit 1
+            fi
             git checkout -B "$TARGET_BRANCH" "origin/$TARGET_BRANCH"
             git reset --hard "origin/$TARGET_BRANCH"
             
