@@ -13,6 +13,8 @@
         'views/pillar_views.xml',
         'views/labour_billing.xml',
         'views/department_charges.xml',
+        'views/department_views.xml',
+
         'views/feedback_data.xml',
         'views/timesheet_data.xml',
         # 'wizard/productivity_wizard_views.xml'

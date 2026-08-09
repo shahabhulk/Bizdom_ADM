@@ -140,8 +140,8 @@
                                 <separator string="Repair Details"/>
                                 <field name="service_detail_line" readonly="state != 'draft'" widget="one2many_list">
                                     <list editable="bottom">
-                                        <field name="service_detail"/>
-                                        <field name="service_type"/>
+                                        <field name="service_type" string="Repair Details"/>
+                                        <field name="department_id" string="Department" options="{'no_create': True, 'no_create_edit': True}"/>
                                     </list>
                                 </field>
                                 <separator string="Parts"/>
@@ -375,6 +375,7 @@
                         <group>
                             <group>
                                 <field name="name"/>
+                                <field name="department_id" options="{'no_create': True}"/>
                             </group>
                         </group>
                     </sheet>
@@ -388,6 +389,7 @@
             <field name="arch" type="xml">
                 <list string="Service Type">
                     <field name="name"/>
+                    <field name="department_id" optional="show"/>
                 </list>
             </field>
         </record>

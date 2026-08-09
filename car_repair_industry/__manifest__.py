@@ -167,6 +167,7 @@ automotive workshop management software
         'views/fleet_workorder_sequence.xml',
         'views/fleet_workorder_view.xml',
         'views/hr_expense_sheet_views.xml',
+
         'views/custom_sale_view.xml',
         'views/calendar_event_view.xml',
         'views/appointment_slots_views.xml',

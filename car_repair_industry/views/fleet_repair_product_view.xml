@@ -11,12 +11,14 @@
             </xpath>
             <xpath expr="//field[@name='categ_id']" position="attributes">
                 <attribute name="required">1</attribute>
+                <attribute name="domain">[('model_ids.model', '=', 'product.template')]</attribute>
             </xpath>
             <xpath expr="//div[@class='d-flex']" position="after">
                 <div style="font-size: 20px; margin-top: 10px;">
                     <group>
                         <group>
                             <field name="item_code"/>
+                            <field name="department_id" options="{'no_create': True}"/>
                         </group>
                     </group>
                 </div>
@@ -35,15 +37,29 @@
             </xpath>
             <xpath expr="//field[@name='categ_id']" position="attributes">
                 <attribute name="required">1</attribute>
+                <attribute name="domain">[('model_ids.model', '=', 'product.template')]</attribute>
             </xpath>
             <xpath expr="//div[@class='d-flex']" position="after">
                 <div style="font-size: 20px; margin-top: 10px;">
                     <group>
                         <group>
                             <field name="item_code"/>
+                            <field name="department_id" options="{'no_create': True}"/>
                         </group>
                     </group>
                 </div>
+            </xpath>
+        </field>
+    </record>
+
+
+    <record id="product_category_form_view_inherit_model_ids" model="ir.ui.view">
+        <field name="name">product.category.form.inherit.model_ids</field>
+        <field name="model">product.category</field>
+        <field name="inherit_id" ref="product.product_category_form_view"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='parent_id']" position="after">
+                <field name="model_ids" widget="many2many_tags" string="Models" options="{'no_create': True}"/>
             </xpath>
         </field>
     </record>

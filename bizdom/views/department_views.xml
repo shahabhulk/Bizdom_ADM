@@ -5,8 +5,8 @@
         <field name="model">hr.department</field>
         <field name="inherit_id" ref="hr.view_department_form"/>
         <field name="arch" type="xml">
-            <xpath expr="//field[@name='name']" position="after">
-                <field name="pillar_id"/>
+            <xpath expr="//field[@name='parent_id']" position="after">
+                <field name="model_ids" widget="many2many_tags" string="Models" options="{'no_create': True}"/>
             </xpath>
         </field>
     </record>

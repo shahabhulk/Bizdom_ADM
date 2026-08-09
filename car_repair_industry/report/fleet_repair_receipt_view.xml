@@ -157,7 +157,7 @@
                                     <t t-esc="line_index + 1"/>.
                                 </td>
                                 <td style="padding:1px; text-align:left;">
-                                    <t t-esc="line.service_detail"/>
+                                    <t t-esc="line.service_type.name or line.service_detail"/>
                                 </td>
                                 <td style="text-align:left;width:50%">
                                     <span style="font-family: DejaVu Sans; font-size: 20px;">☐</span>
