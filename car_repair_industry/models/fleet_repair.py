@@ -1825,6 +1825,72 @@ class FleetVehicle(models.Model):
             else:
                 super()._compute_display_name()
 
+    @api.model
+    def _get_latest_vehicle_ids(self, driver_id=None):
+        """
+        Returns IDs of fleet.vehicle records with the latest registration date
+        (acquisition_date DESC NULLS LAST, create_date DESC, id DESC) for each license plate,
+        optionally filtered by driver_id.
+        """
+        query = """
+            SELECT DISTINCT ON (LOWER(TRIM(license_plate))) id
+            FROM fleet_vehicle
+            WHERE license_plate IS NOT NULL AND TRIM(license_plate) != ''
+        """
+        params = []
+        if driver_id:
+            query += " AND driver_id = %s"
+            params.append(driver_id)
+
+        query += " ORDER BY LOWER(TRIM(license_plate)), acquisition_date DESC NULLS LAST, create_date DESC, id DESC"
+
+        self.env.cr.execute(query, params)
+        latest_ids = [r[0] for r in self.env.cr.fetchall()]
+
+        where_clause = "WHERE (license_plate IS NULL OR TRIM(license_plate) = '')"
+        if driver_id:
+            where_clause += " AND driver_id = %s"
+            self.env.cr.execute(f"SELECT id FROM fleet_vehicle {where_clause}", [driver_id])
+        else:
+            self.env.cr.execute(f"SELECT id FROM fleet_vehicle {where_clause}")
+        no_plate_ids = [r[0] for r in self.env.cr.fetchall()]
+
+        return list(set(latest_ids + no_plate_ids))
+
+    @api.model
+    def _name_search(self, name='', domain=None, operator='ilike', limit=100, order=None):
+        domain = list(domain or [])
+        driver_id = False
+        for leaf in domain:
+            if isinstance(leaf, (list, tuple)) and len(leaf) == 3 and leaf[0] == 'driver_id' and leaf[1] == '=':
+                driver_id = leaf[2]
+                break
+
+        if not driver_id and self._context.get('default_driver_id'):
+            driver_id = self._context.get('default_driver_id')
+
+        latest_ids = self._get_latest_vehicle_ids(driver_id=driver_id)
+        domain.append(('id', 'in', latest_ids))
+
+        return super()._name_search(name=name, domain=domain, operator=operator, limit=limit, order=order)
+
+    @api.model
+    def name_search(self, name='', args=None, operator='ilike', limit=100):
+        args = list(args or [])
+        driver_id = False
+        for leaf in args:
+            if isinstance(leaf, (list, tuple)) and len(leaf) == 3 and leaf[0] == 'driver_id' and leaf[1] == '=':
+                driver_id = leaf[2]
+                break
+
+        if not driver_id and self._context.get('default_driver_id'):
+            driver_id = self._context.get('default_driver_id')
+
+        latest_ids = self._get_latest_vehicle_ids(driver_id=driver_id)
+        args.append(('id', 'in', latest_ids))
+
+        return super().name_search(name=name, args=args, operator=operator, limit=limit)
+
 
 
 class FleetVehicleModel(models.Model):

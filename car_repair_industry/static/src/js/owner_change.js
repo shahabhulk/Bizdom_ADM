@@ -70,16 +70,21 @@ Do you want to create a new ownership record?`,
     cancelLabel: "No",
 
     confirm: async () => {
-           const newVehicle = await this.orm.call(
-        "fleet.repair",
-        "create_new_owner",
-        [
-            result.vehicle_id,
-            record.data.client_id[0],
-        ]
-    );
+        const newVehicle = await this.orm.call(
+            "fleet.repair",
+            "create_new_owner",
+            [
+                result.vehicle_id,
+                record.data.client_id[0],
+            ]
+        );
 
-    console.log("Created vehicle:", newVehicle);
+        console.log("Created vehicle:", newVehicle);
+        if (newVehicle && newVehicle.vehicle_id) {
+            await record.update({
+                license_plate: [newVehicle.vehicle_id, record.data.license_plate ? record.data.license_plate[1] : ""],
+            });
+        }
     },
 
     cancel: () => {
