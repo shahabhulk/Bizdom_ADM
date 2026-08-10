@@ -112,10 +112,10 @@
                                 <group string="Car Info">
                                     <group>
                                         <field name="license_plate" required="1" context="{'default_model_id': model_name, 'default_vin_sn': vin_sn, 'default_driver_id': client_id, 'default_odometer': kilometers_num}"/>
-                                        <field name="fleet_id" string="Car" required="1"/>
+                                        <field name="fleet_id" string="Car" required="1" readonly="1" force_save="1"/>
                                     </group>
                                     <group>
-                                        <field name="model_name" required="1"/>
+                                        <field name="model_name" required="1" readonly="1" force_save="1"/>
                                         <field name="vin_sn" required="1"/>
                                         <field name="kilometers_num" string="KMS" required="1"/>
                                     </group>
