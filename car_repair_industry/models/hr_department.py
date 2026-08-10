@@ -11,4 +11,12 @@ class HrDepartment(models.Model):
         help="Models associated with this department for filtering in job cards and other forms."
     )
 
-    
+
+class HrEmployee(models.Model):
+    _inherit = 'hr.employee'
+
+    department_id = fields.Many2one(
+        'hr.department',
+        string='Department',
+        domain="[('model_ids.model', '=', 'hr.employee')]"
+    )
