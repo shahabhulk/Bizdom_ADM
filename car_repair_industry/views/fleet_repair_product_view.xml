@@ -11,7 +11,7 @@
             </xpath>
             <xpath expr="//field[@name='categ_id']" position="attributes">
                 <attribute name="required">1</attribute>
-                <attribute name="domain">[('model_ids.model', '=', 'product.template')]</attribute>
+                <attribute name="domain">[('department_ids', 'in', department_id)]</attribute>
             </xpath>
             <xpath expr="//div[@class='d-flex']" position="after">
                 <div style="font-size: 20px; margin-top: 10px;">
@@ -37,7 +37,7 @@
             </xpath>
             <xpath expr="//field[@name='categ_id']" position="attributes">
                 <attribute name="required">1</attribute>
-                <attribute name="domain">[('model_ids.model', '=', 'product.template')]</attribute>
+                <attribute name="domain">[('department_ids', 'in', department_id)]</attribute>
             </xpath>
             <xpath expr="//div[@class='d-flex']" position="after">
                 <div style="font-size: 20px; margin-top: 10px;">
@@ -59,6 +59,7 @@
         <field name="inherit_id" ref="product.product_category_form_view"/>
         <field name="arch" type="xml">
             <xpath expr="//field[@name='parent_id']" position="after">
+                <field name="department_ids" widget="many2many_tags" options="{'no_create': True}"/>
                 <field name="model_ids" widget="many2many_tags" string="Models" options="{'no_create': True}"/>
             </xpath>
         </field>
