@@ -9,6 +9,11 @@ class ProductCategory(models.Model):
         string='Models',
         help="Models associated with this category for filtering."
     )
+    department_ids = fields.Many2many(
+        'hr.department',
+        string="Departments",
+        domain="[('model_ids.model', '=', 'product.category')]"
+    )
 
 
 class ProductTemplate(models.Model):
@@ -23,13 +28,37 @@ class ProductTemplate(models.Model):
     categ_id = fields.Many2one(
         'product.category',
         string="Product Category",
-        domain="[('model_ids.model', '=', 'product.template')]"
+        domain="[('department_ids', 'in', department_id)]",
+        default=False
     )
+
+    @api.onchange('department_id')
+    def _onchange_department_id(self):
+        if self.department_id:
+            if self.categ_id and self.categ_id.department_ids and self.department_id not in self.categ_id.department_ids:
+                self.categ_id = False
+            return {
+                'domain': {
+                    'categ_id': [('department_ids', 'in', self.department_id.id)]
+                }
+            }
+        else:
+            return {
+                'domain': {
+                    'categ_id': []
+                }
+            }
+
+    @api.onchange('categ_id')
+    def _onchange_categ_id(self):
+        if self.categ_id and self.categ_id.department_ids and not self.department_id:
+            if len(self.categ_id.department_ids) == 1:
+                self.department_id = self.categ_id.department_ids[0]
 
     @api.model
     def default_get(self, fields_list):
         res = super().default_get(fields_list)
-        if 'default_categ_id' in self._context and not self._context.get('default_categ_id'):
+        if 'categ_id' in fields_list and not self._context.get('default_categ_id'):
             res['categ_id'] = False
         return res
 
@@ -85,7 +114,7 @@ class ProductProduct(models.Model):
     @api.model
     def default_get(self, fields_list):
         res = super().default_get(fields_list)
-        if 'default_categ_id' in self._context and not self._context.get('default_categ_id'):
+        if 'categ_id' in fields_list and not self._context.get('default_categ_id'):
             res['categ_id'] = False
         return res
 
