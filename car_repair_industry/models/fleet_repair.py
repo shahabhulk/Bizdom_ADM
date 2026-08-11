@@ -826,6 +826,12 @@ class FleetRepair(models.Model):
             'res_id': invoice.id,
         }
 
+    def action_recompute_all_parts_costs(self):
+        """Manually trigger cost price and margin recomputation for all parts lines on this job card."""
+        for repair in self:
+            repair.product_line_ids.action_recompute_cost_and_margin()
+        return True
+
     @api.depends('sequence')
     def _compute_job_card_display(self):
         for rec in self:

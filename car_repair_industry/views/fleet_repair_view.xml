@@ -12,6 +12,8 @@
                                 class="btn-primary"/>
                         <button name="action_create_invoice_fleet" type="object" string="Create Invoice"
                                 class="btn-primary"/>
+                        <button name="action_recompute_all_parts_costs" type="object" string="Recalculate Purchase Costs"
+                                class="btn-secondary"/>
                         <!--                        <button name="%(sale.action_orders)d" type="action" string="Quotation" class="oe_stat_button"-->
                         <!--                                icon="fa-file-text-o">-->
                         <!--                            <field name="sale_order_id" widget="statinfo"/>-->
