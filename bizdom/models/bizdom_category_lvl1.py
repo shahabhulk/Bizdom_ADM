@@ -313,7 +313,7 @@ class BizdomCategoryLvl1(models.Model):
                 if department._name != 'hr.department':
                     continue
                 domain = [
-                    ('department_id', '=', department.id),
+                    ('department_id', 'child_of', department.id),
                     ('date', '>=', start_date),
                     ('date', '<=', end_date),
                     ('move_id.move_type', 'in', ['out_invoice', 'out_refund']),  # Customer invoices and refunds
@@ -331,7 +331,7 @@ class BizdomCategoryLvl1(models.Model):
                     continue
 
                 expense_bills = [
-                    ('department_id', '=', department.id),
+                    ('department_id', 'child_of', department.id),
                     ('date', '>=', start_date),
                     ('date', '<=', end_date),
                     ('company_id', '=', rec.score_id.company_id.id),
@@ -595,7 +595,7 @@ class BizdomCategoryLvl1(models.Model):
                 if department._name != 'hr.department':
                     continue
                 domain = [
-                    ('department_id', '=', department.id),
+                    ('department_id', 'child_of', department.id),
                     ('date', '>=', rec.start_date),
                     ('date', '<=', rec.end_date),
                     ('move_id.move_type', 'in', ['out_invoice', 'out_refund']),  # Customer invoices and refunds
@@ -614,7 +614,7 @@ class BizdomCategoryLvl1(models.Model):
                     continue
 
                 expense_bills = [
-                    ('department_id', '=', department.id),
+                    ('department_id', 'child_of', department.id),
                     ('company_id', '=', rec.score_id.company_id.id),
                     ('date', '>=', rec.start_date),
                     ('date', '<=', rec.end_date),

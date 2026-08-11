@@ -1380,7 +1380,7 @@ class BizdomScoreLine(models.Model):
             elif rec.score_id.pillar_id.name == "Finance":
                 if rec.score_id.score_name == "Income":
                     domain = [
-                        ('department_id', '=', rec.department_id.id),
+                        ('department_id', 'child_of', rec.department_id.id),
                         ('move_id.move_type', 'in', ['out_invoice', 'out_refund']),  # Customer invoices and refunds
                         ('move_id.state', 'in', ['posted']),  # Only posted invoices
                         ('move_id.payment_state', '=', 'paid'),  # Only paid invoices
@@ -1395,7 +1395,7 @@ class BizdomScoreLine(models.Model):
                     rec.score_value = -sum(records.mapped('balance'))
                 elif rec.score_id.score_name == "Expense":
                     domain = [
-                        ('department_id', '=', rec.department_id.id),
+                        ('department_id', 'child_of', rec.department_id.id),
                         ('move_id.move_type', 'in', ['in_invoice', 'in_refund']),  # Vendor bills and refunds
                         ('move_id.state', 'in', ['posted']),  # Include both draft and posted
                         ('move_id.payment_state', '=', 'paid'),

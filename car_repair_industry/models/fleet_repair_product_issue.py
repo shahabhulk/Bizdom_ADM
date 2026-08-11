@@ -857,6 +857,9 @@ class FleetRepairProductLineIssue(models.Model):
                 continue
             svl = item.get('svl')
             unit_cost_product = item['unit_cost']
+            if float_is_zero(unit_cost_product, precision_rounding=0.0001):
+                fallback_cost, _v_id, _v_name = self._get_latest_purchase_cost_and_vendor()
+                unit_cost_product = self._convert_qty(fallback_cost, line_uom, product.uom_id)
             unit_cost_line = self._convert_qty(unit_cost_product, product.uom_id, line_uom)
             qty_line = product.uom_id._compute_quantity(consumed_qty, line_uom)
             vendor = item.get('vendor') or self._resolve_vendor_for_fifo_batch(
@@ -898,6 +901,11 @@ class FleetRepairProductLineIssue(models.Model):
                 continue
             consumed_value = value_before - svl.remaining_value
             unit_cost_product = abs(consumed_value / consumed_qty) if consumed_qty else 0.0
+            if float_is_zero(unit_cost_product, precision_rounding=0.0001) and svl.unit_cost:
+                unit_cost_product = abs(svl.unit_cost)
+            if float_is_zero(unit_cost_product, precision_rounding=0.0001):
+                fallback_cost, _v_id, _v_name = self._get_latest_purchase_cost_and_vendor()
+                unit_cost_product = self._convert_qty(fallback_cost, line_uom, product.uom_id)
             unit_cost_line = self._convert_qty(unit_cost_product, product.uom_id, line_uom)
             qty_line = product.uom_id._compute_quantity(consumed_qty, line_uom)
             vendor = self._resolve_vendor_for_fifo_batch(svl, unit_cost_product)
@@ -931,6 +939,10 @@ class FleetRepairProductLineIssue(models.Model):
         )
         po_line = self._get_last_purchase_order_line()
         po_vendor = po_line.order_id.partner_id if po_line else self.env['res.partner']
+        if float_is_zero(fifo_unit_cost, precision_rounding=0.0001):
+            fifo_unit_cost, fallback_vendor_id, fallback_vendor_name = self._get_latest_purchase_cost_and_vendor()
+            if fallback_vendor_id and not po_vendor:
+                po_vendor = self.env['res.partner'].browse(fallback_vendor_id)
         return self.env['fleet.repair.product.line.cost'].create({
             'repair_line_id': self.id,
             'picking_id': picking.id,
@@ -982,7 +994,7 @@ class FleetRepairProductLineIssue(models.Model):
     def _update_fallback_cost_lines_from_latest_purchase(self):
         for line in self:
             fallback_cost_lines = line.issue_cost_line_ids.filtered(
-                lambda cl: cl.is_fallback or not cl.svl_source_id
+                lambda cl: cl.is_fallback or not cl.svl_source_id or float_is_zero(cl.unit_cost, precision_rounding=0.0001)
             )
             if not fallback_cost_lines:
                 continue
@@ -1004,6 +1016,9 @@ class FleetRepairProductLineIssue(models.Model):
             unit_cost, _vendor_id, _vendor_name = self._get_latest_purchase_cost_and_vendor()
             return unit_cost
         total_value = sum(line.quantity * line.unit_cost for line in cost_lines)
+        if float_is_zero(total_value, precision_rounding=0.0001):
+            unit_cost, _vendor_id, _vendor_name = self._get_latest_purchase_cost_and_vendor()
+            return unit_cost
         return total_value / total_qty
 
     def _reverse_issue_cost_lines(self, qty_line_uom):
@@ -1300,7 +1315,7 @@ class FleetRepairProductLineIssue(models.Model):
             write_vals['quantity'] = new_quantity
 
         if float_is_zero(new_qty_issued, precision_rounding=rounding):
-            write_vals['cost_price'] = 0.0
+            write_vals['cost_price'] = self._recompute_cost_price_from_cost_lines()
 
         self.with_context(skip_auto_stock_sync=True).write(write_vals)
         self._refresh_stock_qty_cache()
