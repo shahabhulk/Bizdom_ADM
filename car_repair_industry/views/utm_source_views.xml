@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="utm_source_view_tree_inherit" model="ir.ui.view">
+        <field name="name">utm.source.view.list.inherit</field>
+        <field name="model">utm.source</field>
+        <field name="inherit_id" ref="utm.utm_source_view_tree"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='name']" position="after">
+                <field name="medium_id"/>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="utm_source_view_form_inherit" model="ir.ui.view">
+        <field name="name">utm.source.view.form.inherit</field>
+        <field name="model">utm.source</field>
+        <field name="inherit_id" ref="utm.utm_source_view_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='name']" position="after">
+                <field name="medium_id"/>
+            </xpath>
+        </field>
+    </record>
+</odoo>

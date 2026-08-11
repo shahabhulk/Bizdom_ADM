@@ -34,8 +34,8 @@
                 <field name="vehicle_model_id"/>
             </xpath>
             <xpath expr="//field[@name='tag_ids']" position="before">
-                <field name="source_id" />
                 <field name="medium_id"/>
+                <field name="source_id" domain="[('medium_id', '=?', medium_id)]" context="{'default_medium_id': medium_id}"/>
                 <field name="lead_date"/>
             </xpath>
             <xpath expr="//notebook" position="before">

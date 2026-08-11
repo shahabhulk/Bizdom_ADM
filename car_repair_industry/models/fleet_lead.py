@@ -26,6 +26,20 @@ class FleetLead(models.Model):
         store=False
     )
 
+    @api.onchange('medium_id')
+    def _onchange_medium_id(self):
+        if self.medium_id:
+            if self.source_id and self.source_id.medium_id and self.source_id.medium_id != self.medium_id:
+                self.source_id = False
+            return {'domain': {'source_id': [('medium_id', '=', self.medium_id.id)]}}
+        else:
+            return {'domain': {'source_id': []}}
+
+    @api.onchange('source_id')
+    def _onchange_source_id(self):
+        if self.source_id and self.source_id.medium_id:
+            self.medium_id = self.source_id.medium_id
+
     @api.depends('stage_id', 'stage_id.sequence')
     def _compute_is_quality_lead_stage(self):
         for lead in self:
