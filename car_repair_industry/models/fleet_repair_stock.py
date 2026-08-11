@@ -321,3 +321,64 @@ class AccountMoveFleetRepairStock(models.Model):
                 if validate_result is not True and isinstance(validate_result, dict):
                     return validate_result
         return True
+
+
+class PurchaseOrderFleetRepair(models.Model):
+    _inherit = 'purchase.order'
+
+    def button_confirm(self):
+        res = super().button_confirm()
+        for order in self:
+            product_ids = order.order_line.mapped('product_id').ids
+            if product_ids:
+                self.env['fleet.repair.product.line']._sync_repair_lines_cost_from_purchase(product_ids)
+        return res
+
+
+class PurchaseOrderLineFleetRepair(models.Model):
+    _inherit = 'purchase.order.line'
+
+    def write(self, vals):
+        res = super().write(vals)
+        if 'price_unit' in vals or 'product_qty' in vals:
+            product_ids = self.mapped('product_id').ids
+            if product_ids:
+                self.env['fleet.repair.product.line']._sync_repair_lines_cost_from_purchase(product_ids)
+        return res
+
+
+class StockMoveFleetRepair(models.Model):
+    _inherit = 'stock.move'
+
+    def _action_done(self, cancel_backorder=False):
+        res = super()._action_done(cancel_backorder=cancel_backorder)
+        done_moves = self.filtered(lambda m: m.state == 'done' and m.product_id)
+        if done_moves:
+            product_ids = done_moves.mapped('product_id').ids
+            self.env['fleet.repair.product.line']._sync_repair_lines_cost_from_purchase(product_ids)
+        return res
+
+
+class AccountMoveFleetRepairVendor(models.Model):
+    _inherit = 'account.move'
+
+    def action_post(self):
+        res = super().action_post()
+        vendor_bills = self.filtered(lambda m: m.move_type == 'in_invoice')
+        if vendor_bills:
+            product_ids = vendor_bills.invoice_line_ids.mapped('product_id').ids
+            if product_ids:
+                self.env['fleet.repair.product.line']._sync_repair_lines_cost_from_purchase(product_ids)
+        return res
+
+
+class ProductProductFleetRepair(models.Model):
+    _inherit = 'product.product'
+
+    def write(self, vals):
+        res = super().write(vals)
+        if 'standard_price' in vals:
+            self.env['fleet.repair.product.line']._sync_repair_lines_cost_from_purchase(self.ids)
+        return res
+
+
