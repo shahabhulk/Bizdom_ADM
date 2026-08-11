@@ -254,7 +254,7 @@ class AccountInvoice(models.Model):
                         if sale_obj and sale_obj.workorder_id and sale_obj.workorder_id.fleet_repair_id:
                             repair_obj = sale_obj.workorder_id.fleet_repair_id
                     if repair_obj:
-                        repair_obj.write({'state': 'done'})
+                        repair_obj.with_context(skip_sync_draft_invoices=True).write({'state': 'done'})
                         template_id = self.env.ref('car_repair_industry.car_repair_service_done').id
                         template = self.env['mail.template'].browse(template_id)
                         template.send_mail(repair_obj.id, force_send=True)
@@ -262,7 +262,7 @@ class AccountInvoice(models.Model):
             elif vals.get('state') == 'draft':
                 for move in self:
                     if move.fleet_repair_invoice_id:
-                        move.fleet_repair_invoice_id.write({'state': 'draft'})
+                        move.fleet_repair_invoice_id.with_context(skip_sync_draft_invoices=True).write({'state': 'draft'})
         return super(AccountInvoice, self).write(vals)
 
 

@@ -699,6 +699,8 @@ class FleetRepair(models.Model):
         }
 
     def _sync_draft_invoices(self):
+        if self.env.context.get('skip_sync_draft_invoices'):
+            return
         for rec in self:
             draft_invoices = self.env['account.move'].search([
                 ('fleet_repair_invoice_id', '=', rec.id),
@@ -721,7 +723,7 @@ class FleetRepair(models.Model):
                         'product_uom_id': line.uom_id.id if line.uom_id else False,
                         'margin_parts': line.margin,
                         'department_id': line.department_id.id if line.department_id else False,
-                        'tax_ids': [(6, 0, [])],
+                        'tax_ids': [(6, 0, line.product_id.taxes_id.ids)],
                     }))
 
                 for line in rec.service_line_ids:
@@ -735,7 +737,7 @@ class FleetRepair(models.Model):
                         'product_uom_id': line.uom_id.id if line.uom_id else False,
                         'department_id': line.department_id.id if line.department_id else False,
                         'employee_id': line.employee_id.id if line.employee_id else False,
-                        'tax_ids': [(6, 0, [])],
+                        'tax_ids': [(6, 0, line.product_id.taxes_id.ids)],
                     }))
 
                 invoice.write({
@@ -786,7 +788,7 @@ class FleetRepair(models.Model):
                 'product_uom_id': line.uom_id.id if line.uom_id else False,
                 'margin_parts': line.margin,
                 'department_id': line.department_id.id if line.department_id else False,
-                'tax_ids': [(6, 0, [])],
+                'tax_ids': [(6, 0, line.product_id.taxes_id.ids)],
             }))
 
         for line in self.service_line_ids:
@@ -801,7 +803,7 @@ class FleetRepair(models.Model):
                 'product_uom_id': line.uom_id.id if line.uom_id else False,
                 'department_id': line.department_id.id if line.department_id else False,
                 'employee_id': line.employee_id.id if line.employee_id else False,
-                'tax_ids': [(6, 0, [])],
+                'tax_ids': [(6, 0, line.product_id.taxes_id.ids)],
             }))
 
         invoice = self.env['account.move'].create({
