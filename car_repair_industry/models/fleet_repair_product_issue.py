@@ -1345,6 +1345,68 @@ class FleetRepairProductLineIssue(models.Model):
                     line._action_return_part(qty_to_return_override=line.qty_issued, reduce_quantity=False)
         return super().unlink()
 
+    def action_recompute_cost_and_margin(self):
+        """Recompute cost price and margin for repair lines, updating stored fields and linked invoice lines."""
+        for line in self:
+            if not line.product_id:
+                continue
+
+            unit_cost, vendor_id, vendor_name = line._get_latest_purchase_cost_and_vendor()
+            if not unit_cost and not line.issue_cost_line_ids:
+                continue
+
+            # Update existing cost breakdown lines
+            if line.issue_cost_line_ids:
+                line.issue_cost_line_ids.sudo().write({
+                    'unit_cost': unit_cost,
+                    'vendor_id': vendor_id,
+                    'vendor_name': vendor_name or _('Unknown'),
+                })
+
+            new_cost_price = line._recompute_cost_price_from_cost_lines()
+            if not new_cost_price or float_is_zero(new_cost_price, precision_rounding=0.001):
+                new_cost_price = unit_cost
+
+            qty = line.qty_issued if line.qty_issued > 0 else line.quantity
+            revenue = line.unit_price * qty
+            cost_subtotal = new_cost_price * qty
+            margin = revenue - cost_subtotal
+            margin_percent = (margin / revenue * 100.0) if revenue else 0.0
+
+            # Force write to database so stored fields update on completed Job Cards
+            line.sudo().write({
+                'cost_price': new_cost_price,
+                'cost_subtotal': cost_subtotal,
+                'margin': margin,
+                'margin_percent': margin_percent,
+            })
+
+            # Update customer invoice lines and department charges
+            repair = line.repair_id
+            if repair:
+                invoices = self.env['account.move'].search([
+                    '|',
+                    ('fleet_repair_invoice_id', '=', repair.id),
+                    ('id', '=', repair.invoice_order_id.id if repair.invoice_order_id else False),
+                    ('state', '!=', 'cancel'),
+                ])
+                if invoices:
+                    move_lines = invoices.line_ids.filtered(lambda ml: ml.product_id == line.product_id)
+                    if move_lines:
+                        move_lines.sudo().write({'margin_parts': margin})
+                        for ml in move_lines:
+                            if hasattr(ml.sudo(), '_sync_department_charges'):
+                                ml.sudo()._sync_department_charges()
+
+    @api.model
+    def _sync_repair_lines_cost_from_purchase(self, product_ids):
+        if not product_ids:
+            return
+        repair_lines = self.sudo().search([('product_id', 'in', product_ids)])
+        if repair_lines:
+            repair_lines.action_recompute_cost_and_margin()
+
+
 
 
 
