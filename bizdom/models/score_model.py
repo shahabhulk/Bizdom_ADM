@@ -420,189 +420,36 @@ class BizdomScore(models.Model):
 
 
                 elif rec.score_name == "Cashflow":
-                    def _categorize_cash_flow(line):
-                        """Categorize account move line into operating/financing/investing"""
-                        account_type = line.account_id.account_type
-                        balance = line.balance
-                        move = line.move_id
-
-                        if move.move_type in ('out_invoice', 'out_refund', 'in_invoice', 'in_refund'):
-                            if move.payment_state not in ('paid', 'in_payment'):
-                                return None
-
-                        move_name = move.name or 'N/A'
-                        move_type = move.move_type or 'N/A'
-                        partner_name = move.partner_id.name if move.partner_id else 'N/A'
-                        account_name = line.account_id.name or 'N/A'
-                        account_code = line.account_id.code or 'N/A'
-
-                        if line.display_type == 'tax' or line.tax_line_id:
-                            if move_type == 'in_invoice':
-                                tax_amount = abs(balance) if balance < 0 else balance
-                                return ('operating', 'out', tax_amount)
-                            elif move_type == 'out_invoice':
-                                tax_amount = abs(balance)
-                                return ('operating', 'in', tax_amount)
-                            return None
-
-                        if 'GST' in account_name or 'TAX' in account_name or 'SGST' in account_name or 'CGST' in account_name or 'IGST' in account_name:
-                            return None
-
-                        if account_type in ['asset_cash', 'liability_credit_card']:
-                            return None
-
-                        if account_type == 'asset_current' and account_type != 'asset_receivable':
-                            if 'outstanding' in account_name.lower() or 'payment' in account_name.lower() or 'bank' in account_name.lower():
-                                return None
-
-                        if account_type in ['income', 'income_direct_cost']:
-                            return ('operating', 'in', abs(balance))
-                        elif account_type in ['expense', 'expense_depreciation', 'expense_direct_cost']:
-                            return ('operating', 'out', balance)
-                        elif account_type == 'asset_receivable' and balance > 0:
-                            if move_type == 'out_invoice':
-                                return None
-                            return ('operating', 'in', balance)
-                        elif account_type == 'liability_payable' and balance < 0:
-                            if move_type == 'in_invoice':
-                                return None
-                            return ('operating', 'out', abs(balance))
-
-                        elif account_type in ['asset_fixed', 'asset_non_current']:
-                            direction = 'out' if balance < 0 else 'in'
-                            return ('investing', direction, abs(balance))
-
-                        elif account_type in ['equity', 'equity_unaffected', 'liability_non_current']:
-                            direction = 'in' if balance > 0 else 'out'
-                            return ('financing', direction, abs(balance))
-
-                        return None
-
-                    records = self.env['account.move.line'].search([
+                    all_transactions = self.env['account.move.line'].search([
                         ('date', '>=', start_date),
                         ('date', '<=', end_date),
-                        ('move_id.state', '=', 'posted'),
+                        ('account_id.name', 'in', ['Cash', 'Bank']),
+                        ('parent_state', '=', 'posted'),
                         ('company_id', '=', rec.company_id.id),
                     ])
-
-                    operating_in = operating_out = 0.0
-                    financing_in = financing_out = 0.0
-                    investing_in = investing_out = 0.0
-
-                    for line in records:
-                        result = _categorize_cash_flow(line)
-                        if result:
-                            category, direction, amount = result
-                            if category == 'operating':
-                                if direction == 'in':
-                                    operating_in += amount
-                                else:
-                                    operating_out += amount
-                            elif category == 'financing':
-                                if direction == 'in':
-                                    financing_in += amount
-                                else:
-                                    financing_out += amount
-                            elif category == 'investing':
-                                if direction == 'in':
-                                    investing_in += amount
-                                else:
-                                    investing_out += amount
-
-                    net_operating = operating_in - operating_out
-                    net_financing = financing_in - financing_out
-                    net_investing = investing_in - investing_out
-
-                    rec.context_total_score = net_operating + net_financing + net_investing
+                    operating_in = sum(all_transactions.mapped('debit'))
+                    operating_out = sum(all_transactions.mapped('credit'))
+                    rec.context_total_score = operating_in - operating_out
 
     def get_cashflow_breakdown(self, start_date, end_date):
         """Returns operating, financing, investing net cash values for a period."""
         self.ensure_one()
 
-        def _categorize_cash_flow(line):
-            account_type = line.account_id.account_type
-            balance = line.balance
-            move = line.move_id
-            move_type = move.move_type or 'N/A'
-            account_name = line.account_id.name or 'N/A'
-
-            if move.move_type in ('out_invoice', 'out_refund', 'in_invoice', 'in_refund'):
-                if move.payment_state not in ('paid', 'in_payment'):
-                    return None
-
-            if line.display_type == 'tax' or line.tax_line_id:
-                if move_type == 'in_invoice':
-                    return ('operating', 'out', abs(balance) if balance < 0 else balance)
-                elif move_type == 'out_invoice':
-                    return ('operating', 'in', abs(balance))
-                return None
-
-            if any(tag in account_name for tag in ('GST', 'TAX', 'SGST', 'CGST', 'IGST')):
-                return None
-
-            if account_type in ['asset_cash', 'liability_credit_card']:
-                return None
-
-            if account_type == 'asset_current' and account_type != 'asset_receivable':
-                if any(kw in account_name.lower() for kw in ('outstanding', 'payment', 'bank')):
-                    return None
-
-            if account_type in ['income', 'income_direct_cost']:
-                return ('operating', 'in', abs(balance))
-            elif account_type in ['expense', 'expense_depreciation', 'expense_direct_cost']:
-                return ('operating', 'out', balance)
-            elif account_type == 'asset_receivable' and balance > 0:
-                if move_type == 'out_invoice':
-                    return None
-                return ('operating', 'in', balance)
-            elif account_type == 'liability_payable' and balance < 0:
-                if move_type == 'in_invoice':
-                    return None
-                return ('operating', 'out', abs(balance))
-            elif account_type in ['asset_fixed', 'asset_non_current']:
-                direction = 'out' if balance < 0 else 'in'
-                return ('investing', direction, abs(balance))
-            elif account_type in ['equity', 'equity_unaffected', 'liability_non_current']:
-                direction = 'in' if balance > 0 else 'out'
-                return ('financing', direction, abs(balance))
-
-            return None
-
-        records = self.env['account.move.line'].search([
+        all_transactions = self.env['account.move.line'].search([
             ('date', '>=', start_date),
             ('date', '<=', end_date),
-            ('move_id.state', '=', 'posted'),
+            ('account_id.name', 'in', ['Cash', 'Bank']),
+            ('parent_state', '=', 'posted'),
             ('company_id', '=', self.company_id.id),
         ])
 
-        operating_in = operating_out = 0.0
-        financing_in = financing_out = 0.0
-        investing_in = investing_out = 0.0
-
-        for line in records:
-            result = _categorize_cash_flow(line)
-            if result:
-                category, direction, amount = result
-                if category == 'operating':
-                    if direction == 'in':
-                        operating_in += amount
-                    else:
-                        operating_out += amount
-                elif category == 'financing':
-                    if direction == 'in':
-                        financing_in += amount
-                    else:
-                        financing_out += amount
-                elif category == 'investing':
-                    if direction == 'in':
-                        investing_in += amount
-                    else:
-                        investing_out += amount
+        operating_in = sum(all_transactions.mapped('debit'))
+        operating_out = sum(all_transactions.mapped('credit'))
 
         return {
             'operating_cash': round(operating_in - operating_out, 2),
-            'financing_cash': round(financing_in - financing_out, 2),
-            'investment_cash': round(investing_in - investing_out, 2),
+            'financing_cash': 0.0,
+            'investment_cash': 0.0,
         }
 
     # @api.model
@@ -1095,7 +942,7 @@ class BizdomScore(models.Model):
                     # total_customers=len(set(customer_records.mapped('customer_id.id')))
                     rec.total_score_value = total_dept_charges / total_cars if total_cars > 0 else 0.0
 
-                elif rec.score_name =="Parts Profit":
+                elif rec.score_name == "Parts Profit":
                     dept_records = self.env['department.charges'].search([
                         ('date', '>=', start_date),
                         ('date', '<=', end_date),
@@ -1185,100 +1032,17 @@ class BizdomScore(models.Model):
 
                     rec.total_score_value = vendor_bill_total + hr_expense_total
 
-
                 elif rec.score_name == "Cashflow":
-
-                    def _categorize_cash_flow(line):
-                        """Categorize account move line into operating/financing/investing"""
-                        account_type = line.account_id.account_type
-                        balance = line.balance
-                        move = line.move_id
-
-                        if move.move_type in ('out_invoice', 'out_refund', 'in_invoice', 'in_refund'):
-                            if move.payment_state not in ('paid', 'in_payment'):
-                                return None
-
-                        move_type = move.move_type or 'N/A'
-                        account_name = line.account_id.name or 'N/A'
-
-                        if line.display_type == 'tax' or line.tax_line_id:
-                            if move_type == 'in_invoice':
-                                tax_amount = abs(balance) if balance < 0 else balance
-                                return ('operating', 'out', tax_amount)
-                            elif move_type == 'out_invoice':
-                                tax_amount = abs(balance)
-                                return ('operating', 'in', tax_amount)
-                            return None
-
-                        if 'GST' in account_name or 'TAX' in account_name or 'SGST' in account_name or 'CGST' in account_name or 'IGST' in account_name:
-                            return None
-
-                        if account_type in ['asset_cash', 'liability_credit_card']:
-                            return None
-
-                        if account_type == 'asset_current' and account_type != 'asset_receivable':
-                            if 'outstanding' in account_name.lower() or 'payment' in account_name.lower() or 'bank' in account_name.lower():
-                                return None
-
-                        if account_type in ['income', 'income_direct_cost']:
-                            return ('operating', 'in', abs(balance))
-                        elif account_type in ['expense', 'expense_depreciation', 'expense_direct_cost']:
-                            return ('operating', 'out', balance)
-                        elif account_type == 'asset_receivable' and balance > 0:
-                            if move_type == 'out_invoice':
-                                return None
-                            return ('operating', 'in', balance)
-                        elif account_type == 'liability_payable' and balance < 0:
-                            if move_type == 'in_invoice':
-                                return None
-                            return ('operating', 'out', abs(balance))
-
-                        elif account_type in ['asset_fixed', 'asset_non_current']:
-                            direction = 'out' if balance < 0 else 'in'
-                            return ('investing', direction, abs(balance))
-
-                        elif account_type in ['equity', 'equity_unaffected', 'liability_non_current']:
-                            direction = 'in' if balance > 0 else 'out'
-                            return ('financing', direction, abs(balance))
-
-                        return None
-
-                    records = self.env['account.move.line'].search([
+                    all_transactions = self.env['account.move.line'].search([
                         ('date', '>=', start_date),
                         ('date', '<=', end_date),
-                        ('move_id.state', '=', 'posted'),
+                        ('account_id.name', 'in', ['Cash', 'Bank']),
+                        ('parent_state', '=', 'posted'),
                         ('company_id', '=', rec.company_id.id),
                     ])
-
-                    operating_in = operating_out = 0.0
-                    financing_in = financing_out = 0.0
-                    investing_in = investing_out = 0.0
-
-                    for line in records:
-                        result = _categorize_cash_flow(line)
-                        if result:
-                            category, direction, amount = result
-                            if category == 'operating':
-                                if direction == 'in':
-                                    operating_in += amount
-                                else:
-                                    operating_out += amount
-                            elif category == 'financing':
-                                if direction == 'in':
-                                    financing_in += amount
-                                else:
-                                    financing_out += amount
-                            elif category == 'investing':
-                                if direction == 'in':
-                                    investing_in += amount
-                                else:
-                                    investing_out += amount
-
-                    net_operating = operating_in - operating_out
-                    net_financing = financing_in - financing_out
-                    net_investing = investing_in - investing_out
-
-                    rec.total_score_value = net_operating + net_financing + net_investing
+                    operating_in = sum(all_transactions.mapped('debit'))
+                    operating_out = sum(all_transactions.mapped('credit'))
+                    rec.total_score_value = operating_in - operating_out
 
 
 class BizdomScoreLine(models.Model):
