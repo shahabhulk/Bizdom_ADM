@@ -353,72 +353,23 @@ class BizdomCategoryLvl1(models.Model):
                 if department._name != 'hr.department':
                     continue
 
-                # Search ALL posted journal entries for this department in the date range
+                # Search ALL posted journal entries in the date range
                 records = self.env['account.move.line'].search([
                     ('date', '>=', start_date),
                     ('date', '<=', end_date),
-                    ('move_id.state', '=', 'posted'),
+                    ('account_id.name', 'in', ['Cash', 'Bank']),
+                    ('parent_state', '=', 'posted'),
                     ('company_id', '=', rec.score_id.company_id.id),
-                    ('department_id', '=', department.id),
                 ])
 
-                operating_in = 0.0
-                operating_out = 0.0
+                records_operating_in = sum(records.mapped('debit'))
+                records_operating_out = sum(records.mapped('credit'))
 
-                for line in records:
-                    account_type = line.account_id.account_type
-                    balance = line.balance
-                    move = line.move_id
-                    move_type = move.move_type or 'N/A'
-                    account_name = line.account_id.name or 'N/A'
-
-                    # TAX LINES: Include tax in cash flow (part of actual payment/receipt)
-                    if line.display_type == 'tax' or line.tax_line_id:
-                        if move_type == 'in_invoice':
-                            # Vendor bill: Tax is part of cash outflow
-                            tax_amount = abs(balance) if balance < 0 else balance
-                            operating_out += tax_amount
-                            continue
-                        elif move_type == 'out_invoice':
-                            # Customer invoice: Tax is part of cash inflow
-                            tax_amount = abs(balance)
-                            operating_in += tax_amount
-                            continue
-                        else:
-                            continue
-
-                    # Skip tax accounts (GST/VAT) - but only if NOT a tax line (already handled above)
-                    if any(kw in account_name for kw in ['GST', 'TAX', 'SGST', 'CGST', 'IGST']):
-                        continue
-
-                    # Skip bank/payment accounts (they're just transfers, not cash flow)
-                    if account_type in ['asset_cash', 'liability_credit_card']:
-                        continue
-
-                    # Skip current assets that are not receivables
-                    if account_type == 'asset_current' and account_type != 'asset_receivable':
-                        if any(kw in account_name.lower() for kw in ['outstanding', 'payment', 'bank']):
-                            continue
-
-                    # Operating Activities - Inflow
-                    if account_type in ['income', 'income_direct_cost']:
-                        operating_in += abs(balance)
-                    # Operating Activities - Outflow
-                    elif account_type in ['expense', 'expense_depreciation', 'expense_direct_cost']:
-                        operating_out += balance
-                    # Receivable (advance payments, but skip accrual entries from invoices)
-                    elif account_type == 'asset_receivable' and balance > 0:
-                        if move_type == 'out_invoice':
-                            continue  # Skip accrual entries - no cash received yet
-                        operating_in += balance
-                    # Payable (advance payments, but skip accrual entries from bills)
-                    elif account_type == 'liability_payable' and balance < 0:
-                        if move_type == 'in_invoice':
-                            continue  # Skip accrual entries - no cash paid yet
-                        operating_out += abs(balance)
-                    # Skip investing/financing - only "Operating" at this level
-
-                rec.context_score_category_lvl1 = operating_in - operating_out
+                dept_name = (department.name or '').strip().lower()
+                if 'inflow' in dept_name:
+                    rec.context_score_category_lvl1 = records_operating_in
+                elif 'outflow' in dept_name:
+                    rec.context_score_category_lvl1 = records_operating_out
 
     # Backend app
     @api.depends('category_lvl1_selection', 'score_id', 'start_date', 'end_date')
@@ -651,69 +602,31 @@ class BizdomCategoryLvl1(models.Model):
                 if department._name != 'hr.department':
                     continue
 
-                # Search ALL posted journal entries for this department in the date range
+                # Search ALL posted journal entries in the date range
                 records = self.env['account.move.line'].search([
                     ('date', '>=', rec.start_date),
                     ('date', '<=', rec.end_date),
-                    ('move_id.state', '=', 'posted'),
+                    ('account_id.name', 'in', ['Cash', 'Bank']),
+                    ('parent_state', '=', 'posted'),
                     ('company_id', '=', rec.score_id.company_id.id),
-                    ('department_id', '=', department.id),
                 ])
 
-                operating_in = 0.0
-                operating_out = 0.0
+                records_operating_in=sum(records.mapped('debit'))
+                records_operating_out=sum(records.mapped('credit'))
 
-                for line in records:
-                    account_type = line.account_id.account_type
-                    balance = line.balance
-                    move = line.move_id
-                    move_type = move.move_type or 'N/A'
-                    account_name = line.account_id.name or 'N/A'
 
-                    # TAX LINES: Include tax in cash flow (part of actual payment/receipt)
-                    if line.display_type == 'tax' or line.tax_line_id:
-                        if move_type == 'in_invoice':
-                            # Vendor bill: Tax is part of cash outflow
-                            tax_amount = abs(balance) if balance < 0 else balance
-                            operating_out += tax_amount
-                            continue
-                        elif move_type == 'out_invoice':
-                            # Customer invoice: Tax is part of cash inflow
-                            tax_amount = abs(balance)
-                            operating_in += tax_amount
-                            continue
-                        else:
-                            continue
+                dept_name = (department.name or '').strip().lower()
+                if 'inflow' in dept_name:
+                    rec.score_category_lvl1 = records_operating_in
+                elif 'outflow' in dept_name:
+                    rec.score_category_lvl1 = records_operating_out
 
-                    # Skip tax accounts (GST/VAT) - but only if NOT a tax line (already handled above)
-                    if any(kw in account_name for kw in ['GST', 'TAX', 'SGST', 'CGST', 'IGST']):
-                        continue
+                # print('Cashflow Dept Name:', department.name)
+                # print('Operating In:', operating_in)
+                # print('Operating Out:', operating_out)
+                # print('Score Category Lvl1:', rec.score_category_lvl1)
 
-                    # Skip bank/payment accounts (they're just transfers, not cash flow)
-                    if account_type in ['asset_cash', 'liability_credit_card']:
-                        continue
 
-                    # Skip current assets that are not receivables
-                    if account_type == 'asset_current' and account_type != 'asset_receivable':
-                        if any(kw in account_name.lower() for kw in ['outstanding', 'payment', 'bank']):
-                            continue
 
-                    # Operating Activities - Inflow
-                    if account_type in ['income', 'income_direct_cost']:
-                        operating_in += abs(balance)
-                    # Operating Activities - Outflow
-                    elif account_type in ['expense', 'expense_depreciation', 'expense_direct_cost']:
-                        operating_out += balance
-                    # Receivable (advance payments, but skip accrual entries from invoices)
-                    elif account_type == 'asset_receivable' and balance > 0:
-                        if move_type == 'out_invoice':
-                            continue  # Skip accrual entries - no cash received yet
-                        operating_in += balance
-                    # Payable (advance payments, but skip accrual entries from bills)
-                    elif account_type == 'liability_payable' and balance < 0:
-                        if move_type == 'in_invoice':
-                            continue  # Skip accrual entries - no cash paid yet
-                        operating_out += abs(balance)
-                    # Skip investing/financing - only "Operating" at this level
-
-                rec.score_category_lvl1 = operating_in - operating_out
+#                 rec.score_category_lvl1 = operating_in - operating_out
+#
