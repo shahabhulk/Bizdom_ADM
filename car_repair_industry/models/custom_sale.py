@@ -159,6 +159,165 @@ class AccountInvoice(models.Model):
         for move in self:
             move.fleet_feedback_count = len(move.fleet_feedback_ids)
 
+    def action_print_pdf(self):
+        self.ensure_one()
+        return {
+            'name': 'Print',
+            'type': 'ir.actions.act_window',
+            'res_model': 'invoice.print.wizard',
+            'view_mode': 'form',
+            'target': 'new',
+            'context': {
+                'default_invoice_id': self.id,
+                'active_id': self.id,
+            },
+        }
+
+    def _get_b2c_company_pan(self):
+        self.ensure_one()
+        vat = self.company_id.vat or self.company_id.partner_id.vat or ''
+        if vat and len(vat) >= 12:
+            return vat[2:12]
+        return vat
+
+    def _format_indian(self, amount, decimals=2):
+        if amount is None or amount is False:
+            return ""
+        try:
+            val = float(amount)
+        except Exception:
+            return str(amount)
+        
+        is_negative = val < 0
+        val = abs(val)
+        
+        formatted_val = f"{val:.{decimals}f}"
+        parts = formatted_val.split('.')
+        integer_part = parts[0]
+        decimal_part = parts[1] if len(parts) > 1 else ""
+        
+        if len(integer_part) <= 3:
+            res = integer_part
+        else:
+            last_three = integer_part[-3:]
+            remaining = integer_part[:-3]
+            groups = []
+            while len(remaining) > 2:
+                groups.insert(0, remaining[-2:])
+                remaining = remaining[:-2]
+            if remaining:
+                groups.insert(0, remaining)
+            res = ",".join(groups) + "," + last_three
+
+        if decimals > 0:
+            res = res + "." + decimal_part
+        if is_negative:
+            res = "-" + res
+        return res
+
+
+    def _get_line_hsn_code(self, line):
+        self.ensure_one()
+        if hasattr(line.product_id, 'l10n_in_hsn_code') and line.product_id.l10n_in_hsn_code:
+            return line.product_id.l10n_in_hsn_code
+        if line.item_code:
+            return line.item_code
+        return ''
+
+    def _get_b2c_hsn_summary(self):
+        self.ensure_one()
+        hsn_map = {}
+        for line in self.invoice_line_ids:
+            if line.display_type and line.display_type != 'product':
+                continue
+            hsn = ''
+            if hasattr(line.product_id, 'l10n_in_hsn_code') and line.product_id.l10n_in_hsn_code:
+                hsn = line.product_id.l10n_in_hsn_code
+            elif hasattr(line, 'item_code') and line.item_code:
+                hsn = line.item_code
+            
+            taxable = line.price_subtotal
+            cgst_rate = 0.0
+            cgst_amount = 0.0
+            sgst_rate = 0.0
+            sgst_amount = 0.0
+            igst_rate = 0.0
+            igst_amount = 0.0
+
+            for tax in line.tax_ids:
+                t_name = (tax.name or '').upper()
+                t_rate = tax.amount or 0.0
+                # calculate tax amount for line
+                if tax.price_include:
+                    # compute tax from included price
+                    base = line.price_subtotal
+                    t_amt = base * (t_rate / 100.0)
+                else:
+                    t_amt = line.price_subtotal * (t_rate / 100.0)
+
+                if 'CGST' in t_name:
+                    cgst_rate = t_rate
+                    cgst_amount += t_amt
+                elif 'SGST' in t_name or 'UTGST' in t_name:
+                    sgst_rate = t_rate
+                    sgst_amount += t_amt
+                elif 'IGST' in t_name:
+                    igst_rate = t_rate
+                    igst_amount += t_amt
+                else:
+                    cgst_rate = t_rate / 2.0
+                    cgst_amount += t_amt / 2.0
+                    sgst_rate = t_rate / 2.0
+                    sgst_amount += t_amt / 2.0
+
+            if hsn not in hsn_map:
+                hsn_map[hsn] = {
+                    'hsn': hsn,
+                    'taxable_value': 0.0,
+                    'cgst_rate': cgst_rate,
+                    'cgst_amount': 0.0,
+                    'sgst_rate': sgst_rate,
+                    'sgst_amount': 0.0,
+                    'igst_rate': igst_rate,
+                    'igst_amount': 0.0,
+                    'total_tax': 0.0,
+                }
+            hsn_map[hsn]['taxable_value'] += taxable
+            hsn_map[hsn]['cgst_amount'] += cgst_amount
+            hsn_map[hsn]['sgst_amount'] += sgst_amount
+            hsn_map[hsn]['igst_amount'] += igst_amount
+            hsn_map[hsn]['total_tax'] += (cgst_amount + sgst_amount + igst_amount)
+
+        return list(hsn_map.values())
+
+    def _get_b2c_tax_details(self):
+        self.ensure_one()
+        summary = self._get_b2c_hsn_summary()
+        cgst_total = sum(x['cgst_amount'] for x in summary)
+        sgst_total = sum(x['sgst_amount'] for x in summary)
+        igst_total = sum(x['igst_amount'] for x in summary)
+        taxable_total = sum(x['taxable_value'] for x in summary)
+        total_tax = cgst_total + sgst_total + igst_total
+        roundoff = round(self.amount_total - (taxable_total + total_tax), 2)
+        return {
+            'cgst_total': cgst_total,
+            'sgst_total': sgst_total,
+            'igst_total': igst_total,
+            'taxable_total': taxable_total,
+            'total_tax': total_tax,
+            'roundoff': roundoff,
+        }
+
+    def _get_amount_in_words_text(self, amount):
+        self.ensure_one()
+        if not amount:
+            return ""
+        try:
+            return self.currency_id.amount_to_text(amount)
+        except Exception:
+            return f"{amount:,.2f}"
+
+
     # def _prepare_product_base_line_for_taxes_computation(self, line):
     #     res = super()._prepare_product_base_line_for_taxes_computation(line)
     #     if line.labour_charges:

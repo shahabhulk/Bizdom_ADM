@@ -158,6 +158,7 @@ automotive workshop management software
         'data/mail_template_data.xml',
         'wizard/fleet_repair_assign_to_head_tech_view.xml',
         'wizard/fleet_diagnose_assign_to_technician_view.xml',
+        'wizard/invoice_print_wizard_view.xml',
         'views/fleet_repair_view.xml',
         'views/fleet_repair_product_line_cost_view.xml',
         'views/fleet_feedback_view.xml',
@@ -188,6 +189,8 @@ automotive workshop management software
         'report/fleet_diagnostic_result_report_menu.xml',
         'report/fleet_workorder_report_view.xml',
         'report/fleet_workorder_report_menu.xml',
+        'report/invoice_b2c_b2b_report_view.xml',
+        'report/invoice_b2c_b2b_report_menu.xml',
 
     ],
     'assets': {

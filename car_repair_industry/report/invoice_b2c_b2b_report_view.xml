@@ -1,0 +1,773 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+        <!-- B2C Invoice Template Wrapper -->
+        <template id="report_invoice_b2c_template">
+            <t t-call="web.html_container">
+                <t t-foreach="docs" t-as="o">
+                    <t t-set="lang" t-value="o.partner_id.lang"/>
+                    <t t-call="car_repair_industry.report_invoice_b2c_document" t-lang="lang"/>
+                </t>
+            </t>
+        </template>
+
+        <!-- B2C Invoice Document (Matching Tally / GST B2C Tax Invoice Format) -->
+        <template id="report_invoice_b2c_document">
+            <t t-call="web.basic_layout">
+                <t t-set="o" t-value="o.with_context(lang=lang)"/>
+                <t t-set="tax_info" t-value="o._get_b2c_tax_details()"/>
+                <t t-set="hsn_summary" t-value="o._get_b2c_hsn_summary()"/>
+
+                <style>
+                    .b2c-box {
+                        border: 1px solid #000;
+                        font-family: 'Calibri', Arial, sans-serif;
+                        font-size: 14px;
+                        color: #000;
+                        background: #fff;
+                        width: 100%;
+                    }
+                    .b2c-title {
+                        text-align: center;
+                        font-weight: bold;
+                        font-size: 18px;
+                        padding: 6px;
+                        border-bottom: 1px solid #000;
+                    }
+                    .b2c-table {
+                        width: 100%;
+                        border-collapse: collapse;
+                        margin: 0;
+                        padding: 0;
+                    }
+                    .b2c-table th, .b2c-table td {
+                        border-right: 1px solid #000;
+                        border-bottom: 1px solid #000;
+                        padding: 5px 8px;
+                        vertical-align: top;
+                    }
+                    .b2c-table th:last-child, .b2c-table td:last-child {
+                        border-right: none;
+                    }
+                    .terms-cell {
+                        border-bottom: 0px none transparent !important;
+                        border-bottom-width: 0px !important;
+                        border-bottom-style: none !important;
+                        border-bottom-color: transparent !important;
+                        height: 100% !important;
+                    }
+                    .terms-row {
+                        height: 100% !important;
+                    }
+                    .terms-row td {
+                        border-bottom: 0px none transparent !important;
+                        border-bottom-width: 0px !important;
+                        border-bottom-style: none !important;
+                        border-bottom-color: transparent !important;
+                    }
+                    .b2c-items-table {
+                        width: 100%;
+                        border-collapse: collapse;
+                        margin: 0;
+                        padding: 0;
+                    }
+                    .b2c-items-table th {
+                        border-right: 1px solid #000 !important;
+                        border-bottom: 1px solid #000 !important;
+                        padding: 5px 8px;
+                        vertical-align: top;
+                    }
+                    .b2c-items-table tbody tr {
+                        border: none !important;
+                    }
+                    .b2c-items-table td {
+                        border-right: 1px solid #000 !important;
+                        border-top: 0px none transparent !important;
+                        border-bottom: 0px none transparent !important;
+                        padding: 4px 8px;
+                        vertical-align: top;
+                    }
+                    .b2c-items-table th:last-child, .b2c-items-table td:last-child {
+                        border-right: none !important;
+                    }
+                    .b2c-items-table tr.total-row td {
+                        border-top: 1px solid #000 !important;
+                        border-bottom: 1px solid #000 !important;
+                    }
+                    .noborder-bottom {
+                        border-bottom: none !important;
+                    }
+                    .text-right { text-align: right; }
+                    .text-center { text-align: center; }
+                    .text-left { text-align: left; }
+                    .bold { font-weight: bold; }
+                </style>
+
+                <div class="page" style="padding: 5px;">
+                    <div class="b2c-box">
+                        <!-- Invoice Title -->
+                        <div class="b2c-title">
+                            Tax Invoice(B2C)
+                        </div>
+
+                        <!-- Top Header Section Grid -->
+                        <table class="b2c-table">
+                            <tr>
+                                <!-- Left Column: Company & Customer Info -->
+                                <td rowspan="7" style="width: 50%; vertical-align: top; border-bottom: 1px solid #000;">
+                                    <div class="bold" style="font-size: 14px;"><span t-field="o.company_id.name"/></div>
+                                    <div><span t-field="o.company_id.street"/> <span t-field="o.company_id.street2"/></div>
+                                    <div><span t-field="o.company_id.city"/></div>
+                                    <div t-if="o.company_id.vat">GSTIN/UIN <span t-field="o.company_id.vat"/></div>
+                                    <div>
+                                        State Name : <span t-field="o.company_id.state_id.name"/>
+                                        <t t-if="o.company_id.state_id.code">, Code : <span t-field="o.company_id.state_id.code"/></t>
+                                    </div>
+                                    <div t-if="o.company_id.email">E-Mail : <span t-field="o.company_id.email"/></div>
+                                    <br/>
+
+                                    <div>Consignee (Ship to)</div>
+                                    <div class="bold"><span t-field="o.partner_id.name"/></div>
+                                    <div t-if="o.partner_id.street"><span t-field="o.partner_id.street"/> <span t-field="o.partner_id.city"/></div>
+                                    <div>
+                                        State Name : <span t-field="o.partner_id.state_id.name"/>
+                                        <t t-if="o.partner_id.state_id.code">, Code : <span t-field="o.partner_id.state_id.code"/></t>
+                                    </div>
+                                    <br/>
+
+                                    <div>Buyer (Bill to)</div>
+                                    <div class="bold"><span t-field="o.partner_id.name"/></div>
+                                    <div t-if="o.partner_id.street"><span t-field="o.partner_id.street"/> <span t-field="o.partner_id.city"/></div>
+                                    <div>
+                                        State Name : <span t-field="o.partner_id.state_id.name"/>
+                                        <t t-if="o.partner_id.state_id.code">, Code : <span t-field="o.partner_id.state_id.code"/></t>
+                                    </div>
+                                </td>
+
+                                <td style="width: 25%;">
+                                    Invoice No.<br/>
+                                    <span class="bold" t-field="o.name"/>
+                                </td>
+                                <td style="width: 25%;">
+                                    Dated<br/>
+                                    <span class="bold" t-field="o.invoice_date"/>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>
+                                    Delivery Note<br/>
+                                    <span t-field="o.ref"/>
+                                </td>
+                                <td>
+                                    Mode/Terms of Payment<br/>
+                                    <span t-field="o.invoice_payment_term_id.name"/>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>
+                                    Reference No. &amp; Date<br/>
+                                </td>
+                                <td>
+                                    Other References<br/>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>
+                                    Buyer's Order No.<br/>
+                                    <span t-field="o.invoice_origin"/>
+                                </td>
+                                <td>
+                                    Dated<br/>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>
+                                    Dispatch Doc No.<br/>
+                                </td>
+                                <td>
+                                    Delivery Note Date<br/>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>
+                                    Dispatched through<br/>
+                                </td>
+                                <td>
+                                    Destination<br/>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td colspan="2" style="border-bottom: 1px solid #000; vertical-align: top; height: 100%;">
+                                    Terms of Delivery<br/>
+                                </td>
+                            </tr>
+                        </table>
+
+                        <!-- Main Line Items Table -->
+                        <table class="b2c-items-table">
+                            <thead>
+                                <tr style="background-color: #f2f2f2;">
+                                    <th style="width: 5%;" class="text-center">Sl No</th>
+                                    <th style="width: 45%;" class="text-left">Description of Goods and Services</th>
+                                    <th style="width: 12%;" class="text-center">HSN/SAC</th>
+                                    <th style="width: 12%;" class="text-center">Quantity</th>
+                                    <th style="width: 10%;" class="text-right">Rate</th>
+                                    <th style="width: 6%;" class="text-center">per</th>
+                                    <th style="width: 10%;" class="text-right">Amount</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <t t-set="sl_no" t-value="1"/>
+                                <t t-set="total_qty" t-value="0.0"/>
+                                <t t-foreach="o.invoice_line_ids" t-as="line">
+                                    <tr t-if="not line.display_type or line.display_type == 'product'">
+                                        <td class="text-center"><t t-esc="sl_no"/></td>
+                                        <td>
+                                            <span class="bold" t-field="line.name"/>
+                                        </td>
+                                        <td class="text-center">
+                                            <span t-esc="o._get_line_hsn_code(line)"/>
+                                        </td>
+                                        <td class="text-center">
+                                            <t t-if="line.quantity">
+                                                <span t-esc="o._format_indian(line.quantity)"/> <span t-field="line.product_uom_id.name"/>
+                                                <t t-set="total_qty" t-value="total_qty + line.quantity"/>
+                                            </t>
+                                        </td>
+                                        <td class="text-right">
+                                            <span t-esc="o._format_indian(line.price_unit)"/>
+                                        </td>
+                                        <td class="text-center">
+                                            <span t-field="line.product_uom_id.name"/>
+                                        </td>
+                                        <td class="text-right">
+                                            <span t-esc="o._format_indian(line.price_subtotal)"/>
+                                        </td>
+                                        <t t-set="sl_no" t-value="sl_no + 1"/>
+                                    </tr>
+                                </t>
+
+                                <!-- Subtotal line -->
+                                <tr>
+                                    <td></td>
+                                    <td></td>
+                                    <td></td>
+                                    <td></td>
+                                    <td></td>
+                                    <td></td>
+                                    <td class="text-right"><span t-esc="o._format_indian(tax_info['taxable_total'])"/></td>
+                                </tr>
+                                <tr t-if="tax_info['cgst_total'] &gt; 0">
+                                    <td></td>
+                                    <td class="text-right bold"><i>CGST</i></td>
+                                    <td></td>
+                                    <td></td>
+                                    <td></td>
+                                    <td></td>
+                                    <td class="text-right"><span t-esc="o._format_indian(tax_info['cgst_total'])"/></td>
+                                </tr>
+                                <tr t-if="tax_info['sgst_total'] &gt; 0">
+                                    <td></td>
+                                    <td class="text-right bold"><i>SGST</i></td>
+                                    <td></td>
+                                    <td></td>
+                                    <td></td>
+                                    <td></td>
+                                    <td class="text-right"><span t-esc="o._format_indian(tax_info['sgst_total'])"/></td>
+                                </tr>
+                                <tr t-if="tax_info['igst_total'] &gt; 0">
+                                    <td></td>
+                                    <td class="text-right bold"><i>IGST</i></td>
+                                    <td></td>
+                                    <td></td>
+                                    <td></td>
+                                    <td></td>
+                                    <td class="text-right"><span t-esc="o._format_indian(tax_info['igst_total'])"/></td>
+                                </tr>
+                                <tr t-if="tax_info['roundoff'] != 0">
+                                    <td></td>
+                                    <td class="text-right bold"><i>Less Roundoff</i></td>
+                                    <td></td>
+                                    <td></td>
+                                    <td></td>
+                                    <td></td>
+                                    <td class="text-right"><span t-esc="'(-) ' + o._format_indian(abs(tax_info['roundoff'])) if tax_info['roundoff'] &lt; 0 else o._format_indian(tax_info['roundoff'])"/></td>
+                                </tr>
+
+                                <!-- Total Summary Line -->
+                                <tr class="total-row" style="background-color: #f2f2f2; font-weight: bold;">
+                                    <td></td>
+                                    <td class="text-right">Total</td>
+                                    <td></td>
+                                    <td class="text-center"><span t-esc="o._format_indian(total_qty) + ' NOS'"/></td>
+                                    <td></td>
+                                    <td></td>
+                                    <td class="text-right">
+                                        <span t-field="o.currency_id.symbol"/> <span t-esc="o._format_indian(o.amount_total)"/>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+
+                        <!-- Amount Chargeable in Words -->
+                        <div style="border-bottom: 1px solid #000; padding: 4px;">
+                            <div style="float: right; font-style: italic;">E &amp; O.E</div>
+                            <div>Amount Chargeable (in words)</div>
+                            <div class="bold"><span t-esc="o._get_amount_in_words_text(o.amount_total)"/></div>
+                        </div>
+
+                        <!-- HSN/SAC Tax Table -->
+                        <table class="b2c-table">
+                            <thead>
+                                <tr style="background-color: #f2f2f2;">
+                                    <th rowspan="2" class="text-center" style="vertical-align: middle;">HSN/SAC</th>
+                                    <th rowspan="2" class="text-right" style="vertical-align: middle;">Taxable Value</th>
+                                    <th colspan="2" class="text-center">CGST</th>
+                                    <th colspan="2" class="text-center">SGST/UTGST</th>
+                                    <th rowspan="2" class="text-right" style="vertical-align: middle;">Total Tax Amount</th>
+                                </tr>
+                                <tr style="background-color: #f2f2f2;">
+                                    <th class="text-center" style="width: 10%;">Rate</th>
+                                    <th class="text-right" style="width: 12%;">Amount</th>
+                                    <th class="text-center" style="width: 10%;">Rate</th>
+                                    <th class="text-right" style="width: 12%;">Amount</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <t t-foreach="hsn_summary" t-as="hsn_item">
+                                    <tr>
+                                        <td class="text-center"><span t-esc="hsn_item['hsn']"/></td>
+                                        <td class="text-right"><span t-esc="o._format_indian(hsn_item['taxable_value'])"/></td>
+                                        <td class="text-center"><t t-if="hsn_item['cgst_rate']"><span t-esc="str(int(hsn_item['cgst_rate'])) + '%'"/></t></td>
+                                        <td class="text-right"><span t-esc="o._format_indian(hsn_item['cgst_amount'])"/></td>
+                                        <td class="text-center"><t t-if="hsn_item['sgst_rate']"><span t-esc="str(int(hsn_item['sgst_rate'])) + '%'"/></t></td>
+                                        <td class="text-right"><span t-esc="o._format_indian(hsn_item['sgst_amount'])"/></td>
+                                        <td class="text-right"><span t-esc="o._format_indian(hsn_item['total_tax'])"/></td>
+                                    </tr>
+                                </t>
+                                <tr style="background-color: #f2f2f2; font-weight: bold;">
+                                    <td class="text-right">Total</td>
+                                    <td class="text-right"><span t-esc="o._format_indian(tax_info['taxable_total'])"/></td>
+                                    <td></td>
+                                    <td class="text-right"><span t-esc="o._format_indian(tax_info['cgst_total'])"/></td>
+                                    <td></td>
+                                    <td class="text-right"><span t-esc="o._format_indian(tax_info['sgst_total'])"/></td>
+                                    <td class="text-right"><span t-esc="o._format_indian(tax_info['total_tax'])"/></td>
+                                </tr>
+                            </tbody>
+                        </table>
+
+                        <!-- Tax Amount in Words -->
+                        <div style="border-bottom: 1px solid #000; padding: 4px;">
+                            Tax Amount (in words) : <span class="bold"><span t-esc="o._get_amount_in_words_text(tax_info['total_tax'])"/></span>
+                        </div>
+
+                        <!-- Declaration & Signature Block -->
+                        <table class="b2c-table">
+                            <tr>
+                                <td style="width: 50%; border-bottom: none;">
+                                    <div t-if="o._get_b2c_company_pan()">Company's PAN : <span class="bold" t-esc="o._get_b2c_company_pan()"/></div>
+                                    <br/>
+                                    <div class="bold" style="text-decoration: underline;">Declaration</div>
+                                    <div>We declare that this invoice shows the actual price of the goods described and that all particulars are true and correct.</div>
+                                </td>
+                                <td style="width: 50%; text-align: right; border-bottom: none; vertical-align: bottom;">
+                                    <div>for <span class="bold" t-field="o.company_id.name"/></div>
+                                    <br/><br/><br/>
+                                    <div>Authorised Signatory</div>
+                                </td>
+                            </tr>
+                        </table>
+
+                        <!-- Computer Generated Invoice Disclaimer Footer -->
+                        <div style="text-align: center; border-top: 1px solid #000; padding: 3px; font-size: 10px;">
+                            This is a Computer Generated Invoice
+                        </div>
+                    </div>
+                </div>
+            </t>
+        </template>
+
+        <!-- B2B Invoice Template Wrapper -->
+        <template id="report_invoice_b2b_template">
+            <t t-call="web.html_container">
+                <t t-foreach="docs" t-as="o">
+                    <t t-set="lang" t-value="o.partner_id.lang"/>
+                    <t t-call="car_repair_industry.report_invoice_b2b_document" t-lang="lang"/>
+                </t>
+            </t>
+        </template>
+
+        <!-- B2B Invoice Document (Matching Tally / GST B2B Tax Invoice Format) -->
+        <template id="report_invoice_b2b_document">
+            <t t-call="web.basic_layout">
+                <t t-set="o" t-value="o.with_context(lang=lang)"/>
+                <t t-set="tax_info" t-value="o._get_b2c_tax_details()"/>
+                <t t-set="hsn_summary" t-value="o._get_b2c_hsn_summary()"/>
+
+                <style>
+                    .b2b-box {
+                        border: 1px solid #000;
+                        font-family: 'Calibri', Arial, sans-serif;
+                        font-size: 14px;
+                        color: #000;
+                        background: #fff;
+                        width: 100%;
+                    }
+                    .b2b-title {
+                        text-align: center;
+                        font-weight: bold;
+                        font-size: 18px;
+                        padding: 6px;
+                        border-bottom: 1px solid #000;
+                    }
+                    .b2b-table {
+                        width: 100%;
+                        border-collapse: collapse;
+                        margin: 0;
+                        padding: 0;
+                    }
+                    .b2b-table th, .b2b-table td {
+                        border-right: 1px solid #000;
+                        border-bottom: 1px solid #000;
+                        padding: 5px 8px;
+                        vertical-align: top;
+                    }
+                    .b2b-table th:last-child, .b2b-table td:last-child {
+                        border-right: none;
+                    }
+                    .terms-cell {
+                        border-bottom: 0px none transparent !important;
+                        border-bottom-width: 0px !important;
+                        border-bottom-style: none !important;
+                        border-bottom-color: transparent !important;
+                    }
+                    .b2b-items-table {
+                        width: 100%;
+                        border-collapse: collapse;
+                        margin: 0;
+                        padding: 0;
+                    }
+                    .b2b-items-table th {
+                        border-right: 1px solid #000 !important;
+                        border-bottom: 1px solid #000 !important;
+                        padding: 5px 8px;
+                        vertical-align: top;
+                    }
+                    .b2b-items-table tbody tr {
+                        border: none !important;
+                    }
+                    .b2b-items-table td {
+                        border-right: 1px solid #000 !important;
+                        border-top: 0px none transparent !important;
+                        border-bottom: 0px none transparent !important;
+                        padding: 4px 8px;
+                        vertical-align: top;
+                    }
+                    .b2b-items-table th:last-child, .b2b-items-table td:last-child {
+                        border-right: none !important;
+                    }
+                    .b2b-items-table tr.total-row td {
+                        border-top: 1px solid #000 !important;
+                        border-bottom: 1px solid #000 !important;
+                    }
+                    .text-right { text-align: right; }
+                    .text-center { text-align: center; }
+                    .text-left { text-align: left; }
+                    .bold { font-weight: bold; }
+                </style>
+
+                <div class="page" style="padding: 5px;">
+                    <div class="b2b-box">
+                        <!-- Invoice Title -->
+                        <div class="b2b-title">
+                            Tax Invoice(B2B)
+                        </div>
+
+                        <!-- Top Header Section Grid -->
+                        <table class="b2b-table">
+                            <tr>
+                                <!-- Left Column: Company & Customer Info -->
+                                <td rowspan="7" style="width: 50%; vertical-align: top; border-bottom: 1px solid #000;">
+                                    <div class="bold" style="font-size: 14px;"><span t-field="o.company_id.name"/></div>
+                                    <div><span t-field="o.company_id.street"/> <span t-field="o.company_id.street2"/></div>
+                                    <div><span t-field="o.company_id.city"/></div>
+                                    <div t-if="o.company_id.vat">GSTIN/UIN <span t-field="o.company_id.vat"/></div>
+                                    <div>
+                                        State Name : <span t-field="o.company_id.state_id.name"/>
+                                        <t t-if="o.company_id.state_id.code">, Code : <span t-field="o.company_id.state_id.code"/></t>
+                                    </div>
+                                    <div t-if="o.company_id.email">E-Mail : <span t-field="o.company_id.email"/></div>
+                                    <br/>
+
+                                    <div>Consignee (Ship to)</div>
+                                    <div class="bold"><span t-field="o.partner_id.name"/></div>
+                                    <div t-if="o.partner_id.street"><span t-field="o.partner_id.street"/> <span t-field="o.partner_id.city"/></div>
+                                    <div t-if="o.partner_id.vat">GSTIN/UIN : <span class="bold" t-field="o.partner_id.vat"/></div>
+                                    <div>
+                                        State Name : <span t-field="o.partner_id.state_id.name"/>
+                                        <t t-if="o.partner_id.state_id.code">, Code : <span t-field="o.partner_id.state_id.code"/></t>
+                                    </div>
+                                    <br/>
+
+                                    <div>Buyer (Bill to)</div>
+                                    <div class="bold"><span t-field="o.partner_id.name"/></div>
+                                    <div t-if="o.partner_id.street"><span t-field="o.partner_id.street"/> <span t-field="o.partner_id.city"/></div>
+                                    <div t-if="o.partner_id.vat">GSTIN/UIN : <span class="bold" t-field="o.partner_id.vat"/></div>
+                                    <div>
+                                        State Name : <span t-field="o.partner_id.state_id.name"/>
+                                        <t t-if="o.partner_id.state_id.code">, Code : <span t-field="o.partner_id.state_id.code"/></t>
+                                    </div>
+                                </td>
+
+                                <td style="width: 25%;">
+                                    Invoice No.<br/>
+                                    <span class="bold" t-field="o.name"/>
+                                </td>
+                                <td style="width: 25%;">
+                                    Dated<br/>
+                                    <span class="bold" t-field="o.invoice_date"/>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>
+                                    Delivery Note<br/>
+                                    <span t-field="o.ref"/>
+                                </td>
+                                <td>
+                                    Mode/Terms of Payment<br/>
+                                    <span t-field="o.invoice_payment_term_id.name"/>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>
+                                    Reference No. &amp; Date<br/>
+                                </td>
+                                <td>
+                                    Other References<br/>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>
+                                    Buyer's Order No.<br/>
+                                    <span t-field="o.invoice_origin"/>
+                                </td>
+                                <td>
+                                    Dated<br/>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>
+                                    Dispatch Doc No.<br/>
+                                </td>
+                                <td>
+                                    Delivery Note Date<br/>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>
+                                    Dispatched through<br/>
+                                </td>
+                                <td>
+                                    Destination<br/>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td colspan="2" style="border-bottom: 1px solid #000; vertical-align: top; height: 100%;">
+                                    Terms of Delivery<br/>
+                                </td>
+                            </tr>
+                        </table>
+
+                        <!-- Main Line Items Table -->
+                        <table class="b2b-items-table">
+                            <thead>
+                                <tr style="background-color: #f2f2f2;">
+                                    <th style="width: 5%;" class="text-center">Sl No</th>
+                                    <th style="width: 45%;" class="text-left">Description of Goods</th>
+                                    <th style="width: 12%;" class="text-center">HSN/SAC</th>
+                                    <th style="width: 12%;" class="text-center">Quantity</th>
+                                    <th style="width: 10%;" class="text-right">Rate</th>
+                                    <th style="width: 6%;" class="text-center">per</th>
+                                    <th style="width: 10%;" class="text-right">Amount</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <t t-set="sl_no" t-value="1"/>
+                                <t t-set="total_qty" t-value="0.0"/>
+                                <t t-foreach="o.invoice_line_ids" t-as="line">
+                                    <tr t-if="not line.display_type or line.display_type == 'product'">
+                                        <td class="text-center"><t t-esc="sl_no"/></td>
+                                        <td>
+                                            <span class="bold" t-field="line.name"/>
+                                        </td>
+                                        <td class="text-center">
+                                            <span t-esc="o._get_line_hsn_code(line)"/>
+                                        </td>
+                                        <td class="text-center">
+                                            <t t-if="line.quantity">
+                                                <span t-esc="o._format_indian(line.quantity)"/> <span t-field="line.product_uom_id.name"/>
+                                                <t t-set="total_qty" t-value="total_qty + line.quantity"/>
+                                            </t>
+                                        </td>
+                                        <td class="text-right">
+                                            <span t-esc="o._format_indian(line.price_unit)"/>
+                                        </td>
+                                        <td class="text-center">
+                                            <span t-field="line.product_uom_id.name"/>
+                                        </td>
+                                        <td class="text-right">
+                                            <span t-esc="o._format_indian(line.price_subtotal)"/>
+                                        </td>
+                                        <t t-set="sl_no" t-value="sl_no + 1"/>
+                                    </tr>
+                                </t>
+
+                                <!-- Subtotal line -->
+                                <tr>
+                                    <td></td>
+                                    <td></td>
+                                    <td></td>
+                                    <td></td>
+                                    <td></td>
+                                    <td></td>
+                                    <td class="text-right"><span t-esc="o._format_indian(tax_info['taxable_total'])"/></td>
+                                </tr>
+                                <tr t-if="tax_info['cgst_total'] &gt; 0">
+                                    <td></td>
+                                    <td class="text-right bold"><i>CGST</i></td>
+                                    <td></td>
+                                    <td></td>
+                                    <td></td>
+                                    <td></td>
+                                    <td class="text-right"><span t-esc="o._format_indian(tax_info['cgst_total'])"/></td>
+                                </tr>
+                                <tr t-if="tax_info['sgst_total'] &gt; 0">
+                                    <td></td>
+                                    <td class="text-right bold"><i>SGST</i></td>
+                                    <td></td>
+                                    <td></td>
+                                    <td></td>
+                                    <td></td>
+                                    <td class="text-right"><span t-esc="o._format_indian(tax_info['sgst_total'])"/></td>
+                                </tr>
+                                <tr t-if="tax_info['igst_total'] &gt; 0">
+                                    <td></td>
+                                    <td class="text-right bold"><i>IGST</i></td>
+                                    <td></td>
+                                    <td></td>
+                                    <td></td>
+                                    <td></td>
+                                    <td class="text-right"><span t-esc="o._format_indian(tax_info['igst_total'])"/></td>
+                                </tr>
+                                <tr t-if="tax_info['roundoff'] != 0">
+                                    <td></td>
+                                    <td class="text-right bold"><i>Less Roundoff</i></td>
+                                    <td></td>
+                                    <td></td>
+                                    <td></td>
+                                    <td></td>
+                                    <td class="text-right"><span t-esc="'(-) ' + o._format_indian(abs(tax_info['roundoff'])) if tax_info['roundoff'] &lt; 0 else o._format_indian(tax_info['roundoff'])"/></td>
+                                </tr>
+
+                                <!-- Total Summary Line -->
+                                <tr class="total-row" style="background-color: #f2f2f2; font-weight: bold;">
+                                    <td></td>
+                                    <td class="text-right">Total</td>
+                                    <td></td>
+                                    <td class="text-center"><span t-esc="o._format_indian(total_qty) + ' NOS'"/></td>
+                                    <td></td>
+                                    <td></td>
+                                    <td class="text-right">
+                                        <span t-field="o.currency_id.symbol"/> <span t-esc="o._format_indian(o.amount_total)"/>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+
+                        <!-- Amount Chargeable in Words -->
+                        <div style="border-bottom: 1px solid #000; padding: 4px;">
+                            <div style="float: right; font-style: italic;">E &amp; O.E</div>
+                            <div>Amount Chargeable (in words)</div>
+                            <div class="bold"><span t-esc="o._get_amount_in_words_text(o.amount_total)"/></div>
+                        </div>
+
+                        <!-- HSN/SAC Tax Table -->
+                        <table class="b2b-table">
+                            <thead>
+                                <tr style="background-color: #f2f2f2;">
+                                    <th rowspan="2" class="text-center" style="vertical-align: middle;">HSN/SAC</th>
+                                    <th rowspan="2" class="text-right" style="vertical-align: middle;">Taxable Value</th>
+                                    <th colspan="2" class="text-center">CGST</th>
+                                    <th colspan="2" class="text-center">SGST/UTGST</th>
+                                    <th rowspan="2" class="text-right" style="vertical-align: middle;">Total Tax Amount</th>
+                                </tr>
+                                <tr style="background-color: #f2f2f2;">
+                                    <th class="text-center" style="width: 10%;">Rate</th>
+                                    <th class="text-right" style="width: 12%;">Amount</th>
+                                    <th class="text-center" style="width: 10%;">Rate</th>
+                                    <th class="text-right" style="width: 12%;">Amount</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <t t-foreach="hsn_summary" t-as="hsn_item">
+                                    <tr>
+                                        <td class="text-center"><span t-esc="hsn_item['hsn']"/></td>
+                                        <td class="text-right"><span t-esc="o._format_indian(hsn_item['taxable_value'])"/></td>
+                                        <td class="text-center"><t t-if="hsn_item['cgst_rate']"><span t-esc="str(int(hsn_item['cgst_rate'])) + '%'"/></t></td>
+                                        <td class="text-right"><span t-esc="o._format_indian(hsn_item['cgst_amount'])"/></td>
+                                        <td class="text-center"><t t-if="hsn_item['sgst_rate']"><span t-esc="str(int(hsn_item['sgst_rate'])) + '%'"/></t></td>
+                                        <td class="text-right"><span t-esc="o._format_indian(hsn_item['sgst_amount'])"/></td>
+                                        <td class="text-right"><span t-esc="o._format_indian(hsn_item['total_tax'])"/></td>
+                                    </tr>
+                                </t>
+                                <tr style="background-color: #f2f2f2; font-weight: bold;">
+                                    <td class="text-right">Total</td>
+                                    <td class="text-right"><span t-esc="o._format_indian(tax_info['taxable_total'])"/></td>
+                                    <td></td>
+                                    <td class="text-right"><span t-esc="o._format_indian(tax_info['cgst_total'])"/></td>
+                                    <td></td>
+                                    <td class="text-right"><span t-esc="o._format_indian(tax_info['sgst_total'])"/></td>
+                                    <td class="text-right"><span t-esc="o._format_indian(tax_info['total_tax'])"/></td>
+                                </tr>
+                            </tbody>
+                        </table>
+
+                        <!-- Tax Amount in Words -->
+                        <div style="border-bottom: 1px solid #000; padding: 4px;">
+                            Tax Amount (in words) : <span class="bold"><span t-esc="o._get_amount_in_words_text(tax_info['total_tax'])"/></span>
+                        </div>
+
+                        <!-- Declaration & Signature Block -->
+                        <table class="b2b-table">
+                            <tr>
+                                <td style="width: 50%; border-bottom: none;">
+                                    <div t-if="o._get_b2c_company_pan()">Company's PAN : <span class="bold" t-esc="o._get_b2c_company_pan()"/></div>
+                                    <br/>
+                                    <div class="bold" style="text-decoration: underline;">Declaration</div>
+                                    <div>We declare that this invoice shows the actual price of the goods described and that all particulars are true and correct.</div>
+                                    <br/>
+                                    <t t-if="o.company_id.partner_id.bank_ids">
+                                        <div class="bold" style="text-decoration: underline;">Bank Details:</div>
+                                        <div>Bank Name: <span t-esc="o.company_id.partner_id.bank_ids[0].bank_name or (o.company_id.partner_id.bank_ids[0].bank_id and o.company_id.partner_id.bank_ids[0].bank_id.name) or ''"/></div>
+                                        <div>A/c No: <span t-esc="o.company_id.partner_id.bank_ids[0].acc_number"/></div>
+                                    </t>
+                                </td>
+                                <td style="width: 50%; text-align: right; border-bottom: none; vertical-align: bottom;">
+                                    <div>for <span class="bold" t-field="o.company_id.name"/></div>
+                                    <br/><br/><br/>
+                                    <div>Authorised Signatory</div>
+                                </td>
+                            </tr>
+                        </table>
+
+                        <!-- Computer Generated Invoice Disclaimer Footer -->
+                        <div style="text-align: center; border-top: 1px solid #000; padding: 3px; font-size: 10px;">
+                            This is a Computer Generated Invoice
+                        </div>
+                    </div>
+                </div>
+            </t>
+        </template>
+    </data>
+</odoo>
