@@ -3,3 +3,5 @@
 
 from . import fleet_repair_assign_to_head_tech
 from . import fleet_diagnose_assign_to_technician
+from . import invoice_print_wizard
+

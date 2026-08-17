@@ -46,3 +46,4 @@ access_fleet_repair_work_line,fleet.repair.work.line,car_repair_industry.model_f
 access_fleet_lead_question_line,fleet.lead.question.line,car_repair_industry.model_fleet_lead_question_line,base.group_user,1,1,1,1
 access_fleet_lead_question,fleet.lead.question,car_repair_industry.model_fleet_lead_question,base.group_user,1,1,1,1
 access_fleet_repair_service_line,fleet.repair.service.line,car_repair_industry.model_fleet_repair_service_line,base.group_user,1,1,1,1
+access_invoice_print_wizard,invoice.print.wizard,model_invoice_print_wizard,base.group_user,1,1,1,1

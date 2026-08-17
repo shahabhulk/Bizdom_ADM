@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+        <record id="view_invoice_print_wizard_form" model="ir.ui.view">
+            <field name="name">invoice.print.wizard.form</field>
+            <field name="model">invoice.print.wizard</field>
+            <field name="arch" type="xml">
+                <form string="Print Invoice">
+                    <sheet>
+                        <group>
+                            <field name="invoice_id" readonly="1" options="{'no_open': True}"/>
+                            <field name="print_type" widget="radio"/>
+                        </group>
+                        <div class="text-muted mb-3">
+                            Select the invoice format to print: <b>B2C Invoice</b> (Consumer) or <b>B2B Invoice</b> (Commercial Tax Invoice).
+                        </div>
+                    </sheet>
+                    <footer>
+                        <button name="action_print" string="Print" type="object" class="btn-primary" data-hotkey="q"/>
+                        <button string="Cancel" class="btn-secondary" special="cancel" data-hotkey="x"/>
+                    </footer>
+                </form>
+            </field>
+        </record>
+
+        <record id="action_invoice_print_wizard" model="ir.actions.act_window">
+            <field name="name">Print</field>
+            <field name="res_model">invoice.print.wizard</field>
+            <field name="view_mode">form</field>
+            <field name="target">new</field>
+            <field name="binding_model_id" ref="account.model_account_move"/>
+            <field name="binding_type">action</field>
+        </record>
+    </data>
+</odoo>
