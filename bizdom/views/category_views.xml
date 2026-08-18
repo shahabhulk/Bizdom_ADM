@@ -61,7 +61,7 @@
     </record>
     
     <!-- Main Categories Menu -->
-    <menuitem id="menu_bizdom_categories" name="Categories" parent="menu_bizdom_root" sequence="20"/>
+    <menuitem id="menu_bizdom_categories" name="Categories" parent="menu_bizdom_configuration" sequence="30"/>
     
     <!-- Category Level 1 Menu -->
     <menuitem id="menu_bizdom_category_lvl1" name="Category Level 1" parent="menu_bizdom_categories"
