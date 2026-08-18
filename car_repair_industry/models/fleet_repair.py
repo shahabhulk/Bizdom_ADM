@@ -253,6 +253,7 @@ class FleetRepair(models.Model):
     @api.onchange('license_plate')
     def _onchange_license_plate(self):
         car = self.license_plate
+        warning = {}
         if car:
             self.vehicle_id = car
             self.vin_sn = car.vin_sn or False
@@ -275,6 +276,49 @@ class FleetRepair(models.Model):
                 self.kilometers_num = str(car.odometer)
             else:
                 self.kilometers_num = False
+
+            # Check if active job card exists for warning
+            domain = [
+                ('state', 'not in', ['done', 'cancel']),
+            ]
+            if self._origin and self._origin.id:
+                domain.append(('id', '!=', self._origin.id))
+
+            plate_name = car.license_plate
+            if plate_name:
+                domain.extend([
+                    '|',
+                    ('license_plate', '=', car.id),
+                    ('license_plate.license_plate', '=ilike', plate_name.strip())
+                ])
+            else:
+                domain.append(('license_plate', '=', car.id))
+
+            existing_repairs = self.search(domain)
+            for existing in existing_repairs:
+                invoice_posted = False
+                if existing.invoice_order_id and existing.invoice_order_id.state == 'posted':
+                    invoice_posted = True
+                else:
+                    posted_count = self.env['account.move'].search_count([
+                        ('fleet_repair_invoice_id', '=', existing.id),
+                        ('state', '=', 'posted'),
+                    ])
+                    if posted_count > 0:
+                        invoice_posted = True
+
+                if not invoice_posted:
+                    state_label = dict(self._fields['state'].selection).get(existing.state, existing.state)
+                    jc_ref = existing.sequence or existing.name or _("ID %s") % existing.id
+                    display_plate = plate_name or car.name or _("Selected Vehicle")
+                    warning = {
+                        'title': _("Active Job Card Exists"),
+                        'message': _(
+                            "A Job Card (%s) with License Plate '%s' is already active (Status: %s).\n\n"
+                            "A new Job Card for the same License Plate cannot be created until the existing Job Card is Done or its Invoice is Posted."
+                        ) % (jc_ref, display_plate, state_label)
+                    }
+                    break
         else:
             self.vehicle_id = False
             self.vin_sn = False
@@ -286,6 +330,9 @@ class FleetRepair(models.Model):
             self.client_mobile = False
             self.client_email = False
             self.client_address = False
+
+        if warning:
+            return {'warning': warning}
 
     @api.onchange('vin_sn', 'kilometers_num')
     def _onchange_vin_sn_kilometers_num(self):
@@ -560,6 +607,52 @@ class FleetRepair(models.Model):
                 receipt_date = record.receipt_date.date() if isinstance(record.receipt_date, datetime) else record.receipt_date
                 if promised_date < receipt_date:
                     raise ValidationError(_("Promised Date must be greater than or equal to JC Date."))
+
+    @api.constrains('license_plate', 'state')
+    def _check_active_job_card_license_plate(self):
+        for record in self:
+            if not record.license_plate:
+                continue
+
+            vehicle = record.license_plate
+            plate_name = vehicle.license_plate or False
+
+            domain = [
+                ('id', '!=', record.id),
+                ('state', 'not in', ['done', 'cancel']),
+            ]
+
+            if plate_name:
+                domain.extend([
+                    '|',
+                    ('license_plate', '=', vehicle.id),
+                    ('license_plate.license_plate', '=ilike', plate_name.strip())
+                ])
+            else:
+                domain.append(('license_plate', '=', vehicle.id))
+
+            existing_repairs = self.search(domain)
+            for existing in existing_repairs:
+                invoice_posted = False
+                if existing.invoice_order_id and existing.invoice_order_id.state == 'posted':
+                    invoice_posted = True
+                else:
+                    posted_count = self.env['account.move'].search_count([
+                        ('fleet_repair_invoice_id', '=', existing.id),
+                        ('state', '=', 'posted'),
+                    ])
+                    if posted_count > 0:
+                        invoice_posted = True
+
+                if not invoice_posted:
+                    state_label = dict(self._fields['state'].selection).get(existing.state, existing.state)
+                    jc_ref = existing.sequence or existing.name or _("ID %s") % existing.id
+                    display_plate = plate_name or vehicle.name or _("Selected Vehicle")
+
+                    raise ValidationError(_(
+                        "A Job Card (%s) with License Plate '%s' is already active (Status: %s).\n\n"
+                        "A new Job Card for the same License Plate cannot be created until the existing Job Card is Done or its Invoice is Posted."
+                    ) % (jc_ref, display_plate, state_label))
 
     @api.onchange('promised_date', 'receipt_date')
     def _onchange_promised_date(self):
