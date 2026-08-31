@@ -149,6 +149,59 @@ class AccountInvoice(models.Model):
     # job_card_name = fields.Char(string='Job Card No', compute='_compute_job_card_name')
     job_card_name = fields.Char(string='Job Card No', related='fleet_repair_invoice_id.sequence')
     car_name=fields.Char(string='Car name', related='fleet_repair_invoice_id.fleet_id.name')
+    apply_taxes = fields.Boolean(
+        string='Apply Taxes',
+        default=True,
+        help='Toggle ON to apply default product taxes to invoice lines, or OFF to clear taxes.'
+    )
+    has_taxes_applied = fields.Boolean(
+        string='Has Taxes Applied',
+        compute='_compute_has_taxes_applied',
+        help='Technical field indicating if any line in invoice has taxes applied.'
+    )
+
+    @api.depends('invoice_line_ids.tax_ids')
+    def _compute_has_taxes_applied(self):
+        for move in self:
+            lines = move.invoice_line_ids.filtered(lambda l: not l.display_type)
+            move.has_taxes_applied = any(line.tax_ids for line in lines)
+
+    @api.onchange('apply_taxes')
+    def _onchange_apply_taxes(self):
+        for move in self:
+            for line in move.invoice_line_ids.filtered(lambda l: not l.display_type):
+                if not move.apply_taxes:
+                    line.tax_ids = [(5, 0, 0)]
+                else:
+                    line.tax_ids = line._get_computed_taxes()
+
+    def action_toggle_taxes(self):
+        for move in self:
+            if move.state != 'draft':
+                continue
+            move.apply_taxes = not move.apply_taxes
+            if not move.apply_taxes:
+                move.action_remove_taxes()
+            else:
+                move.action_apply_taxes()
+
+    def action_remove_taxes(self):
+        for move in self:
+            if move.state != 'draft':
+                continue
+            lines = move.invoice_line_ids.filtered(lambda l: not l.display_type)
+            for line in lines:
+                line.tax_ids = [(5, 0, 0)]
+
+    def action_apply_taxes(self):
+        for move in self:
+            if move.state != 'draft':
+                continue
+            lines = move.invoice_line_ids.filtered(lambda l: not l.display_type)
+            for line in lines:
+                if not line.product_id:
+                    continue
+                line.tax_ids = [(6, 0, line._get_computed_taxes().ids)]
 
     # @api.depends('fleet_repair_invoice_id.job_card_display')
     # def _compute_job_card_name(self):
@@ -495,6 +548,19 @@ class AccountInvoiceLine(models.Model):
         readonly=False  #
     )
     margin_parts=fields.Float(string='Margin Parts')
+
+    @api.depends('move_id.apply_taxes')
+    def _compute_tax_ids(self):
+        super()._compute_tax_ids()
+        for line in self:
+            if line.move_id and not line.move_id.apply_taxes:
+                line.tax_ids = [(5, 0, 0)]
+
+    def _get_computed_taxes(self):
+        self.ensure_one()
+        if self.move_id and not self.move_id.apply_taxes:
+            return self.env['account.tax']
+        return super()._get_computed_taxes()
 
 
 

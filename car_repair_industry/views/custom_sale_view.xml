@@ -52,6 +52,15 @@
             <field name="model">account.move</field>
             <field name="inherit_id" ref="account.view_move_form"/>
             <field name="arch" type="xml">
+                <xpath expr="//header" position="inside">
+                    <field name="has_taxes_applied" invisible="1"/>
+                </xpath>
+                <xpath expr="//field[@name='invoice_line_ids']" position="before">
+                    <div class="d-flex align-items-center gap-2 mb-2" invisible="state != 'draft'">
+                        <label for="apply_taxes" string="Apply Taxes" class="fw-bold me-2"/>
+                        <field name="apply_taxes" widget="boolean_toggle" class="oe_inline"/>
+                    </div>
+                </xpath>
                 <xpath expr="//div[@name='button_box']" position="inside">
                     <field name="create_form_fleet" invisible="1"/>
                     <field name="fleet_repair_invoice_id" invisible="1"/>
