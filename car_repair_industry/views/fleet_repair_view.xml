@@ -150,7 +150,7 @@
                                 <field name="product_line_ids" readonly="state in ('done', 'cancel')" widget="one2many_list" context="{'default_repair_id': id}">
                                     <list editable="bottom">
                                         <field name="item_code_id" column_invisible="1"/>
-                                        <field name="item_code_display" widget="item_code_autocomplete" string="Item Code"
+                                        <field name="item_code_display" widget="item_code_autocomplete" string="Item Code" optional="hide"
                                                readonly="parent.state in ('done', 'cancel', 'invoiced')"/>
                                         <field name="product_id" options="{'no_quick_create': True}" context="{'default_categ_id': False}"
                                                readonly="parent.state in ('done', 'cancel', 'invoiced')"/>
@@ -206,16 +206,28 @@
                                 <separator string="Service"/>
                                 <field name="service_line_ids" readonly="state in ('done', 'cancel')" widget="one2many_list">
                                     <list editable="bottom">
+                                        <field name="fru_status" column_invisible="1"/>
+                                        <field name="item_code" string="Item Code" optional="hide" readonly="1"/>
                                         <field name="product_id" string="Service" domain="[('type', '=', 'service')]" context="{'default_type': 'service', 'default_categ_id': False}" options="{'no_quick_create': True}"
                                                readonly="parent.state in ('done', 'cancel', 'invoiced')"/>
                                         <field name="department_id" required="1" optional="hide" options="{'no_create': True, 'no_create_edit': True}"
                                                readonly="parent.state in ('done', 'cancel', 'invoiced')"/>
                                         <field name="employee_id" required="1" optional="show" options="{'no_create': True, 'no_create_edit': True}"
                                                readonly="parent.state in ('done', 'cancel', 'invoiced')"/>
-                                        <field name="quantity"
+                                        <field name="timer_start" string="Start Date" readonly="1"/>
+                                        <field name="timer_end" string="End Date" readonly="1"/>
+                                        <field name="is_timer_running" column_invisible="1"/>
+                                        <field name="timer_last_start" column_invisible="1"/>
+                                        <field name="accumulated_seconds" column_invisible="1"/>
+                                        <field name="time_diff" string="Duration" widget="stopwatch_timer" sum="Total"
+                                               decoration-success="fru_status == 'green'"
+                                               decoration-warning="fru_status == 'yellow'"
+                                               decoration-danger="fru_status == 'red'"/>
+                                        <field name="is_timer_paused" string="Reset" widget="reset_timer_button" optional="hide"/>
+                                        <field name="alloted_fru" string="FRU"
                                                readonly="parent.state in ('done', 'cancel', 'invoiced')"/>
-                                        <field name="uom_id"
-                                               readonly="parent.state in ('done', 'cancel', 'invoiced')"/>
+                                        <field name="quantity" column_invisible="1"/>
+                                        <field name="uom_id" column_invisible="1"/>
                                         <field name="unit_price" string="Price" widget="monetary"
                                                options="{'currency_field': 'currency_id'}"
                                                readonly="parent.state in ('done', 'cancel', 'invoiced')"/>
@@ -272,29 +284,16 @@
                                 <field name="fleet_work_line_ids" widget="one2many_list">
                                     <list editable="bottom">
                                         <field name="repair_id" column_invisible="1"/>
-                                        <field name="employee_id" options="{'no_create': True, 'no_create_edit': True}"/>
-                                        <field name="department_type_id" options="{'no_create': True, 'no_create_edit': True}"/>
-                                        <field name="work_type"/>
-                                        <field name="timer_start"/>
-                                        <field name="timer_end"/>
-                                        <field name="time_diff" string="Duration" sum="Total"/>
-                                        <button name="action_start_timer"
-                                                type="object"
-                                                class="oe_stat_button"
-                                                icon="fa-play"
-                                                title="Start Timer"
-                                        />
-                                        <button name="action_stop_timer"
-                                                type="object"
-                                                class="oe_stat_button"
-                                                icon="fa-stop"
-                                                title="Stop Timer"
-                                        />
-                                        <button name="action_reset_timer"
-                                                type="object"
-                                                class="oe_stat_button"
-                                                icon="fa-refresh"
-                                                title="Reset Timer"/>
+                                        <field name="work_type" domain="[('type', '=', 'service')]" options="{'no_create': True, 'no_create_edit': True}"/>
+                                        <field name="employee_id" domain="['|', ('department_id', '=', department_type_id), ('department_id', '=', False)]" options="{'no_create': True, 'no_create_edit': True}"/>
+                                        <field name="department_type_id" string="Department" optional="hide" options="{'no_create': True, 'no_create_edit': True}"/>
+                                        <field name="timer_start" string="Start Date" readonly="1"/>
+                                        <field name="timer_end" string="End Date" readonly="1"/>
+                                        <field name="is_timer_running" column_invisible="1"/>
+                                        <field name="timer_last_start" column_invisible="1"/>
+                                        <field name="accumulated_seconds" column_invisible="1"/>
+                                        <field name="time_diff" string="Duration" widget="stopwatch_timer" sum="Total"/>
+                                        <field name="is_timer_paused" string="Reset" widget="reset_timer_button" optional="hide"/>
                                     </list>
                                 </field>
                             </page>
@@ -315,15 +314,22 @@
                     <field name="sequence" string="Number"/>
                     <field name="client_id"/>
                     <field name="client_phone"/>
-                    <field name="receipt_date"/>
-                    <field name="user_id"/>
+                    <field name="receipt_date" options="{'show_time': false}" width="120px"/>
+                    <field name="user_id" optional="hide"/>
                     <field name="currency_id" column_invisible="1"/>
                     <field name="amount_parts" string="Parts Total" widget="monetary" optional="show" readonly="1"/>
                     <field name="amount_service" string="Service Total" widget="monetary" optional="show" readonly="1"/>
                     <field name="amount_total" string="Total Amount" widget="monetary" readonly="1"/>
                     <field name="invoice_paid_amount" string="Paid Amount" widget="monetary"
                            options="{'currency_field': 'currency_id'}"/>
-                    <field name="state" widget="badge" decoration-success="state == 'done'"/>
+                    <field name="wip_fru_status" column_invisible="1"/>
+                    <field name="total_service_fru" column_invisible="1"/>
+                    <field name="state" widget="badge"
+                           decoration-success="state == 'done' or (state == 'workorder' and wip_fru_status == 'green')"
+                           decoration-warning="state == 'workorder' and wip_fru_status == 'yellow'"
+                           decoration-danger="state == 'workorder' and wip_fru_status == 'red'"/>
+                    <field name="service_employee_id" widget="many2one_avatar_employee" string="Employee" optional="show"/>
+                    <field name="active_service_time_diff" widget="active_service_timer" string="Active Timer" optional="show"/>
                     <field name="promised_date" widget="remaining_days" invisible="state == 'done'"/>
                     <field name="delivery_status_color" widget="delivery_status" string="Signal"/>
 <!--                    <field name="csat_rating" widget="priority"/>-->
@@ -342,9 +348,14 @@
                     <field name="client_id" operator="child_of"/>
                     <field name="user_id"/>
                     <field name="fleet_id"/>
+                    <field name="service_employee_id" string="Employee"/>
                     <separator/>
+                    <filter string="Active Work" name="active_work" domain="[('has_active_service_timer', '=', True)]"/>
                     <filter string="Not Done" name="not_done" domain="[('state', '!=', 'done')]"/>
                     <filter string="Done" name="done" domain="[('state', '=', 'done')]"/>
+                    <group expand="0" string="Group By">
+                        <filter string="Employee" name="group_service_employee" context="{'group_by': 'service_employee_id'}"/>
+                    </group>
                 </search>
             </field>
         </record>

@@ -32,7 +32,7 @@ class ProductTemplate(models.Model):
         domain="[('department_ids', 'in', department_id)]",
         default=False
     )
-    alloted_fru = fields.Float(string="Alloted FRU")
+    alloted_fru = fields.Integer(string="Alloted FRU")
 
     @api.constrains('type', 'alloted_fru')
     def _check_alloted_fru(self):
@@ -118,7 +118,7 @@ class ProductProduct(models.Model):
         readonly=False,
         domain="[('model_ids.model', '=', 'product.template')]"
     )
-    alloted_fru = fields.Float(
+    alloted_fru = fields.Integer(
         string="Alloted FRU",
         related='product_tmpl_id.alloted_fru',
         store=True,

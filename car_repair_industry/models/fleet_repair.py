@@ -229,6 +229,114 @@ class FleetRepair(models.Model):
     ], compute="_compute_delivery_status_color", store=True, string="Signal")
     project_id = fields.Many2one('project.project', string='Project', copy=False, readonly=True)
 
+    service_employee_id = fields.Many2one(
+        'hr.employee',
+        string='Employee',
+        compute='_compute_service_employee_id',
+        store=True,
+    )
+
+    @api.depends('service_line_ids.employee_id')
+    def _compute_service_employee_id(self):
+        for rec in self:
+            first_emp = False
+            for line in rec.service_line_ids:
+                if line.employee_id:
+                    first_emp = line.employee_id
+                    break
+            rec.service_employee_id = first_emp
+
+    active_service_employee_ids = fields.Many2many(
+        'hr.employee',
+        'fleet_repair_active_service_employee_rel',
+        'repair_id',
+        'employee_id',
+        string='Active Technicians',
+        compute='_compute_active_service_info',
+        store=True,
+    )
+    has_active_service_timer = fields.Boolean(
+        string='Active Timer Running',
+        compute='_compute_active_service_info',
+        store=True,
+    )
+    active_service_timer_last_start = fields.Datetime(
+        string='Active Timer Start',
+        compute='_compute_active_service_info',
+        store=True,
+    )
+    active_service_accumulated_seconds = fields.Float(
+        string='Active Accumulated Seconds',
+        compute='_compute_active_service_info',
+        store=True,
+    )
+    active_service_time_diff = fields.Float(
+        string='Active Duration',
+        compute='_compute_active_service_info',
+        store=True,
+    )
+    total_service_fru = fields.Float(
+        string='Total Service FRU',
+        compute='_compute_active_service_info',
+        store=True,
+    )
+    wip_fru_status = fields.Selection(
+        [('green', 'Normal'), ('yellow', 'Warning'), ('red', 'Overtime')],
+        string='WIP FRU Status',
+        compute='_compute_active_service_info',
+        store=True,
+        default='green',
+    )
+
+    @api.depends(
+        'service_line_ids.is_timer_running',
+        'service_line_ids.employee_id',
+        'service_line_ids.accumulated_seconds',
+        'service_line_ids.timer_last_start',
+        'service_line_ids.time_diff',
+        'service_line_ids.alloted_fru',
+        'service_line_ids.quantity'
+    )
+    def _compute_active_service_info(self):
+        for rec in self:
+            active_lines = rec.service_line_ids.filtered(lambda l: l.is_timer_running)
+            if active_lines:
+                rec.active_service_employee_ids = [(6, 0, active_lines.mapped('employee_id').ids)]
+                rec.has_active_service_timer = True
+                valid_starts = [st for st in active_lines.mapped('timer_last_start') if st]
+                rec.active_service_timer_last_start = min(valid_starts) if valid_starts else False
+                rec.active_service_accumulated_seconds = sum(active_lines.mapped('accumulated_seconds'))
+                rec.active_service_time_diff = sum(active_lines.mapped('time_diff'))
+            else:
+                rec.active_service_employee_ids = [(5, 0, 0)]
+                rec.has_active_service_timer = False
+                rec.active_service_timer_last_start = False
+                rec.active_service_accumulated_seconds = 0.0
+                rec.active_service_time_diff = 0.0
+
+            # 1 FRU = 5 minutes = 300 seconds
+            total_fru = sum((line.alloted_fru or (line.product_id.alloted_fru if line.product_id else 0) or line.quantity or 0.0) for line in rec.service_line_ids)
+            rec.total_service_fru = total_fru
+            fru_seconds = total_fru * 300.0
+
+            now = fields.Datetime.now()
+            total_actual_sec = 0.0
+            for line in rec.service_line_ids:
+                line_sec = line.accumulated_seconds or 0.0
+                if line.is_timer_running and line.timer_last_start:
+                    line_sec += (now - line.timer_last_start).total_seconds()
+                total_actual_sec += line_sec
+
+            if fru_seconds > 0:
+                if total_actual_sec <= fru_seconds:
+                    rec.wip_fru_status = 'green'
+                elif total_actual_sec <= 2 * fru_seconds:
+                    rec.wip_fru_status = 'yellow'
+                else:
+                    rec.wip_fru_status = 'red'
+            else:
+                rec.wip_fru_status = 'green'
+
     # def write(self, vals):
     #     # First call the original write method
     #     res = super().write(vals)
@@ -361,13 +469,31 @@ class FleetRepair(models.Model):
     @api.model_create_multi
     def create(self, vals_list):
         records = super().create(vals_list)
+        for rec in records:
+            has_active_timer = any(rec.service_line_ids.mapped('is_timer_running')) or \
+                               any(rec.fleet_work_line_ids.mapped('is_timer_running')) or \
+                               any(rec.timesheet_ids.mapped('is_timer_running'))
+            if has_active_timer and rec.state != 'workorder' and rec.state not in ('done', 'cancel'):
+                rec.sudo().write({'state': 'workorder'})
         records._sync_vehicle_data()
         return records
 
     def write(self, vals):
         res = super().write(vals)
-        self._sync_vehicle_data()
-        self._sync_draft_invoices()
+        if 'state' in vals and vals.get('state') != 'workorder':
+            for rec in self:
+                has_active_timer = any(rec.service_line_ids.mapped('is_timer_running')) or \
+                                   any(rec.fleet_work_line_ids.mapped('is_timer_running'))
+                if has_active_timer:
+                    raise UserError(_('Cannot change status while a timer is active and ongoing. The Job Card must remain in "Work in Progress" until all timers are paused or stopped.'))
+
+        vehicle_trigger_fields = {'vehicle_id', 'client_id', 'license_plate', 'odometer', 'fuel_level'}
+        if any(f in vals for f in vehicle_trigger_fields):
+            self._sync_vehicle_data()
+
+        invoice_trigger_fields = {'product_line_ids', 'service_line_ids', 'client_id', 'pricelist_id'}
+        if any(f in vals for f in invoice_trigger_fields):
+            self._sync_draft_invoices()
         return res
 
 
@@ -823,6 +949,7 @@ class FleetRepair(models.Model):
                     if not line.product_id:
                         continue
                     invoice_lines.append((0, 0, {
+                        'item_code': line.item_code,
                         'product_id': line.product_id.id,
                         'name': line.name or line.product_id.name,
                         'quantity': line.quantity,
@@ -889,6 +1016,7 @@ class FleetRepair(models.Model):
                 continue
 
             invoice_lines.append((0, 0, {
+                'item_code': line.item_code,
                 'product_id': line.product_id.id,
                 'name': line.name or line.product_id.name,
                 'quantity': line.quantity,
@@ -1711,8 +1839,45 @@ class FleetRepairServiceLine(models.Model):
 
     repair_id = fields.Many2one('fleet.repair', string='Repair Order', ondelete='cascade', required=True)
     product_id = fields.Many2one('product.product', domain=[('type', '=', 'service')], string='Service')
+    item_code = fields.Char(
+        string='Item Code',
+        related='product_id.item_code',
+        store=True,
+        readonly=True,
+    )
+    alloted_fru = fields.Integer(
+        string='Alloted FRU',
+        compute='_compute_alloted_fru',
+        store=True,
+        readonly=False,
+        precompute=True,
+    )
+
+    @api.depends('product_id')
+    def _compute_alloted_fru(self):
+        for line in self:
+            if line.product_id and not line.alloted_fru:
+                line.alloted_fru = line.product_id.alloted_fru or 0
+            elif not line.product_id and not line.alloted_fru:
+                line.alloted_fru = 0
+
     name = fields.Text(string='Description')
-    quantity = fields.Float(string='Quantity', default=1.0)
+    quantity = fields.Float(
+        string='Quantity',
+        compute='_compute_quantity',
+        store=True,
+        readonly=False,
+        precompute=True,
+        default=1.0,
+    )
+
+    @api.depends('alloted_fru')
+    def _compute_quantity(self):
+        for line in self:
+            if line.alloted_fru is not False and line.alloted_fru > 0:
+                line.quantity = float(line.alloted_fru)
+            elif not line.quantity:
+                line.quantity = 1.0
     department_id = fields.Many2one(
         'hr.department',
         string='Department',
@@ -1730,25 +1895,190 @@ class FleetRepairServiceLine(models.Model):
     subtotal = fields.Monetary(string='Subtotal', compute='_compute_subtotal', store=True)
     currency_id = fields.Many2one('res.currency', related='repair_id.currency_id', store=True, readonly=True)
 
-    @api.depends('quantity', 'unit_price')
+    timer_start = fields.Datetime('Start Timer')
+    timer_end = fields.Datetime('End Timer')
+    timer_last_start = fields.Datetime('Last Start Timer')
+    is_timer_running = fields.Boolean('Timer Running', default=False)
+    is_timer_paused = fields.Boolean('Timer Paused', default=False)
+    accumulated_seconds = fields.Float('Accumulated Seconds', default=0.0)
+    time_diff = fields.Float(
+        compute='_compute_time_diff',
+        store=True
+    )
+    fru_status = fields.Selection(
+        [('green', 'Normal'), ('yellow', 'Warning'), ('red', 'Overtime')],
+        string='FRU Status',
+        compute='_compute_time_diff',
+        store=True,
+        default='green',
+    )
+    receipt_date = fields.Datetime(related='repair_id.receipt_date', string='JC date', store=True, readonly=True)
+
+    @api.depends('timer_start', 'timer_end', 'is_timer_running', 'accumulated_seconds', 'timer_last_start', 'alloted_fru', 'quantity')
+    def _compute_time_diff(self):
+        for rec in self:
+            total_sec = rec.accumulated_seconds or 0.0
+            if rec.is_timer_running and rec.timer_last_start:
+                now = fields.Datetime.now()
+                delta = now - rec.timer_last_start
+                total_sec += delta.total_seconds()
+            rec.time_diff = total_sec / 3600.0
+
+            # 1 FRU = 5 minutes = 300 seconds
+            fru = rec.alloted_fru or (rec.product_id.alloted_fru if rec.product_id else 0) or rec.quantity or 0.0
+            fru_sec = fru * 300.0
+            if fru_sec > 0:
+                if total_sec <= fru_sec:
+                    rec.fru_status = 'green'
+                elif total_sec <= 2 * fru_sec:
+                    rec.fru_status = 'yellow'
+                else:
+                    rec.fru_status = 'red'
+            else:
+                rec.fru_status = 'green'
+
+    def action_start_timer(self):
+        result = {}
+        for rec in self:
+            if rec.repair_id and rec.repair_id.state in ('done', 'cancel'):
+                raise UserError(_('Cannot start timer when Job Card is in Done or Cancelled state.'))
+            if rec.is_timer_running:
+                continue
+
+            now = fields.Datetime.now()
+            if not rec.timer_start:
+                rec.timer_start = now
+            rec.timer_last_start = now
+            rec.timer_end = False
+            rec.is_timer_running = True
+            rec.is_timer_paused = False
+            if rec.repair_id and rec.repair_id.state != 'workorder' and rec.repair_id.state not in ('done', 'cancel'):
+                rec.repair_id.sudo().write({'state': 'workorder'})
+            if rec.repair_id:
+                rec.repair_id._compute_active_service_info()
+            result = {
+                'timer_start': fields.Datetime.to_string(rec.timer_start) if rec.timer_start else False,
+                'timer_last_start': fields.Datetime.to_string(rec.timer_last_start) if rec.timer_last_start else False,
+                'timer_end': False,
+                'is_timer_running': True,
+                'is_timer_paused': False,
+                'accumulated_seconds': rec.accumulated_seconds,
+                'time_diff': rec.time_diff,
+                'fru_status': rec.fru_status,
+            }
+        return result
+
+    def action_pause_timer(self):
+        result = {}
+        for rec in self:
+            if not rec.is_timer_running:
+                continue
+
+            now = fields.Datetime.now()
+            if rec.timer_last_start:
+                delta = now - rec.timer_last_start
+                rec.accumulated_seconds += delta.total_seconds()
+            rec.timer_last_start = False
+            rec.timer_end = now
+            rec.is_timer_running = False
+            rec.is_timer_paused = True
+            if rec.repair_id:
+                rec.repair_id._compute_active_service_info()
+            result = {
+                'timer_start': fields.Datetime.to_string(rec.timer_start) if rec.timer_start else False,
+                'timer_last_start': False,
+                'timer_end': fields.Datetime.to_string(rec.timer_end) if rec.timer_end else False,
+                'is_timer_running': False,
+                'is_timer_paused': True,
+                'accumulated_seconds': rec.accumulated_seconds,
+                'time_diff': rec.time_diff,
+                'fru_status': rec.fru_status,
+            }
+        return result
+
+    def action_stop_timer(self):
+        for rec in self:
+            if not rec.timer_start and not rec.is_timer_paused and not rec.is_timer_running:
+                raise UserError(_('Timer is not started'))
+            if rec.timer_end and not rec.is_timer_running:
+                raise UserError(_('Timer is already stopped'))
+
+            now = fields.Datetime.now()
+            if rec.is_timer_running and rec.timer_last_start:
+                delta = now - rec.timer_last_start
+                rec.accumulated_seconds += delta.total_seconds()
+                rec.timer_last_start = False
+
+            rec.timer_end = now
+            rec.is_timer_running = False
+            rec.is_timer_paused = False
+            if rec.repair_id:
+                rec.repair_id._compute_active_service_info()
+
+    def action_reset_timer(self):
+        result = {}
+        for rec in self:
+            rec.write({
+                'timer_start': False,
+                'timer_last_start': False,
+                'timer_end': False,
+                'is_timer_running': False,
+                'is_timer_paused': False,
+                'accumulated_seconds': 0.0,
+                'time_diff': 0.0,
+                'fru_status': 'green',
+            })
+            if rec.repair_id:
+                rec.repair_id._compute_active_service_info()
+            result = {
+                'timer_start': False,
+                'timer_last_start': False,
+                'timer_end': False,
+                'is_timer_running': False,
+                'is_timer_paused': False,
+                'accumulated_seconds': 0.0,
+                'time_diff': 0.0,
+                'fru_status': 'green',
+            }
+        return result
+
+    @api.depends('quantity', 'unit_price', 'alloted_fru')
     def _compute_subtotal(self):
         for line in self:
-            line.subtotal = line.quantity * line.unit_price
+            qty = line.alloted_fru if (line.alloted_fru is not False and line.alloted_fru > 0) else (line.quantity or 1.0)
+            line.subtotal = qty * (line.unit_price or 0.0)
+
+    @api.onchange('alloted_fru')
+    def _onchange_alloted_fru(self):
+        for line in self:
+            if line.alloted_fru is not False and line.alloted_fru > 0:
+                line.quantity = float(line.alloted_fru)
+            qty = line.alloted_fru if (line.alloted_fru is not False and line.alloted_fru > 0) else (line.quantity or 1.0)
+            line.subtotal = qty * (line.unit_price or 0.0)
 
     @api.onchange('product_id')
     def _onchange_product_id(self):
         for line in self:
             product = line.product_id
             if product:
+                line.item_code = product.item_code
                 line.name = product.name
                 line.unit_price = product.list_price
                 line.uom_id = product.uom_id
+                fru = product.alloted_fru or 1
+                line.alloted_fru = fru
+                line.quantity = float(fru)
+                line.subtotal = float(fru) * (product.list_price or 0.0)
                 if product.department_id:
                     line.department_id = product.department_id
             else:
+                line.item_code = False
                 line.name = False
                 line.unit_price = 0.0
                 line.uom_id = False
+                line.alloted_fru = 0
+                line.quantity = 0.0
+                line.subtotal = 0.0
 
     @api.onchange('department_id')
     def _onchange_department_id_update_product(self):
@@ -1762,6 +2092,8 @@ class FleetRepairServiceLine(models.Model):
         for line in lines:
             if line.product_id and line.department_id and line.product_id.department_id != line.department_id:
                 line.product_id.sudo().write({'department_id': line.department_id.id})
+            if line.is_timer_running and line.repair_id and line.repair_id.state != 'workorder' and line.repair_id.state not in ('done', 'cancel'):
+                line.repair_id.sudo().write({'state': 'workorder'})
         return lines
 
     def write(self, vals):
@@ -1770,6 +2102,14 @@ class FleetRepairServiceLine(models.Model):
             for line in self:
                 if line.product_id and line.department_id and line.product_id.department_id != line.department_id:
                     line.product_id.sudo().write({'department_id': line.department_id.id})
+        if vals.get('is_timer_running'):
+            for line in self:
+                if line.repair_id and line.repair_id.state != 'workorder' and line.repair_id.state not in ('done', 'cancel'):
+                    line.repair_id.sudo().write({'state': 'workorder'})
+        if any(k in vals for k in ('is_timer_running', 'timer_last_start', 'accumulated_seconds')):
+            for line in self:
+                if line.repair_id:
+                    line.repair_id._compute_active_service_info()
         return res
 
 
@@ -1862,6 +2202,10 @@ class AccountAnalyticLine(models.Model):
     department_type_id = fields.Many2one('hr.department', string="Service Type")
     timer_start = fields.Datetime('Start Timer')
     timer_end = fields.Datetime('End Timer')
+    timer_last_start = fields.Datetime('Last Start Timer')
+    is_timer_running = fields.Boolean('Timer Running', default=False)
+    is_timer_paused = fields.Boolean('Timer Paused', default=False)
+    accumulated_seconds = fields.Float('Accumulated Seconds', default=0.0)
     # timer_duration = fields.Float('Timer Duration (Hours)', compute='_compute_timer_duration', store=True)
     unit_amount = fields.Float(
         compute='_compute_unit_amount',
@@ -1873,38 +2217,121 @@ class AccountAnalyticLine(models.Model):
         if self.employee_id and self.employee_id.department_id:
             self.department_type_id = self.employee_id.department_id.id
 
-    @api.depends('timer_start', 'timer_end')
+    @api.depends('timer_start', 'timer_end', 'is_timer_running', 'accumulated_seconds', 'timer_last_start')
     def _compute_unit_amount(self):
         for rec in self:
-            if rec.timer_start and rec.timer_end:
-                delta = rec.timer_end - rec.timer_start
-                rec.unit_amount = delta.total_seconds() / 3600.0
-            elif rec.timer_start and not rec.timer_end:
+            total_sec = rec.accumulated_seconds or 0.0
+            if rec.is_timer_running and rec.timer_last_start:
                 now = fields.Datetime.now()
-                delta = now - rec.timer_start
-                rec.unit_amount = delta.total_seconds() / 3600.0
-            else:
-                rec.unit_amount = 0.0
+                delta = now - rec.timer_last_start
+                total_sec += delta.total_seconds()
+            rec.unit_amount = total_sec / 3600.0
 
     def action_start_timer(self):
+        result = {}
         for rec in self:
-            if rec.timer_start:
-                raise UserError('Timer is already started')
-            rec.timer_start = fields.Datetime.now()
+            if rec.repair_id and rec.repair_id.state in ('done', 'cancel'):
+                raise UserError(_('Cannot start timer when Job Card is in Done or Cancelled state.'))
+            if rec.is_timer_running:
+                continue
+            now = fields.Datetime.now()
+            if not rec.timer_start:
+                rec.timer_start = now
+            rec.timer_last_start = now
+            rec.timer_end = False
+            rec.is_timer_running = True
+            rec.is_timer_paused = False
+            if rec.repair_id and rec.repair_id.state != 'workorder' and rec.repair_id.state not in ('done', 'cancel'):
+                rec.repair_id.sudo().write({'state': 'workorder'})
+            result = {
+                'timer_start': fields.Datetime.to_string(rec.timer_start) if rec.timer_start else False,
+                'timer_last_start': fields.Datetime.to_string(rec.timer_last_start) if rec.timer_last_start else False,
+                'timer_end': False,
+                'is_timer_running': True,
+                'is_timer_paused': False,
+                'accumulated_seconds': rec.accumulated_seconds,
+                'time_diff': rec.time_diff,
+            }
+        return result
+
+    def action_pause_timer(self):
+        result = {}
+        for rec in self:
+            if not rec.is_timer_running:
+                continue
+            now = fields.Datetime.now()
+            if rec.timer_last_start:
+                delta = now - rec.timer_last_start
+                rec.accumulated_seconds += delta.total_seconds()
+            rec.timer_last_start = False
+            rec.timer_end = now
+            rec.is_timer_running = False
+            rec.is_timer_paused = True
+            result = {
+                'timer_start': fields.Datetime.to_string(rec.timer_start) if rec.timer_start else False,
+                'timer_last_start': False,
+                'timer_end': fields.Datetime.to_string(rec.timer_end) if rec.timer_end else False,
+                'is_timer_running': False,
+                'is_timer_paused': True,
+                'accumulated_seconds': rec.accumulated_seconds,
+                'time_diff': rec.time_diff,
+            }
+        return result
 
     def action_stop_timer(self):
         for rec in self:
-            if not rec.timer_start:
+            if not rec.timer_start and not rec.is_timer_paused and not rec.is_timer_running:
                 raise UserError('Timer is not started')
-            if rec.timer_end:
+            if rec.timer_end and not rec.is_timer_running:
                 raise UserError('Timer is already stopped')
-            rec.timer_end = fields.Datetime.now()
+            now = fields.Datetime.now()
+            if rec.is_timer_running and rec.timer_last_start:
+                delta = now - rec.timer_last_start
+                rec.accumulated_seconds += delta.total_seconds()
+                rec.timer_last_start = False
+            rec.timer_end = now
+            rec.is_timer_running = False
+            rec.is_timer_paused = False
 
     def action_reset_timer(self):
+        result = {}
         for rec in self:
-            rec.timer_start = False
-            rec.timer_end = False
-            rec.unit_amount = 0.0
+            rec.write({
+                'timer_start': False,
+                'timer_last_start': False,
+                'timer_end': False,
+                'is_timer_running': False,
+                'is_timer_paused': False,
+                'accumulated_seconds': 0.0,
+                'unit_amount': 0.0,
+                'time_diff': 0.0,
+            })
+            result = {
+                'timer_start': False,
+                'timer_last_start': False,
+                'timer_end': False,
+                'is_timer_running': False,
+                'is_timer_paused': False,
+                'accumulated_seconds': 0.0,
+                'time_diff': 0.0,
+            }
+        return result
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        records = super().create(vals_list)
+        for rec in records:
+            if rec.is_timer_running and rec.repair_id and rec.repair_id.state != 'workorder' and rec.repair_id.state not in ('done', 'cancel'):
+                rec.repair_id.sudo().write({'state': 'workorder'})
+        return records
+
+    def write(self, vals):
+        res = super().write(vals)
+        if vals.get('is_timer_running'):
+            for rec in self:
+                if rec.repair_id and rec.repair_id.state != 'workorder' and rec.repair_id.state not in ('done', 'cancel'):
+                    rec.repair_id.sudo().write({'state': 'workorder'})
+        return res
 
     # @api.depends('service_type', 'unit_amount')
     # def _cal_total_cost(self):
@@ -1922,10 +2349,24 @@ class FleetRepairWorkLine(models.Model):
 
     employee_id = fields.Many2one('hr.employee', string='Employee')
     repair_id = fields.Many2one('fleet.repair', string='Repair Order', ondelete='cascade', required=True)
-    department_type_id = fields.Many2one('hr.department', string='Department Type')
-    work_type = fields.Many2one('service.type', string='Work')
+    department_type_id = fields.Many2one('hr.department', string='Department')
+    work_type = fields.Many2one(
+        'product.product',
+        string='Work',
+        domain="[('type', '=', 'service')]"
+    )
+    alloted_fru = fields.Integer(
+        string='Alloted FRU',
+        related='work_type.alloted_fru',
+        store=True,
+        readonly=True
+    )
     timer_start = fields.Datetime('Start Timer')
     timer_end = fields.Datetime('End Timer')
+    timer_last_start = fields.Datetime('Last Start Timer')
+    is_timer_running = fields.Boolean('Timer Running', default=False)
+    is_timer_paused = fields.Boolean('Timer Paused', default=False)
+    accumulated_seconds = fields.Float('Accumulated Seconds', default=0.0)
     time_diff = fields.Float(
         compute='_compute_time_diff',
         store=True
@@ -1937,39 +2378,150 @@ class FleetRepairWorkLine(models.Model):
         if self.employee_id and self.employee_id.department_id:
             self.department_type_id = self.employee_id.department_id.id
 
-    @api.depends('timer_start', 'timer_end')
+    @api.onchange('work_type')
+    def _onchange_work_type(self):
+        if self.work_type:
+            dept = self.work_type.department_id
+            if dept:
+                self.department_type_id = dept.id
+                if self.employee_id and self.employee_id.department_id != dept:
+                    self.employee_id = False
+                return {
+                    'domain': {
+                        'employee_id': [('department_id', '=', dept.id)]
+                    }
+                }
+            else:
+                return {
+                    'domain': {
+                        'employee_id': []
+                    }
+                }
+        else:
+            return {
+                'domain': {
+                    'employee_id': []
+                }
+            }
+
+    @api.depends('timer_start', 'timer_end', 'is_timer_running', 'accumulated_seconds', 'timer_last_start')
     def _compute_time_diff(self):
         for rec in self:
-            if rec.timer_start and rec.timer_end:
-                delta = rec.timer_end - rec.timer_start
-                rec.time_diff = delta.total_seconds() / 3600.0
-            elif rec.timer_start and not rec.timer_end:
+            total_sec = rec.accumulated_seconds or 0.0
+            if rec.is_timer_running and rec.timer_last_start:
                 now = fields.Datetime.now()
-                delta = now - rec.timer_start
-                rec.time_diff = delta.total_seconds() / 3600.0
-            else:
-                rec.time_diff = 0.0
+                delta = now - rec.timer_last_start
+                total_sec += delta.total_seconds()
+            rec.time_diff = total_sec / 3600.0
 
     def action_start_timer(self):
+        result = {}
         for rec in self:
-            if rec.timer_start:
-                raise UserError('Timer is already started')
+            if rec.repair_id and rec.repair_id.state in ('done', 'cancel'):
+                raise UserError(_('Cannot start timer when Job Card is in Done or Cancelled state.'))
+            if rec.is_timer_running:
+                continue
 
-            rec.timer_start = fields.Datetime.now()
+            now = fields.Datetime.now()
+            if not rec.timer_start:
+                rec.timer_start = now
+            rec.timer_last_start = now
+            rec.timer_end = False
+            rec.is_timer_running = True
+            rec.is_timer_paused = False
+            if rec.repair_id and rec.repair_id.state != 'workorder' and rec.repair_id.state not in ('done', 'cancel'):
+                rec.repair_id.sudo().write({'state': 'workorder'})
+            result = {
+                'timer_start': fields.Datetime.to_string(rec.timer_start) if rec.timer_start else False,
+                'timer_last_start': fields.Datetime.to_string(rec.timer_last_start) if rec.timer_last_start else False,
+                'timer_end': False,
+                'is_timer_running': True,
+                'is_timer_paused': False,
+                'accumulated_seconds': rec.accumulated_seconds,
+                'time_diff': rec.time_diff,
+            }
+        return result
+
+    def action_pause_timer(self):
+        result = {}
+        for rec in self:
+            if not rec.is_timer_running:
+                continue
+
+            now = fields.Datetime.now()
+            if rec.timer_last_start:
+                delta = now - rec.timer_last_start
+                rec.accumulated_seconds += delta.total_seconds()
+            rec.timer_last_start = False
+            rec.timer_end = now
+            rec.is_timer_running = False
+            rec.is_timer_paused = True
+            result = {
+                'timer_start': fields.Datetime.to_string(rec.timer_start) if rec.timer_start else False,
+                'timer_last_start': False,
+                'timer_end': fields.Datetime.to_string(rec.timer_end) if rec.timer_end else False,
+                'is_timer_running': False,
+                'is_timer_paused': True,
+                'accumulated_seconds': rec.accumulated_seconds,
+                'time_diff': rec.time_diff,
+            }
+        return result
 
     def action_stop_timer(self):
         for rec in self:
-            if not rec.timer_start:
+            if not rec.timer_start and not rec.is_timer_paused and not rec.is_timer_running:
                 raise UserError('Timer is not started')
-            if rec.timer_end:
+            if rec.timer_end and not rec.is_timer_running:
                 raise UserError('Timer is already stopped')
-            rec.timer_end = fields.Datetime.now()
+
+            now = fields.Datetime.now()
+            if rec.is_timer_running and rec.timer_last_start:
+                delta = now - rec.timer_last_start
+                rec.accumulated_seconds += delta.total_seconds()
+                rec.timer_last_start = False
+
+            rec.timer_end = now
+            rec.is_timer_running = False
+            rec.is_timer_paused = False
 
     def action_reset_timer(self):
+        result = {}
         for rec in self:
-            rec.timer_start = False
-            rec.timer_end = False
-            rec.time_diff = 0.0
+            rec.write({
+                'timer_start': False,
+                'timer_last_start': False,
+                'timer_end': False,
+                'is_timer_running': False,
+                'is_timer_paused': False,
+                'accumulated_seconds': 0.0,
+                'time_diff': 0.0,
+            })
+            result = {
+                'timer_start': False,
+                'timer_last_start': False,
+                'timer_end': False,
+                'is_timer_running': False,
+                'is_timer_paused': False,
+                'accumulated_seconds': 0.0,
+                'time_diff': 0.0,
+            }
+        return result
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        records = super().create(vals_list)
+        for rec in records:
+            if rec.is_timer_running and rec.repair_id and rec.repair_id.state != 'workorder' and rec.repair_id.state not in ('done', 'cancel'):
+                rec.repair_id.sudo().write({'state': 'workorder'})
+        return records
+
+    def write(self, vals):
+        res = super().write(vals)
+        if vals.get('is_timer_running'):
+            for rec in self:
+                if rec.repair_id and rec.repair_id.state != 'workorder' and rec.repair_id.state not in ('done', 'cancel'):
+                    rec.repair_id.sudo().write({'state': 'workorder'})
+        return res
 
 
 class FleetVehicle(models.Model):
