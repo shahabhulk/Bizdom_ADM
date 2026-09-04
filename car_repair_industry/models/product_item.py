@@ -1,4 +1,5 @@
-from odoo import models, fields, api
+from odoo import models, fields, api, _
+from odoo.exceptions import ValidationError
 
 
 class ProductCategory(models.Model):
@@ -31,6 +32,13 @@ class ProductTemplate(models.Model):
         domain="[('department_ids', 'in', department_id)]",
         default=False
     )
+    alloted_fru = fields.Float(string="Alloted FRU")
+
+    @api.constrains('type', 'alloted_fru')
+    def _check_alloted_fru(self):
+        for record in self:
+            if record.type == 'service' and record.alloted_fru <= 0:
+                raise ValidationError(_("Alloted FRU is mandatory for service products and must be greater than zero."))
 
     @api.onchange('department_id')
     def _onchange_department_id(self):
@@ -109,6 +117,12 @@ class ProductProduct(models.Model):
         store=True,
         readonly=False,
         domain="[('model_ids.model', '=', 'product.template')]"
+    )
+    alloted_fru = fields.Float(
+        string="Alloted FRU",
+        related='product_tmpl_id.alloted_fru',
+        store=True,
+        readonly=False
     )
 
     @api.model

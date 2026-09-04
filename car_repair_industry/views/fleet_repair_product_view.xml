@@ -23,6 +23,9 @@
                     </group>
                 </div>
             </xpath>
+            <xpath expr="//field[@name='type']" position="after">
+                <field name="alloted_fru" invisible="type != 'service'" required="type == 'service'"/>
+            </xpath>
         </field>
     </record>
 
@@ -48,6 +51,9 @@
                         </group>
                     </group>
                 </div>
+            </xpath>
+            <xpath expr="//field[@name='type']" position="after">
+                <field name="alloted_fru" invisible="type != 'service'" required="type == 'service'"/>
             </xpath>
         </field>
     </record>
