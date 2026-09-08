@@ -40,6 +40,60 @@ class ProductTemplate(models.Model):
             if record.type == 'service' and record.alloted_fru <= 0:
                 raise ValidationError(_("Alloted FRU is mandatory for service products and must be greater than zero."))
 
+    @api.model_create_multi
+    def create(self, vals_list):
+        for vals in vals_list:
+            if vals.get('item_code') and isinstance(vals['item_code'], str):
+                vals['item_code'] = vals['item_code'].strip()
+        return super().create(vals_list)
+
+    def write(self, vals):
+        if vals.get('item_code') and isinstance(vals['item_code'], str):
+            vals['item_code'] = vals['item_code'].strip()
+        return super().write(vals)
+
+    @api.constrains('item_code')
+    def _check_unique_item_code(self):
+        codes = [rec.item_code.strip() for rec in self if rec.item_code and rec.item_code.strip()]
+        lower_codes = [c.lower() for c in codes]
+        if len(lower_codes) != len(set(lower_codes)):
+            raise ValidationError(_("Duplicate Item Codes found within the submitted records."))
+
+        for record in self:
+            if not record.item_code or not record.item_code.strip():
+                continue
+            code = record.item_code.strip()
+            escaped_code = code.replace('\\', '\\\\').replace('%', r'\%').replace('_', r'\_')
+
+            duplicate = self.search([
+                ('id', '!=', record.id),
+                ('item_code', '=ilike', escaped_code),
+            ], limit=1)
+            if duplicate:
+                dup_type = "Service" if duplicate.type == 'service' else "Part"
+                raise ValidationError(
+                    _("The Item Code '%(code)s' is already in use by %(type)s product '%(name)s'. "
+                      "Item code must be unique across all products (both parts and services).",
+                      code=code,
+                      type=dup_type,
+                      name=duplicate.display_name or duplicate.name)
+                )
+
+            archived_duplicate = self.with_context(active_test=False).search([
+                ('id', '!=', record.id),
+                ('active', '=', False),
+                ('item_code', '=ilike', escaped_code),
+            ], limit=1)
+            if archived_duplicate:
+                dup_type = "Service" if archived_duplicate.type == 'service' else "Part"
+                raise ValidationError(
+                    _("The Item Code '%(code)s' is already assigned to an archived %(type)s product '%(name)s'. "
+                      "Please unarchive that product or use a different Item Code.",
+                      code=code,
+                      type=dup_type,
+                      name=archived_duplicate.display_name or archived_duplicate.name)
+                )
+
     @api.onchange('department_id')
     def _onchange_department_id(self):
         if self.department_id:
@@ -124,6 +178,24 @@ class ProductProduct(models.Model):
         store=True,
         readonly=False
     )
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        for vals in vals_list:
+            if vals.get('item_code') and isinstance(vals['item_code'], str):
+                vals['item_code'] = vals['item_code'].strip()
+        return super().create(vals_list)
+
+    def write(self, vals):
+        if vals.get('item_code') and isinstance(vals['item_code'], str):
+            vals['item_code'] = vals['item_code'].strip()
+        return super().write(vals)
+
+    @api.constrains('item_code')
+    def _check_unique_item_code(self):
+        for record in self:
+            if record.product_tmpl_id:
+                record.product_tmpl_id._check_unique_item_code()
 
     @api.model
     def default_get(self, fields_list):
