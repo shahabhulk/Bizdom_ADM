@@ -35,6 +35,16 @@ export class ItemCodeAutoCompleteField extends Component {
         return "";
     }
 
+    get productType() {
+        if (this.props.options && this.props.options.product_type) {
+            return this.props.options.product_type;
+        }
+        if (this.props.record && this.props.record.resModel === "fleet.repair.service.line") {
+            return "service";
+        }
+        return "consu";
+    }
+
     get sources() {
         return [
             {
@@ -48,7 +58,7 @@ export class ItemCodeAutoCompleteField extends Component {
 
     async loadOptions(request) {
         const domain = [
-            ["type", "=", "consu"],
+            ["type", "=", this.productType],
             ["item_code", "!=", false],
             ["item_code", "!=", ""]
         ];
@@ -104,9 +114,15 @@ export class ItemCodeAutoCompleteField extends Component {
         const rawCode = (product.item_code || product.default_code || "").trim();
         const itemCode = rawCode ? rawCode : (code || "");
         const changes = {
-            item_code_display: itemCode,
+            [this.props.name]: itemCode,
             product_id: [product.id, product.name],
         };
+        if ("item_code" in this.props.record.fields) {
+            changes.item_code = itemCode;
+        }
+        if ("item_code_display" in this.props.record.fields) {
+            changes.item_code_display = itemCode;
+        }
         if ("item_code_id" in this.props.record.fields) {
             changes.item_code_id = [product.id, product.name];
         }
@@ -114,17 +130,20 @@ export class ItemCodeAutoCompleteField extends Component {
     }
 
     async createAndEditProduct(code = "") {
+        const isService = this.productType === "service";
         const context = {
-            default_name: code,
             default_item_code: code,
-            default_type: "consu",
-            default_is_storable: true,
+            default_type: isService ? "service" : "consu",
+            default_is_storable: !isService,
             default_categ_id: false,
         };
+        if (isService) {
+            context.default_alloted_fru = 1.0;
+        }
         this.dialog.add(FormViewDialog, {
             resModel: "product.product",
             context: context,
-            title: _t("Create Item"),
+            title: isService ? _t("Create Service") : _t("Create Item"),
             onRecordSaved: async (record) => {
                 if (record && record.resId) {
                     const [product] = await this.orm.read(
@@ -133,18 +152,7 @@ export class ItemCodeAutoCompleteField extends Component {
                         ["id", "display_name", "name", "item_code", "default_code", "type", "is_storable"]
                     );
                     if (product) {
-                        if (product.type === "consu" && !product.is_storable) {
-                            await this.orm.call("fleet.repair.product.line", "action_enable_inventory_tracking", [product.id]);
-                        }
-                        const rawCode = (product.item_code || product.default_code || code || "").trim();
-                        const changes = {
-                            item_code_display: rawCode,
-                            product_id: [product.id, product.name],
-                        };
-                        if ("item_code_id" in this.props.record.fields) {
-                            changes.item_code_id = [product.id, product.name];
-                        }
-                        await this.props.record.update(changes);
+                        await this.selectProduct(product, code);
                     }
                 }
             },
@@ -159,7 +167,7 @@ export class ItemCodeAutoCompleteField extends Component {
             }
 
             const domain = [
-                ["type", "=", "consu"],
+                ["type", "=", this.productType],
                 ["item_code", "!=", false],
                 ["item_code", "!=", ""],
                 ["item_code", "=ilike", inputValue],

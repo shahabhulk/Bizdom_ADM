@@ -204,10 +204,12 @@
                                     </list>
                                 </field>
                                 <separator string="Service"/>
-                                <field name="service_line_ids" readonly="state in ('done', 'cancel')" widget="one2many_list">
+                                <field name="service_line_ids" readonly="state in ('done', 'cancel')" widget="one2many_list" context="{'default_repair_id': id}">
                                     <list editable="bottom">
                                         <field name="fru_status" column_invisible="1"/>
-                                        <field name="item_code" string="Item Code" optional="hide" readonly="1"/>
+                                        <field name="item_code_id" column_invisible="1"/>
+                                        <field name="item_code" widget="item_code_autocomplete" options="{'product_type': 'service'}" string="Item Code" optional="show"
+                                               readonly="parent.state in ('done', 'cancel', 'invoiced')"/>
                                         <field name="product_id" string="Service" domain="[('type', '=', 'service')]" context="{'default_type': 'service', 'default_categ_id': False}" options="{'no_quick_create': True}"
                                                readonly="parent.state in ('done', 'cancel', 'invoiced')"/>
                                         <field name="department_id" required="1" optional="hide" options="{'no_create': True, 'no_create_edit': True}"

@@ -1839,12 +1839,46 @@ class FleetRepairServiceLine(models.Model):
 
     repair_id = fields.Many2one('fleet.repair', string='Repair Order', ondelete='cascade', required=True)
     product_id = fields.Many2one('product.product', domain=[('type', '=', 'service')], string='Service')
+    item_code_id = fields.Many2one(
+        'product.product',
+        domain=[('type', '=', 'service'), ('item_code', '!=', False), ('item_code', '!=', '')],
+        string='Item Code',
+    )
     item_code = fields.Char(
         string='Item Code',
-        related='product_id.item_code',
+        compute='_compute_item_code',
+        inverse='_inverse_item_code',
         store=True,
-        readonly=True,
+        readonly=False,
     )
+    item_code_display = fields.Char(
+        string='Item Code',
+        related='item_code',
+        readonly=False,
+        store=True,
+    )
+
+    @api.depends('product_id.item_code', 'item_code_id.item_code')
+    def _compute_item_code(self):
+        for line in self:
+            if line.item_code_id and line.item_code_id.item_code:
+                line.item_code = line.item_code_id.item_code
+            elif line.product_id and line.product_id.item_code:
+                line.item_code = line.product_id.item_code
+            elif not line.item_code:
+                line.item_code = False
+
+    def _inverse_item_code(self):
+        for line in self:
+            if line.item_code and line.item_code.strip():
+                code = line.item_code.strip()
+                product = self.env['product.product'].search([
+                    ('type', '=', 'service'),
+                    ('item_code', '=ilike', code),
+                ], limit=1)
+                if product:
+                    line.product_id = product
+                    line.item_code_id = product
     alloted_fru = fields.Integer(
         string='Alloted FRU',
         compute='_compute_alloted_fru',
@@ -2056,11 +2090,12 @@ class FleetRepairServiceLine(models.Model):
             qty = line.alloted_fru if (line.alloted_fru is not False and line.alloted_fru > 0) else (line.quantity or 1.0)
             line.subtotal = qty * (line.unit_price or 0.0)
 
-    @api.onchange('product_id')
-    def _onchange_product_id(self):
+    @api.onchange('item_code_id')
+    def _onchange_item_code_id(self):
         for line in self:
-            product = line.product_id
+            product = line.item_code_id
             if product:
+                line.product_id = product
                 line.item_code = product.item_code
                 line.name = product.name
                 line.unit_price = product.list_price
@@ -2072,7 +2107,56 @@ class FleetRepairServiceLine(models.Model):
                 if product.department_id:
                     line.department_id = product.department_id
             else:
+                line.product_id = False
                 line.item_code = False
+                line.name = False
+                line.unit_price = 0.0
+                line.uom_id = False
+                line.alloted_fru = 0
+                line.quantity = 0.0
+                line.subtotal = 0.0
+
+    @api.onchange('item_code')
+    def _onchange_item_code(self):
+        for line in self:
+            if line.item_code and line.item_code.strip():
+                code = line.item_code.strip()
+                product = self.env['product.product'].search([
+                    ('type', '=', 'service'),
+                    ('item_code', '=ilike', code),
+                ], limit=1)
+                if product:
+                    line.item_code_id = product
+                    line.product_id = product
+                    line.name = product.name
+                    line.unit_price = product.list_price
+                    line.uom_id = product.uom_id
+                    fru = product.alloted_fru or 1
+                    line.alloted_fru = fru
+                    line.quantity = float(fru)
+                    line.subtotal = float(fru) * (product.list_price or 0.0)
+                    if product.department_id:
+                        line.department_id = product.department_id
+
+    @api.onchange('product_id')
+    def _onchange_product_id(self):
+        for line in self:
+            product = line.product_id
+            if product:
+                line.item_code = product.item_code
+                line.item_code_id = product
+                line.name = product.name
+                line.unit_price = product.list_price
+                line.uom_id = product.uom_id
+                fru = product.alloted_fru or 1
+                line.alloted_fru = fru
+                line.quantity = float(fru)
+                line.subtotal = float(fru) * (product.list_price or 0.0)
+                if product.department_id:
+                    line.department_id = product.department_id
+            else:
+                line.item_code = False
+                line.item_code_id = False
                 line.name = False
                 line.unit_price = 0.0
                 line.uom_id = False
@@ -2086,8 +2170,27 @@ class FleetRepairServiceLine(models.Model):
             if line.product_id and line.department_id and line.product_id.department_id != line.department_id:
                 line.product_id.department_id = line.department_id
 
+    @api.constrains('product_id')
+    def _check_service_line_product(self):
+        for line in self:
+            if line.product_id and line.product_id.type != 'service':
+                raise ValidationError(_('Only service products can be added to service lines.'))
+
     @api.model_create_multi
     def create(self, vals_list):
+        for vals in vals_list:
+            if vals.get('item_code_id') and not vals.get('product_id'):
+                vals['product_id'] = vals['item_code_id']
+            elif vals.get('product_id') and not vals.get('item_code_id'):
+                vals['item_code_id'] = vals['product_id']
+            elif vals.get('item_code') and not vals.get('product_id'):
+                product = self.env['product.product'].search([
+                    ('type', '=', 'service'),
+                    ('item_code', '=ilike', vals['item_code'].strip()),
+                ], limit=1)
+                if product:
+                    vals['product_id'] = product.id
+                    vals['item_code_id'] = product.id
         lines = super().create(vals_list)
         for line in lines:
             if line.product_id and line.department_id and line.product_id.department_id != line.department_id:
@@ -2097,6 +2200,18 @@ class FleetRepairServiceLine(models.Model):
         return lines
 
     def write(self, vals):
+        if vals.get('item_code_id') and 'product_id' not in vals:
+            vals['product_id'] = vals['item_code_id']
+        elif vals.get('product_id') and 'item_code_id' not in vals:
+            vals['item_code_id'] = vals['product_id']
+        elif vals.get('item_code') and 'product_id' not in vals:
+            product = self.env['product.product'].search([
+                ('type', '=', 'service'),
+                ('item_code', '=ilike', vals['item_code'].strip()),
+            ], limit=1)
+            if product:
+                vals['product_id'] = product.id
+                vals['item_code_id'] = product.id
         res = super().write(vals)
         if 'department_id' in vals:
             for line in self:
