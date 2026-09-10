@@ -131,7 +131,52 @@ class FleetRepair(models.Model):
     guarantee_type = fields.Selection(
         [('paid', 'paid'), ('free', 'Free')], string='Guarantee Type')
     service_type = fields.Many2one('service.type', string='Nature of Service')
+    def _get_team_lead_domain(self):
+        group = self.env.ref('car_repair_industry.group_fleet_repair_head_technician', raise_if_not_found=False)
+        return [('groups_id', 'in', group.id)] if group else []
+
     user_id = fields.Many2one('res.users', string='Service Advisor', required=True, tracking=True)
+    team_lead_id = fields.Many2one(
+        'res.users',
+        string='Team Lead',
+        domain=_get_team_lead_domain,
+        tracking=True
+    )
+    department_id = fields.Many2one(
+        'hr.department',
+        string='Department',
+        compute='_compute_department_id',
+        store=True,
+        readonly=False,
+        tracking=True
+    )
+
+    @api.depends('team_lead_id')
+    def _compute_department_id(self):
+        for rec in self:
+            if rec.team_lead_id:
+                employee = self.env['hr.employee'].search([('user_id', '=', rec.team_lead_id.id)], limit=1)
+                if not employee:
+                    employee = self.env['hr.employee'].search([
+                        '|', ('name', '=ilike', rec.team_lead_id.name), ('name', '=ilike', rec.team_lead_id.login)
+                    ], limit=1)
+                if employee and employee.department_id:
+                    rec.department_id = employee.department_id
+                elif not rec.department_id:
+                    rec.department_id = False
+            elif not rec.department_id:
+                rec.department_id = False
+
+    @api.onchange('team_lead_id')
+    def _onchange_team_lead_id(self):
+        if self.team_lead_id:
+            employee = self.env['hr.employee'].search([('user_id', '=', self.team_lead_id.id)], limit=1)
+            if not employee:
+                employee = self.env['hr.employee'].search([
+                    '|', ('name', '=ilike', self.team_lead_id.name), ('name', '=ilike', self.team_lead_id.login)
+                ], limit=1)
+            if employee and employee.department_id:
+                self.department_id = employee.department_id
     priority = fields.Selection([('0', 'Low'), ('1', 'Normal'), ('2', 'High')], 'Priority')
     description = fields.Text(string='Notes')
     service_detail = fields.Text(string='Repair Details')
@@ -1462,9 +1507,20 @@ class FleetRepair(models.Model):
         return result
 
     @api.model
-    def action_activity_dashboard_redirect(self):
-        if self.env.user.has_group('base.group_user'):
-            return self.env["ir.actions.actions"]._for_xml_id("car_repair_industry.fleet_repair_dashboard")
+    def action_activity_dashboard_redirect(self, department=None):
+        if not department:
+            employee = self.env['hr.employee'].search([('user_id', '=', self.env.uid)], limit=1)
+            if employee and employee.department_id and employee.department_id.name:
+                dept_name = employee.department_id.name.lower()
+                if 'bodyshop' in dept_name:
+                    department = 'bodyshop'
+                elif 'workshop' in dept_name:
+                    department = 'workshop'
+
+        if department == 'bodyshop':
+            return self.env["ir.actions.actions"]._for_xml_id("car_repair_industry.fleet_repair_dashboard_bodyshop")
+        elif department == 'workshop':
+            return self.env["ir.actions.actions"]._for_xml_id("car_repair_industry.fleet_repair_dashboard_workshop")
         return self.env["ir.actions.actions"]._for_xml_id("car_repair_industry.fleet_repair_dashboard")
 
 
