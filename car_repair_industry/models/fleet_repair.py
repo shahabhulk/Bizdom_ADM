@@ -2531,6 +2531,12 @@ class FleetRepairWorkLine(models.Model):
         store=True,
         readonly=True
     )
+    unit_price = fields.Float(
+        string='Price',
+        related='work_type.list_price',
+        store=True,
+        readonly=True
+    )
     timer_start = fields.Datetime('Start Timer')
     timer_end = fields.Datetime('End Timer')
     timer_last_start = fields.Datetime('Last Start Timer')

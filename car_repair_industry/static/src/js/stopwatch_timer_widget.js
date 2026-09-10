@@ -433,7 +433,6 @@ export const stopwatchTimerWidget = {
         { name: "is_timer_paused", type: "boolean" },
         { name: "accumulated_seconds", type: "float" },
         { name: "alloted_fru", type: "integer" },
-        { name: "unit_price", type: "float" },
     ],
 };
 
@@ -652,7 +651,8 @@ export class ActiveServiceTimerWidget extends Component {
             }
         }
 
-        const fruStatus = this.props.record.data.active_service_fru_status;
+        const fruStatus = ("active_service_fru_status" in this.props.record.data && this.props.record.data.active_service_fru_status)
+            || this.props.record.data.wip_fru_status;
         if (fruStatus === "yellow") {
             return "text-warning";
         } else if (fruStatus === "red") {
@@ -681,10 +681,8 @@ export const activeServiceTimerWidget = {
         { name: "has_active_service_timer", type: "boolean" },
         { name: "active_service_timer_last_start", type: "datetime" },
         { name: "active_service_accumulated_seconds", type: "float" },
-        { name: "active_service_fru", type: "float" },
-        { name: "active_service_unit_price", type: "float" },
-        { name: "active_service_fru_status", type: "selection" },
         { name: "total_service_fru", type: "float" },
+        { name: "wip_fru_status", type: "selection" },
     ],
 };
 
