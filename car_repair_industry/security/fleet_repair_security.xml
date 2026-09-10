@@ -38,7 +38,7 @@
         <field name="name">Repair Order Technician</field>
         <field name="model_id" ref="model_fleet_repair"/>
         <field name="global" eval="True"/>
-        <field name="domain_force">['|',('user_id','=',user.id),('user_id','=',False)]</field>
+        <field name="domain_force">['|', '|', ('user_id', '=', user.id), ('team_lead_id', '=', user.id), ('user_id', '=', False)]</field>
         <field name="groups" eval="[(4, ref('car_repair_industry.group_fleet_repair_technician'))]"/>
     </record>
 

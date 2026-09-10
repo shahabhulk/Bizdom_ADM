@@ -121,20 +121,33 @@ class Appointment(http.Controller):
         return request.render("car_repair_industry.review_submit", values)
 
     @http.route('/fleet_repair/dashboard_data', type="json", auth='user')
-    def fleet_repair_dashboard_data(self):
+    def fleet_repair_dashboard_data(self, department=None, **kwargs):
         request.env.invalidate_all()
         company_id = request.env.user.company_id.id
 
-        fleet_repair = request.env['fleet.repair'].sudo().search([])
-        fleet_diagnose = request.env['fleet.diagnose'].sudo().search([])
-        fleet_diagnos_d = request.env['fleet.diagnose'].sudo().search([('state', '=', 'in_progress')])
-        fleet_repair_d = request.env['fleet.repair'].sudo().search([('state', '=', 'done')])
-        fleet_workorder = request.env['fleet.workorder'].sudo().search([])
-        fleet_service_type = request.env['service.type'].sudo().search([])
+        repair_domain = []
+        diagnose_domain = []
+        workorder_domain = []
+        feedback_domain = []
+        service_type_domain = []
+
+        if department:
+            repair_domain = [('department_id.name', 'ilike', department)]
+            diagnose_domain = [('fleet_repair_id.department_id.name', 'ilike', department)]
+            workorder_domain = [('fleet_repair_id.department_id.name', 'ilike', department)]
+            feedback_domain = [('department_ids.name', 'ilike', department)]
+            service_type_domain = [('department_id.name', 'ilike', department)]
+
+        fleet_repair = request.env['fleet.repair'].sudo().search(repair_domain + [('state', 'not in', ['done', 'invoiced', 'cancel'])])
+        fleet_diagnose = request.env['fleet.diagnose'].sudo().search(diagnose_domain)
+        fleet_diagnos_d = request.env['fleet.diagnose'].sudo().search(diagnose_domain + [('state', '=', 'in_progress')])
+        fleet_repair_d = request.env['fleet.repair'].sudo().search(repair_domain + [('state', '=', 'done')])
+        fleet_workorder = request.env['fleet.workorder'].sudo().search(workorder_domain)
+        fleet_service_type = request.env['service.type'].sudo().search(service_type_domain)
         lead_count = request.env['crm.lead'].sudo().search_count([
             ('company_id', '=', company_id)
         ])
-        feedback_count = request.env['fleet.repair.feedback'].sudo().search([])  # Add this line
+        feedback_count = request.env['fleet.repair.feedback'].sudo().search(feedback_domain)
         parts_purchase_count = request.env['purchase.order'].sudo().search_count([
             ('company_id', '=', company_id),
         ])
@@ -142,8 +155,29 @@ class Appointment(http.Controller):
             ('company_id', '=', company_id),
         ])
 
+        user_department = False
+        employee = request.env['hr.employee'].sudo().search([('user_id', '=', request.env.uid)], limit=1)
+        if employee and employee.department_id and employee.department_id.name:
+            dept_name = employee.department_id.name.lower()
+            if 'bodyshop' in dept_name:
+                user_department = 'bodyshop'
+            elif 'workshop' in dept_name:
+                user_department = 'workshop'
+
+        bodyshop_repair_count = request.env['fleet.repair'].sudo().search_count([
+            ('department_id.name', 'ilike', 'bodyshop'),
+            ('state', 'not in', ['done', 'invoiced', 'cancel'])
+        ])
+        workshop_repair_count = request.env['fleet.repair'].sudo().search_count([
+            ('department_id.name', 'ilike', 'workshop'),
+            ('state', 'not in', ['done', 'invoiced', 'cancel'])
+        ])
+
         dashboard_data = {
             'fleet_repair_count': len(fleet_repair),
+            'bodyshop_repair_count': bodyshop_repair_count,
+            'workshop_repair_count': workshop_repair_count,
+            'user_department': user_department,
             'fleet_diagnos_count': len(fleet_diagnose),
             'fleet_diagnos_d_count': len(fleet_diagnos_d),
             'fleet_repair_d_count': len(fleet_repair_d),
@@ -153,5 +187,6 @@ class Appointment(http.Controller):
             'lead_count': lead_count,
             'parts_purchase_count': parts_purchase_count,
             'company_expense_count': company_expense_count,
+            'department': department,
         }
         return dashboard_data

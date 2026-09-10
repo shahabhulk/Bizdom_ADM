@@ -38,6 +38,12 @@
 .activity_block_left.nth6{
     background : #6d73bb;
 }
+.activity_block_left.nth_bodyshop{
+    background : #f88781;
+}
+.activity_block_left.nth_workshop{
+    background : #575fcf;
+}
 .activity_block .activity_block_left i{
     color: #ffffff;
     font-size: 40px;
