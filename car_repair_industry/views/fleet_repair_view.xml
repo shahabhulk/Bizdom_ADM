@@ -232,7 +232,8 @@
                                         <field name="uom_id" column_invisible="1"/>
                                         <field name="unit_price" string="Price" widget="monetary"
                                                options="{'currency_field': 'currency_id'}"
-                                               readonly="parent.state in ('done', 'cancel', 'invoiced')"/>
+                                               readonly="parent.state in ('done', 'cancel', 'invoiced') or alloted_fru > 0"
+                                               force_save="1"/>
                                         <field name="subtotal" widget="monetary"
                                                options="{'currency_field': 'currency_id'}"/>
                                         <field name="currency_id" column_invisible="1"/>

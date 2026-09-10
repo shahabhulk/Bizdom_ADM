@@ -1905,19 +1905,8 @@ class FleetRepairServiceLine(models.Model):
                     line.item_code_id = product
     alloted_fru = fields.Integer(
         string='Alloted FRU',
-        compute='_compute_alloted_fru',
-        store=True,
-        readonly=False,
-        precompute=True,
+        default=0,
     )
-
-    @api.depends('product_id')
-    def _compute_alloted_fru(self):
-        for line in self:
-            if line.product_id and not line.alloted_fru:
-                line.alloted_fru = line.product_id.alloted_fru or 0
-            elif not line.product_id and not line.alloted_fru:
-                line.alloted_fru = 0
 
     name = fields.Text(string='Description')
     quantity = fields.Float(
@@ -2119,7 +2108,7 @@ class FleetRepairServiceLine(models.Model):
     def _compute_subtotal(self):
         for line in self:
             if line.alloted_fru and line.alloted_fru > 0:
-                line.subtotal = float(line.alloted_fru) * (line.unit_price or 0.0)
+                line.subtotal = float(line.alloted_fru) * (line.unit_price or 200.0)
             else:
                 line.subtotal = line.unit_price or 0.0
 
@@ -2127,8 +2116,9 @@ class FleetRepairServiceLine(models.Model):
     def _onchange_alloted_fru(self):
         for line in self:
             if line.alloted_fru and line.alloted_fru > 0:
+                line.unit_price = 200.0
                 line.quantity = float(line.alloted_fru)
-                line.subtotal = float(line.alloted_fru) * (line.unit_price or 0.0)
+                line.subtotal = float(line.alloted_fru) * 200.0
             else:
                 line.quantity = 1.0
                 line.subtotal = line.unit_price or 0.0
@@ -2141,14 +2131,15 @@ class FleetRepairServiceLine(models.Model):
                 line.product_id = product
                 line.item_code = product.item_code
                 line.name = product.name
-                line.unit_price = product.list_price
                 line.uom_id = product.uom_id
                 fru = product.alloted_fru or 0
                 line.alloted_fru = fru
                 if fru and fru > 0:
+                    line.unit_price = 200.0
                     line.quantity = float(fru)
-                    line.subtotal = float(fru) * (product.list_price or 0.0)
+                    line.subtotal = float(fru) * 200.0
                 else:
+                    line.unit_price = product.list_price
                     line.quantity = 1.0
                     line.subtotal = product.list_price or 0.0
                 if product.department_id:
@@ -2176,14 +2167,15 @@ class FleetRepairServiceLine(models.Model):
                     line.item_code_id = product
                     line.product_id = product
                     line.name = product.name
-                    line.unit_price = product.list_price
                     line.uom_id = product.uom_id
                     fru = product.alloted_fru or 0
                     line.alloted_fru = fru
                     if fru and fru > 0:
+                        line.unit_price = 200.0
                         line.quantity = float(fru)
-                        line.subtotal = float(fru) * (product.list_price or 0.0)
+                        line.subtotal = float(fru) * 200.0
                     else:
+                        line.unit_price = product.list_price
                         line.quantity = 1.0
                         line.subtotal = product.list_price or 0.0
                     if product.department_id:
@@ -2197,14 +2189,15 @@ class FleetRepairServiceLine(models.Model):
                 line.item_code = product.item_code
                 line.item_code_id = product
                 line.name = product.name
-                line.unit_price = product.list_price
                 line.uom_id = product.uom_id
                 fru = product.alloted_fru or 0
                 line.alloted_fru = fru
                 if fru and fru > 0:
+                    line.unit_price = 200.0
                     line.quantity = float(fru)
-                    line.subtotal = float(fru) * (product.list_price or 0.0)
+                    line.subtotal = float(fru) * 200.0
                 else:
+                    line.unit_price = product.list_price
                     line.quantity = 1.0
                     line.subtotal = product.list_price or 0.0
                 if product.department_id:
@@ -2246,6 +2239,11 @@ class FleetRepairServiceLine(models.Model):
                 if product:
                     vals['product_id'] = product.id
                     vals['item_code_id'] = product.id
+            if vals.get('product_id') and 'alloted_fru' not in vals:
+                product = self.env['product.product'].browse(vals['product_id'])
+                vals['alloted_fru'] = product.alloted_fru or 0
+            if vals.get('alloted_fru') and vals['alloted_fru'] > 0 and 'unit_price' not in vals:
+                vals['unit_price'] = 200.0
         lines = super().create(vals_list)
         for line in lines:
             if line.product_id and line.department_id and line.product_id.department_id != line.department_id:
@@ -2267,6 +2265,11 @@ class FleetRepairServiceLine(models.Model):
             if product:
                 vals['product_id'] = product.id
                 vals['item_code_id'] = product.id
+        if vals.get('product_id') and 'alloted_fru' not in vals:
+            product = self.env['product.product'].browse(vals['product_id'])
+            vals['alloted_fru'] = product.alloted_fru or 0
+        if vals.get('alloted_fru') and vals['alloted_fru'] > 0 and 'unit_price' not in vals:
+            vals['unit_price'] = 200.0
         res = super().write(vals)
         if 'department_id' in vals:
             for line in self:
