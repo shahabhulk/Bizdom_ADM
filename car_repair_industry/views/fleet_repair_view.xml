@@ -326,6 +326,9 @@
                            options="{'currency_field': 'currency_id'}"/>
                     <field name="wip_fru_status" column_invisible="1"/>
                     <field name="total_service_fru" column_invisible="1"/>
+                    <field name="active_service_fru" column_invisible="1"/>
+                    <field name="active_service_unit_price" column_invisible="1"/>
+                    <field name="active_service_fru_status" column_invisible="1"/>
                     <field name="state" widget="badge"
                            decoration-success="state == 'done' or (state == 'workorder' and wip_fru_status == 'green')"
                            decoration-warning="state == 'workorder' and wip_fru_status == 'yellow'"

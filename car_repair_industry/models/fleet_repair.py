@@ -236,15 +236,19 @@ class FleetRepair(models.Model):
         store=True,
     )
 
-    @api.depends('service_line_ids.employee_id')
+    @api.depends('service_line_ids.employee_id', 'service_line_ids.is_timer_running')
     def _compute_service_employee_id(self):
         for rec in self:
-            first_emp = False
-            for line in rec.service_line_ids:
-                if line.employee_id:
-                    first_emp = line.employee_id
-                    break
-            rec.service_employee_id = first_emp
+            active_line = rec.service_line_ids.filtered(lambda l: l.is_timer_running and l.employee_id)
+            if active_line:
+                rec.service_employee_id = active_line[0].employee_id
+            else:
+                first_emp = False
+                for line in rec.service_line_ids:
+                    if line.employee_id:
+                        first_emp = line.employee_id
+                        break
+                rec.service_employee_id = first_emp
 
     active_service_employee_ids = fields.Many2many(
         'hr.employee',
@@ -275,6 +279,23 @@ class FleetRepair(models.Model):
         compute='_compute_active_service_info',
         store=True,
     )
+    active_service_fru = fields.Float(
+        string='Active Service FRU',
+        compute='_compute_active_service_info',
+        store=True,
+    )
+    active_service_unit_price = fields.Float(
+        string='Active Service Price',
+        compute='_compute_active_service_info',
+        store=True,
+    )
+    active_service_fru_status = fields.Selection(
+        [('green', 'Normal'), ('yellow', 'Warning'), ('red', 'Overtime')],
+        string='Active Service FRU Status',
+        compute='_compute_active_service_info',
+        store=True,
+        default='green',
+    )
     total_service_fru = fields.Float(
         string='Total Service FRU',
         compute='_compute_active_service_info',
@@ -295,7 +316,9 @@ class FleetRepair(models.Model):
         'service_line_ids.timer_last_start',
         'service_line_ids.time_diff',
         'service_line_ids.alloted_fru',
-        'service_line_ids.quantity'
+        'service_line_ids.quantity',
+        'service_line_ids.unit_price',
+        'service_line_ids.fru_status',
     )
     def _compute_active_service_info(self):
         for rec in self:
@@ -303,37 +326,38 @@ class FleetRepair(models.Model):
             if active_lines:
                 rec.active_service_employee_ids = [(6, 0, active_lines.mapped('employee_id').ids)]
                 rec.has_active_service_timer = True
-                valid_starts = [st for st in active_lines.mapped('timer_last_start') if st]
-                rec.active_service_timer_last_start = min(valid_starts) if valid_starts else False
-                rec.active_service_accumulated_seconds = sum(active_lines.mapped('accumulated_seconds'))
-                rec.active_service_time_diff = sum(active_lines.mapped('time_diff'))
+
+                primary_lines = rec.service_line_ids.filtered(lambda l: l.is_timer_running and l.employee_id == rec.service_employee_id)
+                active_line = primary_lines[0] if primary_lines else active_lines[0]
+
+                rec.active_service_timer_last_start = active_line.timer_last_start
+                rec.active_service_accumulated_seconds = active_line.accumulated_seconds or 0.0
+                rec.active_service_time_diff = active_line.time_diff or 0.0
+                rec.active_service_fru = float(active_line.alloted_fru or 0)
+                rec.active_service_unit_price = float(active_line.unit_price or 0.0)
+                rec.active_service_fru_status = active_line.fru_status or 'green'
             else:
                 rec.active_service_employee_ids = [(5, 0, 0)]
                 rec.has_active_service_timer = False
                 rec.active_service_timer_last_start = False
                 rec.active_service_accumulated_seconds = 0.0
                 rec.active_service_time_diff = 0.0
+                rec.active_service_fru = 0.0
+                rec.active_service_unit_price = 0.0
+                rec.active_service_fru_status = 'green'
 
-            # 1 FRU = 5 minutes = 300 seconds
-            total_fru = sum((line.alloted_fru or (line.product_id.alloted_fru if line.product_id else 0) or line.quantity or 0.0) for line in rec.service_line_ids)
+            # 1 FRU = 5 minutes = 300 seconds = 200 rs
+            total_fru = sum(
+                (line.alloted_fru if (line.alloted_fru and line.alloted_fru > 0) else ((line.unit_price or 0.0) / 200.0))
+                for line in rec.service_line_ids
+            )
             rec.total_service_fru = total_fru
             fru_seconds = total_fru * 300.0
 
-            now = fields.Datetime.now()
-            total_actual_sec = 0.0
-            for line in rec.service_line_ids:
-                line_sec = line.accumulated_seconds or 0.0
-                if line.is_timer_running and line.timer_last_start:
-                    line_sec += (now - line.timer_last_start).total_seconds()
-                total_actual_sec += line_sec
-
-            if fru_seconds > 0:
-                if total_actual_sec <= fru_seconds:
-                    rec.wip_fru_status = 'green'
-                elif total_actual_sec <= 2 * fru_seconds:
-                    rec.wip_fru_status = 'yellow'
-                else:
-                    rec.wip_fru_status = 'red'
+            if any(l.fru_status == 'red' for l in rec.service_line_ids):
+                rec.wip_fru_status = 'red'
+            elif any(l.fru_status == 'yellow' for l in rec.service_line_ids):
+                rec.wip_fru_status = 'yellow'
             else:
                 rec.wip_fru_status = 'green'
 
@@ -1908,9 +1932,9 @@ class FleetRepairServiceLine(models.Model):
     @api.depends('alloted_fru')
     def _compute_quantity(self):
         for line in self:
-            if line.alloted_fru is not False and line.alloted_fru > 0:
+            if line.alloted_fru and line.alloted_fru > 0:
                 line.quantity = float(line.alloted_fru)
-            elif not line.quantity:
+            else:
                 line.quantity = 1.0
     department_id = fields.Many2one(
         'hr.department',
@@ -1948,7 +1972,7 @@ class FleetRepairServiceLine(models.Model):
     )
     receipt_date = fields.Datetime(related='repair_id.receipt_date', string='JC date', store=True, readonly=True)
 
-    @api.depends('timer_start', 'timer_end', 'is_timer_running', 'accumulated_seconds', 'timer_last_start', 'alloted_fru', 'quantity')
+    @api.depends('timer_start', 'timer_end', 'is_timer_running', 'accumulated_seconds', 'timer_last_start', 'alloted_fru', 'quantity', 'unit_price')
     def _compute_time_diff(self):
         for rec in self:
             total_sec = rec.accumulated_seconds or 0.0
@@ -1958,18 +1982,31 @@ class FleetRepairServiceLine(models.Model):
                 total_sec += delta.total_seconds()
             rec.time_diff = total_sec / 3600.0
 
-            # 1 FRU = 5 minutes = 300 seconds
-            fru = rec.alloted_fru or (rec.product_id.alloted_fru if rec.product_id else 0) or rec.quantity or 0.0
-            fru_sec = fru * 300.0
-            if fru_sec > 0:
-                if total_sec <= fru_sec:
+            if rec.alloted_fru and rec.alloted_fru > 0:
+                fru_sec = rec.alloted_fru * 300.0
+                if total_sec < fru_sec:
                     rec.fru_status = 'green'
-                elif total_sec <= 2 * fru_sec:
+                elif total_sec < 2 * fru_sec:
                     rec.fru_status = 'yellow'
                 else:
                     rec.fru_status = 'red'
             else:
-                rec.fru_status = 'green'
+                price = rec.unit_price or 0.0
+                if price > 0:
+                    # [0, y/2400) -> green, [y/2400, y/1200) -> yellow, [y/1200, infinity) -> red
+                    # where y is the price and 2400 is 2400 rs/hr (3600 sec/hr)
+                    # yellow threshold: (y / 2400) * 3600 = y * 1.5 seconds
+                    # red threshold: (y / 1200) * 3600 = y * 3.0 seconds
+                    yellow_sec = (price / 2400.0) * 3600.0
+                    red_sec = (price / 1200.0) * 3600.0
+                    if total_sec < yellow_sec:
+                        rec.fru_status = 'green'
+                    elif total_sec < red_sec:
+                        rec.fru_status = 'yellow'
+                    else:
+                        rec.fru_status = 'red'
+                else:
+                    rec.fru_status = 'green'
 
     def action_start_timer(self):
         result = {}
@@ -1990,6 +2027,7 @@ class FleetRepairServiceLine(models.Model):
                 rec.repair_id.sudo().write({'state': 'workorder'})
             if rec.repair_id:
                 rec.repair_id._compute_active_service_info()
+            rec._compute_time_diff()
             result = {
                 'timer_start': fields.Datetime.to_string(rec.timer_start) if rec.timer_start else False,
                 'timer_last_start': fields.Datetime.to_string(rec.timer_last_start) if rec.timer_last_start else False,
@@ -2018,6 +2056,7 @@ class FleetRepairServiceLine(models.Model):
             rec.is_timer_paused = True
             if rec.repair_id:
                 rec.repair_id._compute_active_service_info()
+            rec._compute_time_diff()
             result = {
                 'timer_start': fields.Datetime.to_string(rec.timer_start) if rec.timer_start else False,
                 'timer_last_start': False,
@@ -2079,16 +2118,20 @@ class FleetRepairServiceLine(models.Model):
     @api.depends('quantity', 'unit_price', 'alloted_fru')
     def _compute_subtotal(self):
         for line in self:
-            qty = line.alloted_fru if (line.alloted_fru is not False and line.alloted_fru > 0) else (line.quantity or 1.0)
-            line.subtotal = qty * (line.unit_price or 0.0)
+            if line.alloted_fru and line.alloted_fru > 0:
+                line.subtotal = float(line.alloted_fru) * (line.unit_price or 0.0)
+            else:
+                line.subtotal = line.unit_price or 0.0
 
-    @api.onchange('alloted_fru')
+    @api.onchange('alloted_fru', 'unit_price')
     def _onchange_alloted_fru(self):
         for line in self:
-            if line.alloted_fru is not False and line.alloted_fru > 0:
+            if line.alloted_fru and line.alloted_fru > 0:
                 line.quantity = float(line.alloted_fru)
-            qty = line.alloted_fru if (line.alloted_fru is not False and line.alloted_fru > 0) else (line.quantity or 1.0)
-            line.subtotal = qty * (line.unit_price or 0.0)
+                line.subtotal = float(line.alloted_fru) * (line.unit_price or 0.0)
+            else:
+                line.quantity = 1.0
+                line.subtotal = line.unit_price or 0.0
 
     @api.onchange('item_code_id')
     def _onchange_item_code_id(self):
@@ -2100,10 +2143,14 @@ class FleetRepairServiceLine(models.Model):
                 line.name = product.name
                 line.unit_price = product.list_price
                 line.uom_id = product.uom_id
-                fru = product.alloted_fru or 1
+                fru = product.alloted_fru or 0
                 line.alloted_fru = fru
-                line.quantity = float(fru)
-                line.subtotal = float(fru) * (product.list_price or 0.0)
+                if fru and fru > 0:
+                    line.quantity = float(fru)
+                    line.subtotal = float(fru) * (product.list_price or 0.0)
+                else:
+                    line.quantity = 1.0
+                    line.subtotal = product.list_price or 0.0
                 if product.department_id:
                     line.department_id = product.department_id
             else:
@@ -2131,10 +2178,14 @@ class FleetRepairServiceLine(models.Model):
                     line.name = product.name
                     line.unit_price = product.list_price
                     line.uom_id = product.uom_id
-                    fru = product.alloted_fru or 1
+                    fru = product.alloted_fru or 0
                     line.alloted_fru = fru
-                    line.quantity = float(fru)
-                    line.subtotal = float(fru) * (product.list_price or 0.0)
+                    if fru and fru > 0:
+                        line.quantity = float(fru)
+                        line.subtotal = float(fru) * (product.list_price or 0.0)
+                    else:
+                        line.quantity = 1.0
+                        line.subtotal = product.list_price or 0.0
                     if product.department_id:
                         line.department_id = product.department_id
 
@@ -2148,10 +2199,14 @@ class FleetRepairServiceLine(models.Model):
                 line.name = product.name
                 line.unit_price = product.list_price
                 line.uom_id = product.uom_id
-                fru = product.alloted_fru or 1
+                fru = product.alloted_fru or 0
                 line.alloted_fru = fru
-                line.quantity = float(fru)
-                line.subtotal = float(fru) * (product.list_price or 0.0)
+                if fru and fru > 0:
+                    line.quantity = float(fru)
+                    line.subtotal = float(fru) * (product.list_price or 0.0)
+                else:
+                    line.quantity = 1.0
+                    line.subtotal = product.list_price or 0.0
                 if product.department_id:
                     line.department_id = product.department_id
             else:

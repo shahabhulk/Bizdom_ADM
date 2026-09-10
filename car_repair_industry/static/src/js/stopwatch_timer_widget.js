@@ -374,19 +374,42 @@ export class StopwatchTimerWidget extends Component {
     get timerColorClass() {
         const fru = ("alloted_fru" in this.props.record.data && this.props.record.data.alloted_fru)
             ? Number(this.props.record.data.alloted_fru)
-            : (("quantity" in this.props.record.data) ? (Number(this.props.record.data.quantity) || 0) : 0);
-        const fruSeconds = fru * 300; // 1 FRU = 5 minutes = 300 seconds
+            : 0;
         const totalSeconds = this.currentTotalSeconds;
 
-        if (fruSeconds > 0) {
-            if (totalSeconds <= fruSeconds) {
-                return "text-success"; // Green [0, FRU]
-            } else if (totalSeconds <= 2 * fruSeconds) {
-                return "text-warning"; // Yellow (FRU, 2FRU]
+        if (fru > 0) {
+            const fruSeconds = fru * 300; // 1 FRU = 5 minutes = 300 seconds
+            if (totalSeconds < fruSeconds) {
+                return "text-success"; // Green [0, FRU)
+            } else if (totalSeconds < 2 * fruSeconds) {
+                return "text-warning"; // Yellow [FRU, 2FRU)
             } else {
-                return "text-danger"; // Red (2FRU, ..]
+                return "text-danger"; // Red [2FRU, ..)
             }
         }
+
+        // When FRU is not mentioned or in Zero:
+        // [0, y/2400) -> green, [y/2400, y/1200) -> yellow, [y/1200, infinity) -> red
+        // where y is the price and 2400 is 2400 rs/hr (3600 sec/hr)
+        // yellow threshold: (y / 2400) * 3600 = y * 1.5 seconds
+        // red threshold: (y / 1200) * 3600 = y * 3.0 seconds
+        const unitPrice = ("unit_price" in this.props.record.data && this.props.record.data.unit_price)
+            ? Number(this.props.record.data.unit_price)
+            : 0;
+
+        if (unitPrice > 0) {
+            const yellowThresholdSec = (unitPrice / 2400.0) * 3600.0;
+            const redThresholdSec = (unitPrice / 1200.0) * 3600.0;
+
+            if (totalSeconds < yellowThresholdSec) {
+                return "text-success";
+            } else if (totalSeconds < redThresholdSec) {
+                return "text-warning";
+            } else {
+                return "text-danger";
+            }
+        }
+
         return "text-success";
     }
 
@@ -410,6 +433,7 @@ export const stopwatchTimerWidget = {
         { name: "is_timer_paused", type: "boolean" },
         { name: "accumulated_seconds", type: "float" },
         { name: "alloted_fru", type: "integer" },
+        { name: "unit_price", type: "float" },
     ],
 };
 
@@ -591,19 +615,50 @@ export class ActiveServiceTimerWidget extends Component {
     }
 
     get timerColorClass() {
-        const fru = Number(this.props.record.data.total_service_fru) || 0;
-        const fruSeconds = fru * 300; // 1 FRU = 5 minutes = 300 seconds
+        const fru = ("active_service_fru" in this.props.record.data && this.props.record.data.active_service_fru)
+            ? Number(this.props.record.data.active_service_fru)
+            : (("total_service_fru" in this.props.record.data && this.props.record.data.total_service_fru)
+                ? Number(this.props.record.data.total_service_fru)
+                : 0);
         const totalSeconds = this.currentTotalSeconds;
 
-        if (fruSeconds > 0) {
-            if (totalSeconds <= fruSeconds) {
-                return "text-success"; // Green [0, FRU]
-            } else if (totalSeconds <= 2 * fruSeconds) {
-                return "text-warning"; // Yellow (FRU, 2FRU]
+        if (fru > 0) {
+            const fruSeconds = fru * 300; // 1 FRU = 5 minutes = 300 seconds
+            if (totalSeconds < fruSeconds) {
+                return "text-success"; // Green [0, FRU)
+            } else if (totalSeconds < 2 * fruSeconds) {
+                return "text-warning"; // Yellow [FRU, 2FRU)
             } else {
-                return "text-danger"; // Red (2FRU, ..]
+                return "text-danger"; // Red [2FRU, ..)
             }
         }
+
+        // When FRU is not mentioned or in Zero:
+        // [0, y/2400) -> green, [y/2400, y/1200) -> yellow, [y/1200, infinity) -> red
+        const unitPrice = ("active_service_unit_price" in this.props.record.data && this.props.record.data.active_service_unit_price)
+            ? Number(this.props.record.data.active_service_unit_price)
+            : 0;
+
+        if (unitPrice > 0) {
+            const yellowThresholdSec = (unitPrice / 2400.0) * 3600.0;
+            const redThresholdSec = (unitPrice / 1200.0) * 3600.0;
+
+            if (totalSeconds < yellowThresholdSec) {
+                return "text-success";
+            } else if (totalSeconds < redThresholdSec) {
+                return "text-warning";
+            } else {
+                return "text-danger";
+            }
+        }
+
+        const fruStatus = this.props.record.data.active_service_fru_status;
+        if (fruStatus === "yellow") {
+            return "text-warning";
+        } else if (fruStatus === "red") {
+            return "text-danger";
+        }
+
         return "text-success";
     }
 
@@ -626,6 +681,9 @@ export const activeServiceTimerWidget = {
         { name: "has_active_service_timer", type: "boolean" },
         { name: "active_service_timer_last_start", type: "datetime" },
         { name: "active_service_accumulated_seconds", type: "float" },
+        { name: "active_service_fru", type: "float" },
+        { name: "active_service_unit_price", type: "float" },
+        { name: "active_service_fru_status", type: "selection" },
         { name: "total_service_fru", type: "float" },
     ],
 };
