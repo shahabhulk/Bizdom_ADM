@@ -22,5 +22,39 @@
         <field name="target">self</field>
     </record>
 
-    <menuitem id="car_repair_dashboard_menu" name="Dashboard" parent="car_repair_industry.menu_main_car_repair" action="car_repair_industry.ir_actions_car_repair_dashboard" sequence="2" />
+    <!-- Bodyshop Dashboard -->
+    <record id="fleet_repair_dashboard_bodyshop" model="ir.actions.client">
+        <field name="name">Bodyshop Dashboard</field>
+        <field name="tag">fleet_repair_dashboard</field>
+        <field name="params" eval="{'department': 'bodyshop'}"/>
+        <field name="context">{'default_department': 'bodyshop'}</field>
+    </record>
+
+    <!-- Workshop Dashboard -->
+    <record id="fleet_repair_dashboard_workshop" model="ir.actions.client">
+        <field name="name">Workshop Dashboard</field>
+        <field name="tag">fleet_repair_dashboard</field>
+        <field name="params" eval="{'department': 'workshop'}"/>
+        <field name="context">{'default_department': 'workshop'}</field>
+    </record>
+
+    <record id="ir_actions_car_repair_dashboard_bodyshop" model="ir.actions.server">
+        <field name="name">Bodyshop Dashboard</field>
+        <field name="model_id" ref="car_repair_industry.model_fleet_repair" />
+        <field name="state">code</field>
+        <field name="type">ir.actions.server</field>
+        <field name="groups_id" eval="[(4, ref('base.group_user'))]"/>
+        <field name="code">action = model.action_activity_dashboard_redirect('bodyshop')</field>
+    </record>
+
+    <record id="ir_actions_car_repair_dashboard_workshop" model="ir.actions.server">
+        <field name="name">Workshop Dashboard</field>
+        <field name="model_id" ref="car_repair_industry.model_fleet_repair" />
+        <field name="state">code</field>
+        <field name="type">ir.actions.server</field>
+        <field name="groups_id" eval="[(4, ref('base.group_user'))]"/>
+        <field name="code">action = model.action_activity_dashboard_redirect('workshop')</field>
+    </record>
+
+    <menuitem id="car_repair_dashboard_menu" name="Dashboard" parent="car_repair_industry.menu_main_car_repair" action="car_repair_industry.ir_actions_car_repair_dashboard" sequence="2" groups="car_repair_industry.group_fleet_repair_directeur_commercial,car_repair_industry.group_fleet_repair_service_manager" />
 </odoo>
