@@ -16,13 +16,20 @@
     <t t-name="DashboardContent">
         <link rel="stylesheet" href="/car_repair_industry/static/src/css/dashboard_backend.css"/>
         <div class="o_activity_DashboardContent">
-            <h4 class="mt16 dashboard_data_h2">Car Repair Details</h4>
+            <div class="row align-items-center justify-content-between mt16 mb24">
+                <div class="col-md-12">
+                    <h4 class="dashboard_data_h2 mb-0">
+                        Car Repair Details
+                    </h4>
+                </div>
+            </div>
 
-            <div class="col-md-12 mt64 row activity_content_main">
-                <div class="col-md-3" t-on-click="clickCarRepair">
-                    <a class="CarRepairList" data-domain="[('state', '!=', 'done')]">
+            <div class="col-md-12 mt32 row activity_content_main">
+                <!-- 1. Car Repair Menu Card (as usual) -->
+                <div class="col-lg-3 col-md-6 mb-4" t-on-click="clickCarRepair">
+                    <a class="CarRepairList" data-activity_type="Car Repair requests" data-domain="[('state', 'not in', ['done', 'invoiced', 'cancel'])]">
                         <div class="activity_block">
-                            <div class="activity_block_left nth1">
+                            <div class="activity_block_left nth1" style="background: #f88781;">
                                 <i class="fa fa-cogs"></i>
                             </div>
                             <div class="activity_block_right">
@@ -33,11 +40,13 @@
                         </div>
                     </a>
                 </div>
-                <div class="col-md-3" t-on-click="clickAssignedtoTechnicians">
+
+                <!-- 2. Assigned to Technicians Card -->
+                <div class="col-lg-3 col-md-6 mb-4" t-on-click="clickAssignedtoTechnicians">
                     <a class="AssignedtoTechnicians" data-activity_type="Assigned to Technicians"
                        data-domain="[('state','=','in_progress')]">
                         <div class="activity_block">
-                            <div class="activity_block_left nth2">
+                            <div class="activity_block_left nth2" style="background: #31bc9f;">
                                 <i class="fa fa-wrench"></i>
                             </div>
                             <div class="activity_block_right">
@@ -49,10 +58,12 @@
                         </div>
                     </a>
                 </div>
-                <div class="col-md-3" t-on-click="clickCarDiagnosis">
+
+                <!-- 3. Car Diagnosis Card -->
+                <div class="col-lg-3 col-md-6 mb-4" t-on-click="clickCarDiagnosis">
                     <a class="CarDiagnosis">
                         <div class="activity_block">
-                            <div class="activity_block_left nth3">
+                            <div class="activity_block_left nth3" style="background: #71b3e3;">
                                 <i class="fa fa-car"></i>
                             </div>
                             <div class="activity_block_right">
@@ -63,11 +74,13 @@
                         </div>
                     </a>
                 </div>
-                <div class="col-md-3" t-on-click="clickCarRepair">
+
+                <!-- 4. Done Card -->
+                <div class="col-lg-3 col-md-6 mb-4" t-on-click="clickCarRepair">
                     <a class="CarRepairList" data-activity_type="Fleet Repair Done"
                        data-domain="[('state','=','done')]">
                         <div class="activity_block">
-                            <div class="activity_block_left nth4">
+                            <div class="activity_block_left nth4" style="background: #ffdc68;">
                                 <i class="fa fa-check-circle"></i>
                             </div>
                             <div class="activity_block_right">
