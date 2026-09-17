@@ -32,7 +32,53 @@ class ProductTemplate(models.Model):
         domain="[('department_ids', 'in', department_id)]",
         default=False
     )
-    alloted_fru = fields.Integer(string="Alloted FRU")
+    alloted_fru = fields.Integer(
+        string="Alloted FRU",
+        default=lambda self: 1 if self.env.context.get('default_type') == 'service' else 0
+    )
+
+    def init(self):
+        super().init()
+        # Synchronize any existing values stored in product_product to product_template
+        self.env.cr.execute("""
+            DO $$
+            BEGIN
+                IF EXISTS (
+                    SELECT 1 FROM information_schema.columns 
+                    WHERE table_name = 'product_product' AND column_name = 'alloted_fru'
+                ) THEN
+                    UPDATE product_template pt
+                    SET alloted_fru = pp.alloted_fru
+                    FROM product_product pp
+                    WHERE pp.product_tmpl_id = pt.id
+                      AND pp.alloted_fru > 0
+                      AND (pt.alloted_fru IS NULL OR pt.alloted_fru <= 0);
+                END IF;
+                IF EXISTS (
+                    SELECT 1 FROM information_schema.columns 
+                    WHERE table_name = 'product_product' AND column_name = 'item_code'
+                ) THEN
+                    UPDATE product_template pt
+                    SET item_code = pp.item_code
+                    FROM product_product pp
+                    WHERE pp.product_tmpl_id = pt.id
+                      AND pp.item_code IS NOT NULL
+                      AND pp.item_code != ''
+                      AND (pt.item_code IS NULL OR pt.item_code = '');
+                END IF;
+                IF EXISTS (
+                    SELECT 1 FROM information_schema.columns 
+                    WHERE table_name = 'product_product' AND column_name = 'department_id'
+                ) THEN
+                    UPDATE product_template pt
+                    SET department_id = pp.department_id
+                    FROM product_product pp
+                    WHERE pp.product_tmpl_id = pt.id
+                      AND pp.department_id IS NOT NULL
+                      AND pt.department_id IS NULL;
+                END IF;
+            END $$;
+        """)
 
     @api.constrains('type', 'alloted_fru')
     def _check_alloted_fru(self):
@@ -157,33 +203,13 @@ class ProductTemplate(models.Model):
 class ProductProduct(models.Model):
     _inherit = 'product.product'
 
-    # Inherit and store item_code from product.template
-    item_code = fields.Char(
-        string="Item Code",
-        related='product_tmpl_id.item_code',
-        store=True,
-        readonly=False
-    )
-    department_id = fields.Many2one(
-        'hr.department',
-        string="Department",
-        related='product_tmpl_id.department_id',
-        store=True,
-        readonly=False,
-        domain="[('model_ids.model', '=', 'product.template')]"
-    )
-    alloted_fru = fields.Integer(
-        string="Alloted FRU",
-        related='product_tmpl_id.alloted_fru',
-        store=True,
-        readonly=False
-    )
-
     @api.model_create_multi
     def create(self, vals_list):
         for vals in vals_list:
             if vals.get('item_code') and isinstance(vals['item_code'], str):
                 vals['item_code'] = vals['item_code'].strip()
+            if vals.get('alloted_fru') and not self.env.context.get('default_alloted_fru'):
+                self = self.with_context(default_alloted_fru=vals['alloted_fru'])
         return super().create(vals_list)
 
     def write(self, vals):

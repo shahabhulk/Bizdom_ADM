@@ -152,8 +152,8 @@
                                         <field name="item_code_id" column_invisible="1"/>
                                         <field name="item_code_display" widget="item_code_autocomplete" string="Item Code" optional="hide"
                                                readonly="parent.state in ('done', 'cancel', 'invoiced')"/>
-                                        <field name="product_id" options="{'no_quick_create': True}" context="{'default_categ_id': False}"
-                                               readonly="parent.state in ('done', 'cancel', 'invoiced')"/>
+                                         <field name="product_id" options="{'no_quick_create': True}" context="{'default_type': 'consu', 'default_is_storable': True, 'default_categ_id': False}"
+                                                readonly="parent.state in ('done', 'cancel', 'invoiced')"/>
                                         <field name="department_id" required="1" optional="show" options="{'no_create': True, 'no_create_edit': True}"
                                                readonly="parent.state in ('done', 'cancel', 'invoiced')"/>
                                         <field name="quantity"
@@ -210,7 +210,7 @@
                                         <field name="item_code_id" column_invisible="1"/>
                                         <field name="item_code" widget="item_code_autocomplete" options="{'product_type': 'service'}" string="Item Code" optional="show"
                                                readonly="parent.state in ('done', 'cancel', 'invoiced')"/>
-                                        <field name="product_id" string="Service" domain="[('type', '=', 'service')]" context="{'default_type': 'service', 'default_categ_id': False}" options="{'no_quick_create': True}"
+                                        <field name="product_id" string="Service" domain="[('type', '=', 'service')]" context="{'default_type': 'service', 'default_categ_id': False, 'default_alloted_fru': 1}" options="{'no_quick_create': True}"
                                                readonly="parent.state in ('done', 'cancel', 'invoiced')"/>
                                         <field name="department_id" required="1" optional="hide" options="{'no_create': True, 'no_create_edit': True}"
                                                readonly="parent.state in ('done', 'cancel', 'invoiced')"/>
