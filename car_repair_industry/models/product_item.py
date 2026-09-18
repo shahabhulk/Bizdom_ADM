@@ -203,6 +203,15 @@ class ProductTemplate(models.Model):
 class ProductProduct(models.Model):
     _inherit = 'product.product'
 
+    department_id = fields.Many2one(
+        'hr.department',
+        string="Department",
+        related='product_tmpl_id.department_id',
+        store=True,
+        readonly=False,
+        domain="[('model_ids.model', '=', 'product.template')]"
+    )
+
     @api.model_create_multi
     def create(self, vals_list):
         for vals in vals_list:
