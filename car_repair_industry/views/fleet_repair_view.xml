@@ -284,9 +284,13 @@
                             </page>
 
                             <page string="Car works">
+                                <div class="mb-2">
+                                    <button name="action_sync_work_lines_from_service_lines" type="object" string="Sync from Services" class="btn btn-secondary btn-sm" icon="fa-refresh"/>
+                                </div>
                                 <field name="fleet_work_line_ids" widget="one2many_list">
                                     <list editable="bottom">
                                         <field name="repair_id" column_invisible="1"/>
+                                        <field name="service_line_id" domain="[('repair_id', '=', repair_id)]" options="{'no_create': True, 'no_create_edit': True}" optional="show"/>
                                         <field name="work_type" domain="[('type', '=', 'service')]" options="{'no_create': True, 'no_create_edit': True}"/>
                                         <field name="employee_id" domain="['|', ('department_id', '=', department_type_id), ('department_id', '=', False)]" options="{'no_create': True, 'no_create_edit': True}"/>
                                         <field name="department_type_id" string="Department" optional="hide" options="{'no_create': True, 'no_create_edit': True}"/>

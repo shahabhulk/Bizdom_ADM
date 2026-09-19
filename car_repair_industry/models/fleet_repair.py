@@ -500,7 +500,13 @@ class FleetRepair(models.Model):
             if has_active_timer and rec.state != 'workorder' and rec.state not in ('done', 'cancel'):
                 rec.sudo().write({'state': 'workorder'})
         records._sync_vehicle_data()
+        records.action_sync_work_lines_from_service_lines()
         return records
+
+    def action_sync_work_lines_from_service_lines(self):
+        for rec in self:
+            rec.service_line_ids._sync_to_work_lines()
+        return True
 
     def write(self, vals):
         res = super().write(vals)
@@ -518,6 +524,9 @@ class FleetRepair(models.Model):
         invoice_trigger_fields = {'product_line_ids', 'service_line_ids', 'client_id', 'pricelist_id'}
         if any(f in vals for f in invoice_trigger_fields):
             self._sync_draft_invoices()
+
+        if 'service_line_ids' in vals:
+            self.action_sync_work_lines_from_service_lines()
         return res
 
 
@@ -1862,6 +1871,7 @@ class FleetRepairServiceLine(models.Model):
     _description = 'Fleet Repair Service Line'
 
     repair_id = fields.Many2one('fleet.repair', string='Repair Order', ondelete='cascade', required=True)
+    work_line_ids = fields.One2many('fleet.repair.work.line', 'service_line_id', string='Work Lines')
     product_id = fields.Many2one('product.product', domain=[('type', '=', 'service')], string='Service')
     item_code_id = fields.Many2one(
         'product.product',
@@ -1997,6 +2007,45 @@ class FleetRepairServiceLine(models.Model):
                 else:
                     rec.fru_status = 'green'
 
+    def _sync_to_work_lines(self):
+        if self.env.context.get('skip_work_line_sync'):
+            return
+        WorkLine = self.env['fleet.repair.work.line'].sudo()
+        for sline in self:
+            if not sline.repair_id:
+                continue
+            vals = {
+                'work_type': sline.product_id.id if sline.product_id else False,
+                'department_type_id': sline.department_id.id if sline.department_id else False,
+                'employee_id': sline.employee_id.id if sline.employee_id else False,
+                'timer_start': sline.timer_start,
+                'timer_end': sline.timer_end,
+                'timer_last_start': sline.timer_last_start,
+                'is_timer_running': sline.is_timer_running,
+                'is_timer_paused': sline.is_timer_paused,
+                'accumulated_seconds': sline.accumulated_seconds,
+                'time_diff': sline.time_diff,
+            }
+            work_lines = WorkLine.search([('service_line_id', '=', sline.id)])
+            if work_lines:
+                work_lines.with_context(skip_service_line_sync=True).write(vals)
+            else:
+                unlinked = WorkLine.search([
+                    ('repair_id', '=', sline.repair_id.id),
+                    ('service_line_id', '=', False),
+                    ('work_type', '=', sline.product_id.id if sline.product_id else False),
+                    ('employee_id', '=', sline.employee_id.id if sline.employee_id else False),
+                ], limit=1)
+                if unlinked:
+                    vals['service_line_id'] = sline.id
+                    unlinked.with_context(skip_service_line_sync=True).write(vals)
+                else:
+                    vals.update({
+                        'repair_id': sline.repair_id.id,
+                        'service_line_id': sline.id,
+                    })
+                    WorkLine.with_context(skip_service_line_sync=True).create(vals)
+
     def action_start_timer(self):
         result = {}
         for rec in self:
@@ -2017,6 +2066,7 @@ class FleetRepairServiceLine(models.Model):
             if rec.repair_id:
                 rec.repair_id._compute_active_service_info()
             rec._compute_time_diff()
+            rec._sync_to_work_lines()
             result = {
                 'timer_start': fields.Datetime.to_string(rec.timer_start) if rec.timer_start else False,
                 'timer_last_start': fields.Datetime.to_string(rec.timer_last_start) if rec.timer_last_start else False,
@@ -2046,6 +2096,7 @@ class FleetRepairServiceLine(models.Model):
             if rec.repair_id:
                 rec.repair_id._compute_active_service_info()
             rec._compute_time_diff()
+            rec._sync_to_work_lines()
             result = {
                 'timer_start': fields.Datetime.to_string(rec.timer_start) if rec.timer_start else False,
                 'timer_last_start': False,
@@ -2076,6 +2127,7 @@ class FleetRepairServiceLine(models.Model):
             rec.is_timer_paused = False
             if rec.repair_id:
                 rec.repair_id._compute_active_service_info()
+            rec._sync_to_work_lines()
 
     def action_reset_timer(self):
         result = {}
@@ -2092,6 +2144,7 @@ class FleetRepairServiceLine(models.Model):
             })
             if rec.repair_id:
                 rec.repair_id._compute_active_service_info()
+            rec._sync_to_work_lines()
             result = {
                 'timer_start': False,
                 'timer_last_start': False,
@@ -2250,6 +2303,7 @@ class FleetRepairServiceLine(models.Model):
                 line.product_id.sudo().write({'department_id': line.department_id.id})
             if line.is_timer_running and line.repair_id and line.repair_id.state != 'workorder' and line.repair_id.state not in ('done', 'cancel'):
                 line.repair_id.sudo().write({'state': 'workorder'})
+        lines._sync_to_work_lines()
         return lines
 
     def write(self, vals):
@@ -2283,7 +2337,16 @@ class FleetRepairServiceLine(models.Model):
             for line in self:
                 if line.repair_id:
                     line.repair_id._compute_active_service_info()
+        sync_trigger_fields = {'timer_start', 'timer_end', 'timer_last_start', 'is_timer_running', 'is_timer_paused', 'accumulated_seconds', 'time_diff', 'employee_id', 'department_id', 'product_id'}
+        if any(k in vals for k in sync_trigger_fields):
+            self._sync_to_work_lines()
         return res
+
+    def unlink(self):
+        work_lines = self.env['fleet.repair.work.line'].sudo().search([('service_line_id', 'in', self.ids)])
+        if work_lines:
+            work_lines.unlink()
+        return super().unlink()
 
 
 class ServiceDetailLine(models.Model):
@@ -2520,6 +2583,12 @@ class FleetRepairWorkLine(models.Model):
     _name = 'fleet.repair.work.line'
     _description = 'Fleet Repair Work Line'
 
+    service_line_id = fields.Many2one(
+        'fleet.repair.service.line',
+        string='Service Line',
+        ondelete='cascade',
+        domain="[('repair_id', '=', repair_id)]"
+    )
     employee_id = fields.Many2one('hr.employee', string='Employee')
     repair_id = fields.Many2one('fleet.repair', string='Repair Order', ondelete='cascade', required=True)
     department_type_id = fields.Many2one('hr.department', string='Department')
@@ -2552,6 +2621,24 @@ class FleetRepairWorkLine(models.Model):
     )
     receipt_date = fields.Datetime(related='repair_id.receipt_date', string='JC date', store=True, readonly=True)
 
+    @api.onchange('service_line_id')
+    def _onchange_service_line_id(self):
+        if self.service_line_id:
+            sline = self.service_line_id
+            if sline.product_id:
+                self.work_type = sline.product_id
+            if sline.department_id:
+                self.department_type_id = sline.department_id
+            if sline.employee_id:
+                self.employee_id = sline.employee_id
+            self.timer_start = sline.timer_start
+            self.timer_end = sline.timer_end
+            self.timer_last_start = sline.timer_last_start
+            self.is_timer_running = sline.is_timer_running
+            self.is_timer_paused = sline.is_timer_paused
+            self.accumulated_seconds = sline.accumulated_seconds
+            self.time_diff = sline.time_diff
+
     @api.onchange('employee_id')
     def _onchange_employee_id(self):
         if self.employee_id and self.employee_id.department_id:
@@ -2559,6 +2646,12 @@ class FleetRepairWorkLine(models.Model):
 
     @api.onchange('work_type')
     def _onchange_work_type(self):
+        if not self.service_line_id and self.repair_id and self.work_type:
+            matching = self.repair_id.service_line_ids.filtered(lambda l: l.product_id == self.work_type)
+            if matching:
+                self.service_line_id = matching[0]
+                self._onchange_service_line_id()
+                return
         if self.work_type:
             dept = self.work_type.department_id
             if dept:
@@ -2583,15 +2676,51 @@ class FleetRepairWorkLine(models.Model):
                 }
             }
 
-    @api.depends('timer_start', 'timer_end', 'is_timer_running', 'accumulated_seconds', 'timer_last_start')
+    @api.depends('timer_start', 'timer_end', 'is_timer_running', 'accumulated_seconds', 'timer_last_start', 'service_line_id.time_diff', 'service_line_id.accumulated_seconds')
     def _compute_time_diff(self):
         for rec in self:
-            total_sec = rec.accumulated_seconds or 0.0
-            if rec.is_timer_running and rec.timer_last_start:
-                now = fields.Datetime.now()
-                delta = now - rec.timer_last_start
-                total_sec += delta.total_seconds()
-            rec.time_diff = total_sec / 3600.0
+            if rec.service_line_id and not rec.is_timer_running and rec.service_line_id.time_diff:
+                rec.time_diff = rec.service_line_id.time_diff
+            else:
+                total_sec = rec.accumulated_seconds or 0.0
+                if rec.is_timer_running and rec.timer_last_start:
+                    now = fields.Datetime.now()
+                    delta = now - rec.timer_last_start
+                    total_sec += delta.total_seconds()
+                rec.time_diff = total_sec / 3600.0
+
+    def action_fetch_from_service_line(self):
+        for rec in self:
+            if rec.service_line_id:
+                sline = rec.service_line_id
+                rec.with_context(skip_service_line_sync=True).write({
+                    'work_type': sline.product_id.id if sline.product_id else False,
+                    'department_type_id': sline.department_id.id if sline.department_id else False,
+                    'employee_id': sline.employee_id.id if sline.employee_id else False,
+                    'timer_start': sline.timer_start,
+                    'timer_end': sline.timer_end,
+                    'timer_last_start': sline.timer_last_start,
+                    'is_timer_running': sline.is_timer_running,
+                    'is_timer_paused': sline.is_timer_paused,
+                    'accumulated_seconds': sline.accumulated_seconds,
+                    'time_diff': sline.time_diff,
+                })
+
+    def _sync_to_service_line(self):
+        if self.env.context.get('skip_service_line_sync'):
+            return
+        for rec in self:
+            if rec.service_line_id:
+                vals = {
+                    'timer_start': rec.timer_start,
+                    'timer_end': rec.timer_end,
+                    'timer_last_start': rec.timer_last_start,
+                    'is_timer_running': rec.is_timer_running,
+                    'is_timer_paused': rec.is_timer_paused,
+                    'accumulated_seconds': rec.accumulated_seconds,
+                    'time_diff': rec.time_diff,
+                }
+                rec.service_line_id.with_context(skip_work_line_sync=True).write(vals)
 
     def action_start_timer(self):
         result = {}
@@ -2610,6 +2739,8 @@ class FleetRepairWorkLine(models.Model):
             rec.is_timer_paused = False
             if rec.repair_id and rec.repair_id.state != 'workorder' and rec.repair_id.state not in ('done', 'cancel'):
                 rec.repair_id.sudo().write({'state': 'workorder'})
+            rec._compute_time_diff()
+            rec._sync_to_service_line()
             result = {
                 'timer_start': fields.Datetime.to_string(rec.timer_start) if rec.timer_start else False,
                 'timer_last_start': fields.Datetime.to_string(rec.timer_last_start) if rec.timer_last_start else False,
@@ -2635,6 +2766,8 @@ class FleetRepairWorkLine(models.Model):
             rec.timer_end = now
             rec.is_timer_running = False
             rec.is_timer_paused = True
+            rec._compute_time_diff()
+            rec._sync_to_service_line()
             result = {
                 'timer_start': fields.Datetime.to_string(rec.timer_start) if rec.timer_start else False,
                 'timer_last_start': False,
@@ -2662,6 +2795,8 @@ class FleetRepairWorkLine(models.Model):
             rec.timer_end = now
             rec.is_timer_running = False
             rec.is_timer_paused = False
+            rec._compute_time_diff()
+            rec._sync_to_service_line()
 
     def action_reset_timer(self):
         result = {}
@@ -2675,6 +2810,7 @@ class FleetRepairWorkLine(models.Model):
                 'accumulated_seconds': 0.0,
                 'time_diff': 0.0,
             })
+            rec._sync_to_service_line()
             result = {
                 'timer_start': False,
                 'timer_last_start': False,
@@ -2700,6 +2836,10 @@ class FleetRepairWorkLine(models.Model):
             for rec in self:
                 if rec.repair_id and rec.repair_id.state != 'workorder' and rec.repair_id.state not in ('done', 'cancel'):
                     rec.repair_id.sudo().write({'state': 'workorder'})
+        if not self.env.context.get('skip_service_line_sync'):
+            sync_fields = {'timer_start', 'timer_end', 'timer_last_start', 'is_timer_running', 'is_timer_paused', 'accumulated_seconds', 'time_diff'}
+            if any(k in vals for k in sync_fields):
+                self._sync_to_service_line()
         return res
 
 

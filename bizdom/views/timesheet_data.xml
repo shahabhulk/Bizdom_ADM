@@ -57,13 +57,17 @@
         <field name="arch" type="xml">
             <list string="Work Lines">
                 <field name="repair_id" string="Job Card"/>
+                <field name="service_line_id" optional="hide"/>
                 <field name="employee_id"/>
                 <field name="department_type_id"/>
                 <field name="work_type"/>
                 <field name="receipt_date"/>
                 <field name="timer_start"/>
                 <field name="timer_end"/>
-                <field name="time_diff" string="Duration (hours)"/>
+                <field name="is_timer_running" column_invisible="1"/>
+                <field name="timer_last_start" column_invisible="1"/>
+                <field name="accumulated_seconds" column_invisible="1"/>
+                <field name="time_diff" string="Duration" widget="stopwatch_timer" sum="Total"/>
             </list>
         </field>
     </record>
