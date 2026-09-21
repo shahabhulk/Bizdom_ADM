@@ -62,8 +62,8 @@ patch(Many2OneField.prototype, {
 
         this.quickCreate = async (name) => {
             const isTargetField =
-                this.props.record?.resModel === "fleet.repair" &&
-                this.props.name === "client_id" &&
+                ((this.props.record?.resModel === "fleet.repair" && this.props.name === "client_id") ||
+                 (this.props.record?.resModel === "fleet.vehicle" && this.props.name === "driver_id")) &&
                 this.relation === "res.partner";
 
             if (!isTargetField) {
@@ -130,9 +130,12 @@ patch(CharField.prototype, {
     async onBlur() {
         super.onBlur();
 
+        const resModel = this.props.record?.resModel;
+        const fieldName = this.props.name;
+
         const isTargetField =
-            this.props.record?.resModel === "fleet.repair" &&
-            ["client_phone", "client_mobile"].includes(this.props.name);
+            (resModel === "fleet.repair" && ["client_phone", "client_mobile"].includes(fieldName)) ||
+            (resModel === "fleet.vehicle" && fieldName === "client_phone");
         if (!isTargetField) {
             this._lastConfirmedValue = this.props.record.data[this.props.name] || "";
             return;
@@ -144,12 +147,17 @@ patch(CharField.prototype, {
             return;
         }
 
-        const clientName = this.props.record.data.client_id?.[1] || "";
-        const excludePartnerId = this.props.record.data.client_id?.[0] || false;
-        const numbersToCheck = [
-            this.props.record.data.client_phone || "",
-            this.props.record.data.client_mobile || "",
-        ];
+        const partnerField = resModel === "fleet.vehicle"
+            ? this.props.record.data.driver_id
+            : this.props.record.data.client_id;
+        const clientName = partnerField?.[1] || "";
+        const excludePartnerId = partnerField?.[0] || false;
+        const numbersToCheck = resModel === "fleet.vehicle"
+            ? [this.props.record.data.client_phone || ""]
+            : [
+                this.props.record.data.client_phone || "",
+                this.props.record.data.client_mobile || "",
+              ];
         const conflicts = await this.orm.call(
             "res.partner",
             "get_conflicts_by_contact_number",
@@ -199,12 +207,19 @@ patch(CharField.prototype, {
                     context: this.props.record.context,
                 });
             }
-            await this.props.record.update({
-                client_id: false,
-                client_phone: false,
-                client_mobile: false,
-                client_email: false,
-            });
+            if (resModel === "fleet.vehicle") {
+                await this.props.record.update({
+                    driver_id: false,
+                    client_phone: false,
+                });
+            } else {
+                await this.props.record.update({
+                    client_id: false,
+                    client_phone: false,
+                    client_mobile: false,
+                    client_email: false,
+                });
+            }
             this._lastConfirmedValue = "";
             if (this.input?.el) {
                 this.input.el.value = "";

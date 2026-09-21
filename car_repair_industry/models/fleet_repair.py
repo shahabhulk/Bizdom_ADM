@@ -2850,6 +2850,12 @@ class FleetVehicle(models.Model):
     vin_sn = fields.Char(string='Chassis Number', required=True)
     driver_id = fields.Many2one('res.partner', string='Client', required=True)
     odometer = fields.Float(string='Last Odometer', required=True)
+    client_phone = fields.Char(string='Mobile 1', related='driver_id.phone', readonly=False, store=True, required=True)
+
+    @api.onchange('driver_id')
+    def _onchange_driver_id_phone(self):
+        if self.driver_id and self.driver_id.phone:
+            self.client_phone = self.driver_id.phone
 
     @api.model
     def default_get(self, fields_list):
@@ -2864,6 +2870,12 @@ class FleetVehicle(models.Model):
             res['vin_sn'] = self._context.get('default_vin_sn')
         if self._context.get('default_driver_id') and not res.get('driver_id'):
             res['driver_id'] = self._context.get('default_driver_id')
+        if self._context.get('default_client_phone') and not res.get('client_phone'):
+            res['client_phone'] = self._context.get('default_client_phone')
+        elif res.get('driver_id') and not res.get('client_phone'):
+            driver = self.env['res.partner'].browse(res['driver_id'])
+            if driver.phone:
+                res['client_phone'] = driver.phone
         if self._context.get('default_odometer') and not res.get('odometer'):
             try:
                 res['odometer'] = float(self._context.get('default_odometer') or 0.0)
@@ -2882,6 +2894,8 @@ class FleetVehicle(models.Model):
                 rec.driver_id = vals['driver_id']
                 print(f"Explicitly assigned driver_id={vals['driver_id']} to FleetVehicle ID={rec.id}")
                 _logger.info("DEBUG: Explicitly assigned driver_id=%s to FleetVehicle ID=%s", vals['driver_id'], rec.id)
+            if 'client_phone' in vals and vals['client_phone'] and rec.driver_id:
+                rec.driver_id.phone = vals['client_phone']
             print(f"Created FleetVehicle ID={rec.id}, Plate={rec.license_plate}, Driver={rec.driver_id}")
             _logger.info("DEBUG: Created FleetVehicle ID=%s, Plate=%s, Driver=%s", rec.id, rec.license_plate, rec.driver_id)
         return records

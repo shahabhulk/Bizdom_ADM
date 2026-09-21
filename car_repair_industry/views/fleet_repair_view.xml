@@ -113,7 +113,7 @@
                             <page string="General">
                                 <group string="Car Info">
                                     <group>
-                                        <field name="license_plate" required="1" context="{'default_model_id': model_name, 'default_vin_sn': vin_sn, 'default_driver_id': client_id, 'default_odometer': kilometers_num}"/>
+                                        <field name="license_plate" required="1" context="{'default_model_id': model_name, 'default_vin_sn': vin_sn, 'default_driver_id': client_id, 'default_odometer': kilometers_num, 'default_client_phone': client_phone}"/>
                                         <field name="fleet_id" string="Car" required="1" readonly="1" force_save="1"/>
                                     </group>
                                     <group>
@@ -520,6 +520,9 @@
                 <xpath expr="//field[@name='driver_id']" position="attributes">
                     <attribute name="required">1</attribute>
                     <attribute name="string">Client</attribute>
+                </xpath>
+                <xpath expr="//field[@name='driver_id']" position="after">
+                    <field name="client_phone" string="Mobile 1" required="1"/>
                 </xpath>
                 <xpath expr="//field[@name='driver_id']/parent::group" position="attributes">
                     <attribute name="string">Client</attribute>
