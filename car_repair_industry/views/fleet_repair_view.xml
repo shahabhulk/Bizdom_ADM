@@ -320,7 +320,8 @@
                 <list>
                     <field name="sequence" string="Number"/>
                     <field name="client_id"/>
-                    <field name="client_phone"/>
+                    <field name="client_phone" optional="hide"/>
+                    <field name="license_plate" optional="show"/>
                     <field name="receipt_date" options="{'show_time': false}" width="120px"/>
                     <field name="user_id" optional="hide"/>
                     <field name="currency_id" column_invisible="1"/>
@@ -350,12 +351,21 @@
             <field name="model">fleet.repair</field>
             <field name="arch" type="xml">
                 <search string="Search Repair Order">
-                    <field name="sequence"/>
-                    <field name="name" string="Repair Order"/>
-                    <field name="client_id" operator="child_of"/>
-                    <field name="user_id"/>
-                    <field name="fleet_id"/>
-                    <field name="service_employee_id" string="Employee"/>
+                    <field name="sequence" string="Repair Order"
+                           filter_domain="['|', '|', '|', '|', '|', '|', '|',
+                               ('sequence', 'ilike', self),
+                               ('name', 'ilike', self),
+                               ('client_id', 'ilike', self),
+                               ('client_phone', 'ilike', self),
+                               ('client_mobile', 'ilike', self),
+                               ('fleet_id', 'ilike', self),
+                               ('license_plate', 'ilike', self),
+                               ('user_id', 'ilike', self)]"/>
+<!--                    <field name="client_id" operator="child_of"/>-->
+<!--                    <field name="client_phone" string="Phone"/>-->
+<!--                    <field name="user_id" string="Service Advisor"/>-->
+<!--                    <field name="fleet_id" string="Car"/>-->
+<!--                    <field name="service_employee_id" string="Employee"/>-->
                     <separator/>
                     <filter string="Active Work" name="active_work" domain="[('has_active_service_timer', '=', True)]"/>
                     <filter string="Not Done" name="not_done" domain="[('state', '!=', 'done')]"/>
