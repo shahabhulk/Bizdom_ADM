@@ -61,3 +61,16 @@ label.o_required_modifier::after {
 .o_stopwatch_wrapper .o_timer_btn:hover {
     background-color: rgba(113, 75, 103, 0.15);
 }
+
+/* Fleet Repair Dynamic Quick Search */
+.o_fleet_repair_clear_btn {
+    color: #6c757d;
+    cursor: pointer;
+    line-height: 1;
+    font-size: 0.875rem;
+    transition: color 0.15s ease-in-out;
+}
+
+.o_fleet_repair_clear_btn:hover {
+    color: #dc3545 !important;
+}

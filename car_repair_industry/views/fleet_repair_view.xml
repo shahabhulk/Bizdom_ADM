@@ -317,7 +317,7 @@
             <field name="model">fleet.repair</field>
             <field name="priority">4</field>
             <field name="arch" type="xml">
-                <list>
+                <list js_class="fleet_repair_list">
                     <field name="sequence" string="Number"/>
                     <field name="client_id"/>
                     <field name="client_phone" optional="hide"/>
