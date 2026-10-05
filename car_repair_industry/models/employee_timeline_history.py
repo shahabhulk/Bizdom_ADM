@@ -78,10 +78,11 @@ class EmployeeTimelineHistory(models.Model):
     pause_reason_display = fields.Char(string='Pause Reason', compute='_compute_pause_reason_display')
 
     idle_reason = fields.Selection([
+        ('no_job', 'No Job'),
         ('training', 'Training'),
-        ('learning', 'Learning'),
         ('meeting', 'Meeting'),
         ('break_lunch', 'Break / Lunch'),
+        ('learning', 'No Job'),
     ], string='Idle Reason')
     idle_reason_display = fields.Char(string='Idle Reason', compute='_compute_pause_reason_display')
 
@@ -96,8 +97,9 @@ class EmployeeTimelineHistory(models.Model):
             'other': '⚪ Other',
         }
         idle_map = {
+            'no_job': '📋 No Job',
             'training': '🎓 Training',
-            'learning': '📚 Learning',
+            'learning': '📋 No Job',
             'meeting': '👥 Meeting',
             'break_lunch': '☕ Break / Lunch',
         }

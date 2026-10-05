@@ -47,13 +47,13 @@
                                 </button>
                             </div>
                             <div class="col-6">
-                                <button name="action_choose_learning" 
+                                <button name="action_choose_no_job" 
                                         type="object" 
                                         class="btn btn-outline-info w-100 text-start p-3 rounded-3 d-flex align-items-center gap-2">
-                                    <span class="fs-4">📚</span>
+                                    <span class="fs-4">📋</span>
                                     <div>
-                                        <div class="fw-bold">Learning</div>
-                                        <div class="small text-muted">Self-study / SOP learning</div>
+                                        <div class="fw-bold">No Job</div>
+                                        <div class="small text-muted">No active job assigned / waiting for job</div>
                                     </div>
                                 </button>
                             </div>
