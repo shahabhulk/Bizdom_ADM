@@ -23,27 +23,55 @@ class PauseJobWizard(models.TransientModel):
             return {'type': 'ir.actions.act_window_close'}
 
         now = fields.Datetime.now()
-        # 1. Pause collective / individual running timers on service lines
-        running_lines = log.service_line_ids.filtered(lambda l: l.is_timer_running)
-        for line in running_lines:
+        # 1. Pause collective / individual running timers on selected service lines
+        selected_running_lines = log.service_line_ids.filtered(lambda l: l.is_group_selected and l.is_timer_running)
+        for line in selected_running_lines:
             line.action_pause_timer()
 
-        # 2. Update current log in-place to paused status
-        if log.is_timer_running and log.timer_last_start:
-            delta = (now - log.timer_last_start).total_seconds()
-            log.accumulated_seconds = (log.accumulated_seconds or 0.0) + delta
-        log.write({
-            'status': 'paused',
-            'job_status': 'paused',
-            'pause_reason': self.pause_reason,
-            'pause_notes': self.notes or '',
-            'is_timer_running': False,
-            'timer_last_start': False,
-            'timer_end': now,
-            'is_pause_running': True,
-            'pause_timer_start': now,
-            'is_current_activity': True,
-        })
+        # 2. Check if all running lines are now paused
+        remaining_running = log.service_line_ids.filtered(lambda l: l.is_timer_running)
+
+        if not remaining_running:
+            if log.is_timer_running and log.timer_last_start:
+                delta = (now - log.timer_last_start).total_seconds()
+                log.accumulated_seconds = (log.accumulated_seconds or 0.0) + delta
+            log.write({
+                'status': 'paused',
+                'job_status': 'paused',
+                'pause_reason': self.pause_reason,
+                'pause_notes': self.notes or '',
+                'is_timer_running': False,
+                'timer_last_start': False,
+                'timer_end': now,
+                'is_pause_running': True,
+                'pause_timer_start': now if not log.is_pause_running else (log.pause_timer_start or now),
+                'is_current_activity': True,
+            })
+            if log.employee_id:
+                emp_vals = {
+                    'work_status': 'paused',
+                    'current_pause_reason': self.pause_reason,
+                    'status_notes': self.notes or '',
+                }
+                if log.job_id:
+                    emp_vals['current_job_id'] = log.job_id.id
+                if log.service_line_id:
+                    emp_vals['current_service_line_id'] = log.service_line_id.id
+                log.employee_id.sudo().write(emp_vals)
+        else:
+            log.write({
+                'pause_reason': self.pause_reason,
+                'pause_notes': self.notes or '',
+                'is_pause_running': True,
+                'pause_timer_start': now if not log.is_pause_running else (log.pause_timer_start or now),
+            })
+            if log.employee_id:
+                log.employee_id.sudo().write({
+                    'current_pause_reason': self.pause_reason,
+                    'status_notes': self.notes or '',
+                })
+
+        log._compute_collective_timer_info()
         new_log = log
 
         # Record into employee.timeline.history model
@@ -59,19 +87,6 @@ class PauseJobWizard(models.TransientModel):
             status_log_id=new_log.id,
             accumulated_seconds=log.accumulated_seconds or 0.0,
         )
-
-        # 4. Update employee
-        if log.employee_id:
-            emp_vals = {
-                'work_status': 'paused',
-                'current_pause_reason': self.pause_reason,
-                'status_notes': self.notes or '',
-            }
-            if log.job_id:
-                emp_vals['current_job_id'] = log.job_id.id
-            if log.service_line_id:
-                emp_vals['current_service_line_id'] = log.service_line_id.id
-            log.employee_id.sudo().write(emp_vals)
 
         return {
             'type': 'ir.actions.act_window',

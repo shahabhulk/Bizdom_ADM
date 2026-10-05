@@ -462,18 +462,18 @@
                             class="btn-warning text-dark fw-bold" 
                             invisible="not job_id or not is_collective_timer_running or job_status == 'completed'"
                             icon="fa-pause"/>
-                    <button name="action_start_collective_timer" 
+                    <button name="action_resume_timer" 
                             string="Resume Timer" 
                             type="object" 
                             class="btn-success fw-bold" 
                             invisible="not job_id or is_collective_timer_running or job_status != 'paused' or job_status == 'completed'"
                             icon="fa-play"/>
-                    <button name="action_start_collective_timer" 
-                            string="Start Collective Timer" 
+                    <button name="action_start_common_timer" 
+                            string="Timer" 
                             type="object" 
                             class="btn-primary fw-bold" 
                             invisible="not job_id or is_collective_timer_running or job_status == 'paused' or job_status == 'completed'"
-                            icon="fa-play"/>
+                            icon="fa-clock-o"/>
                     <button name="action_complete_job" 
                             string="Complete Job" 
                             type="object" 
@@ -483,50 +483,9 @@
                     <field name="job_status" widget="statusbar" statusbar_visible="assigned,working,paused,completed" invisible="not job_id"/>
                 </header>
                 <sheet>
-                    <!-- Active Pause Banner with Live Running Timer & Reason -->
-                    <div class="alert alert-warning d-flex align-items-center justify-content-between p-3 mb-3 border-start border-warning border-4 shadow-sm rounded" 
-                         invisible="job_status != 'paused'"
-                         style="background-color: #FFFBEB; border-color: #F59E0B;">
-                        <div class="d-flex align-items-center gap-3">
-                            <span class="fs-3">⏸️</span>
-                            <div>
-                                <div class="d-flex align-items-center gap-2">
-                                    <span class="fw-bold text-dark fs-6">Job Paused:</span>
-                                    <span class="badge rounded-pill px-3 py-1 fs-6 fw-bold" style="background-color: #F59E0B; color: #000;" invisible="pause_reason != 'waiting_parts'">
-                                        Waiting for Parts
-                                    </span>
-                                    <span class="badge rounded-pill px-3 py-1 fs-6 fw-bold" style="background-color: #2563EB; color: #fff;" invisible="pause_reason != 'waiting_approval'">
-                                        Waiting for Customer Approval
-                                    </span>
-                                    <span class="badge rounded-pill px-3 py-1 fs-6 fw-bold" style="background-color: #9333EA; color: #fff;" invisible="pause_reason != 'waiting_qc'">
-                                        Waiting for QC
-                                    </span>
-                                    <span class="badge rounded-pill px-3 py-1 fs-6 fw-bold" style="background-color: #EA580C; color: #fff;" invisible="pause_reason != 'assistance_required'">
-                                        Assistance Required
-                                    </span>
-                                    <span class="badge rounded-pill px-3 py-1 fs-6 fw-bold" style="background-color: #D97706; color: #fff;" invisible="pause_reason != 'tools_issue'">
-                                        Tool / Equipment Unavailable
-                                    </span>
-                                    <span class="badge rounded-pill px-3 py-1 fs-6 fw-bold" style="background-color: #64748B; color: #fff;" invisible="pause_reason != 'other'">
-                                        Other
-                                    </span>
-                                    <field name="pause_reason_display" class="fw-bold text-dark" invisible="pause_reason in ('waiting_approval', 'waiting_parts', 'waiting_qc', 'assistance_required', 'tools_issue', 'other')"/>
-                                </div>
-                                <div class="text-muted small mt-1" invisible="not pause_notes">
-                                    <i class="fa fa-commenting-o me-1"/><strong>Reason Details:</strong> <field name="pause_notes" readonly="1" class="d-inline"/>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="d-flex align-items-center gap-3">
-                            <div class="d-flex flex-column align-items-end">
-                                <span class="text-muted small fw-semibold text-uppercase" style="font-size: 11px;">Pause Duration</span>
-                                <div class="d-flex align-items-center gap-2 bg-white px-3 py-1 rounded border border-warning shadow-sm">
-                                    <i class="fa fa-hourglass-half fa-spin text-warning fs-5"/>
-                                    <field name="pause_duration" widget="pause_live_timer" class="fw-bold fs-5 font-monospace text-danger" readonly="1" nolabel="1"/>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+                    <field name="has_paused_services" invisible="1"/>
+                    <field name="pause_reason" invisible="1"/>
+                    <field name="pause_notes" invisible="1"/>
 
                     <!-- Service Tasks Section -->
                     <div class="mb-4" invisible="not job_id">
@@ -536,8 +495,11 @@
                                     SERVICE TASKS
                                 </span>
                                 <i class="fa fa-arrow-right text-muted small" style="font-size: 11px;"/>
-                                <span class="badge rounded-pill px-3 py-1" style="background-color: #10B981; color: white;" invisible="not is_collective_timer_running">
-                                    <i class="fa fa-refresh fa-spin me-1"/>Running (Split Evenly)
+                                <span class="badge rounded-pill px-3 py-1" style="background-color: #10B981; color: white;" invisible="not is_collective_timer_running or timer_mode != 'stopwatch'">
+                                    <i class="fa fa-clock-o fa-spin me-1"/>Stopwatch
+                                </span>
+                                <span class="badge rounded-pill px-3 py-1" style="background-color: #10B981; color: white;" invisible="not is_collective_timer_running or timer_mode == 'stopwatch'">
+                                    <i class="fa fa-refresh fa-spin me-1"/>Collective Timer
                                 </span>
                                 <span class="badge rounded-pill px-3 py-1" style="background-color: #F59E0B; color: black;" invisible="is_collective_timer_running or job_status != 'paused' or pause_reason">
                                     <i class="fa fa-pause me-1"/>Paused
@@ -560,12 +522,12 @@
                                 <span class="badge rounded-pill px-3 py-1" style="background-color: #64748B; color: #fff;" invisible="is_collective_timer_running or job_status != 'paused' or pause_reason != 'other'">
                                     <i class="fa fa-pause me-1"/>Other
                                 </span>
-                                <span class="d-inline-flex align-items-center gap-1 px-2 py-1 rounded bg-warning-subtle border border-warning text-dark font-monospace fs-6 fw-bold shadow-sm" invisible="is_collective_timer_running or job_status != 'paused'" title="Pause Timer running against reason">
+                                <span class="d-inline-flex align-items-center gap-1 px-2 py-1 rounded bg-warning-subtle border border-warning text-dark font-monospace fs-6 fw-bold shadow-sm" invisible="not has_paused_services and not is_pause_running and pause_duration == 0 and job_status != 'paused'" title="Pause Timer running against reason">
                                     <i class="fa fa-clock-o text-warning"/>
                                     <span>Pause: </span>
                                     <field name="pause_duration" widget="pause_live_timer" readonly="1" nolabel="1"/>
                                 </span>
-                                <span class="text-muted small ms-1" invisible="is_collective_timer_running or job_status != 'paused'">
+                                <span class="text-muted small ms-1" invisible="not has_paused_services and not is_pause_running and pause_duration == 0 and job_status != 'paused'">
                                     Worked:
                                 </span>
                                 <field name="collective_duration" widget="collective_live_timer" readonly="1" nolabel="1"/>
@@ -587,6 +549,8 @@
                                 <field name="accumulated_seconds" column_invisible="1"/>
                                 <field name="repair_id" column_invisible="1"/>
                                 <field name="subtotal" column_invisible="1"/>
+                                <field name="is_pause_running" column_invisible="1"/>
+                                <field name="pause_timer_start" column_invisible="1"/>
                                 <field name="item_code" string="Item Code" optional="show"/>
                                 <field name="product_id" string="Service" domain="[('type', '=', 'service')]" context="{'default_type': 'service', 'default_department_id': department_id, 'default_employee_id': employee_id}" options="{'no_quick_create': True}" required="1"/>
                                 <field name="department_id" string="Department" readonly="1" force_save="1" optional="show" options="{'no_create': True, 'no_create_edit': True}"/>
@@ -601,6 +565,12 @@
                                        decoration-info="line_status == 'working'"
                                        decoration-warning="line_status == 'paused'"
                                        decoration-muted="line_status == 'assigned'"/>
+                                <button name="action_pause_timer" type="object" icon="fa-pause" title="Pause" 
+                                        invisible="not is_group_selected or not is_timer_running" context="{'from_service_line_button': True}" class="btn btn-sm btn-link text-warning"/>
+                                <button name="action_start_timer" type="object" icon="fa-play" title="Resume" 
+                                        invisible="not is_group_selected or is_timer_running or line_status == 'completed'" context="{'from_service_line_button': True}" class="btn btn-sm btn-link text-success"/>
+                                <button name="action_complete_service" type="object" icon="fa-check" title="Complete" 
+                                        invisible="not is_group_selected or line_status == 'completed'" context="{'from_service_line_button': True}" class="btn btn-sm btn-link text-success"/>
                                 <field name="is_timer_paused" string="Reset" widget="reset_timer_button" optional="hide"/>
                             </list>
                         </field>
@@ -612,8 +582,9 @@
                             <field name="employee_id" force_save="1"/>
                             <field name="department_id" invisible="1"/>
                             <field name="status"/>
-                            <field name="pause_reason_display" string="Pause Reason" invisible="job_status != 'paused'"/>
-                            <field name="pause_duration" string="Pause Time" widget="pause_live_timer" invisible="job_status != 'paused'" readonly="1"/>
+                            <field name="pause_reason_display" string="Pause Reason" invisible="not has_paused_services and job_status != 'paused'"/>
+                            <field name="pause_duration" string="Pause Time" widget="pause_live_timer" invisible="not has_paused_services and not is_pause_running and pause_duration == 0 and job_status != 'paused'" readonly="1"/>
+                            <field name="worked_hours" widget="stopwatch_live_timer" readonly="1"/>
                             <field name="start_datetime"/>
                             <field name="end_datetime" readonly="1"/>
                         </group>
@@ -648,6 +619,7 @@
                     <field name="collective_target_hours" invisible="1"/>
                     <field name="collective_target_seconds" invisible="1"/>
                     <field name="collective_remaining_seconds" invisible="1"/>
+                    <field name="timer_mode" invisible="1"/>
                     <field name="timer_start" invisible="1"/>
                     <field name="timer_last_start" invisible="1"/>
                     <field name="timer_end" invisible="1"/>
@@ -723,18 +695,18 @@
                             class="btn-warning text-dark fw-bold" 
                             invisible="not job_id or not is_collective_timer_running or job_status == 'completed'"
                             icon="fa-pause"/>
-                    <button name="action_start_collective_timer" 
+                    <button name="action_resume_timer" 
                             string="Resume Timer" 
                             type="object" 
                             class="btn-success fw-bold" 
                             invisible="not job_id or is_collective_timer_running or job_status != 'paused' or job_status == 'completed'"
                             icon="fa-play"/>
-                    <button name="action_start_collective_timer" 
-                            string="Start Collective Timer" 
+                    <button name="action_start_common_timer" 
+                            string="Timer" 
                             type="object" 
                             class="btn-primary fw-bold" 
                             invisible="not job_id or is_collective_timer_running or job_status == 'paused' or job_status == 'completed'"
-                            icon="fa-play"/>
+                            icon="fa-clock-o"/>
                     <button name="action_complete_job" 
                             string="Complete Job" 
                             type="object" 
@@ -744,50 +716,9 @@
                     <field name="job_status" widget="statusbar" statusbar_visible="assigned,working,paused,completed" invisible="not job_id"/>
                 </header>
                 <sheet>
-                    <!-- Active Pause Banner with Live Running Timer & Reason -->
-                    <div class="alert alert-warning d-flex align-items-center justify-content-between p-3 mb-3 border-start border-warning border-4 shadow-sm rounded" 
-                         invisible="job_status != 'paused'"
-                         style="background-color: #FFFBEB; border-color: #F59E0B;">
-                        <div class="d-flex align-items-center gap-3">
-                            <span class="fs-3">⏸️</span>
-                            <div>
-                                <div class="d-flex align-items-center gap-2">
-                                    <span class="fw-bold text-dark fs-6">Job Paused:</span>
-                                    <span class="badge rounded-pill px-3 py-1 fs-6 fw-bold" style="background-color: #F59E0B; color: #000;" invisible="pause_reason != 'waiting_parts'">
-                                        Waiting for Parts
-                                    </span>
-                                    <span class="badge rounded-pill px-3 py-1 fs-6 fw-bold" style="background-color: #2563EB; color: #fff;" invisible="pause_reason != 'waiting_approval'">
-                                        Waiting for Customer Approval
-                                    </span>
-                                    <span class="badge rounded-pill px-3 py-1 fs-6 fw-bold" style="background-color: #9333EA; color: #fff;" invisible="pause_reason != 'waiting_qc'">
-                                        Waiting for QC
-                                    </span>
-                                    <span class="badge rounded-pill px-3 py-1 fs-6 fw-bold" style="background-color: #EA580C; color: #fff;" invisible="pause_reason != 'assistance_required'">
-                                        Assistance Required
-                                    </span>
-                                    <span class="badge rounded-pill px-3 py-1 fs-6 fw-bold" style="background-color: #D97706; color: #fff;" invisible="pause_reason != 'tools_issue'">
-                                        Tool / Equipment Unavailable
-                                    </span>
-                                    <span class="badge rounded-pill px-3 py-1 fs-6 fw-bold" style="background-color: #64748B; color: #fff;" invisible="pause_reason != 'other'">
-                                        Other
-                                    </span>
-                                    <field name="pause_reason_display" class="fw-bold text-dark" invisible="pause_reason in ('waiting_approval', 'waiting_parts', 'waiting_qc', 'assistance_required', 'tools_issue', 'other')"/>
-                                </div>
-                                <div class="text-muted small mt-1" invisible="not pause_notes">
-                                    <i class="fa fa-commenting-o me-1"/><strong>Reason Details:</strong> <field name="pause_notes" readonly="1" class="d-inline"/>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="d-flex align-items-center gap-3">
-                            <div class="d-flex flex-column align-items-end">
-                                <span class="text-muted small fw-semibold text-uppercase" style="font-size: 11px;">Pause Duration</span>
-                                <div class="d-flex align-items-center gap-2 bg-white px-3 py-1 rounded border border-warning shadow-sm">
-                                    <i class="fa fa-hourglass-half fa-spin text-warning fs-5"/>
-                                    <field name="pause_duration" widget="pause_live_timer" class="fw-bold fs-5 font-monospace text-danger" readonly="1" nolabel="1"/>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+                    <field name="has_paused_services" invisible="1"/>
+                    <field name="pause_reason" invisible="1"/>
+                    <field name="pause_notes" invisible="1"/>
 
                     <!-- Service Tasks Section -->
                     <div class="mb-4" invisible="not job_id">
@@ -797,8 +728,11 @@
                                     SERVICE TASKS
                                 </span>
                                 <i class="fa fa-arrow-right text-muted small" style="font-size: 11px;"/>
-                                <span class="badge rounded-pill px-3 py-1" style="background-color: #10B981; color: white;" invisible="not is_collective_timer_running">
-                                    <i class="fa fa-refresh fa-spin me-1"/>Running (Split Evenly)
+                                <span class="badge rounded-pill px-3 py-1" style="background-color: #10B981; color: white;" invisible="not is_collective_timer_running or timer_mode != 'stopwatch'">
+                                    <i class="fa fa-clock-o fa-spin me-1"/>Stopwatch
+                                </span>
+                                <span class="badge rounded-pill px-3 py-1" style="background-color: #10B981; color: white;" invisible="not is_collective_timer_running or timer_mode == 'stopwatch'">
+                                    <i class="fa fa-refresh fa-spin me-1"/>Collective Timer
                                 </span>
                                 <span class="badge rounded-pill px-3 py-1" style="background-color: #F59E0B; color: black;" invisible="is_collective_timer_running or job_status != 'paused' or pause_reason">
                                     <i class="fa fa-pause me-1"/>Paused
@@ -821,12 +755,12 @@
                                 <span class="badge rounded-pill px-3 py-1" style="background-color: #64748B; color: #fff;" invisible="is_collective_timer_running or job_status != 'paused' or pause_reason != 'other'">
                                     <i class="fa fa-pause me-1"/>Other
                                 </span>
-                                <span class="d-inline-flex align-items-center gap-1 px-2 py-1 rounded bg-warning-subtle border border-warning text-dark font-monospace fs-6 fw-bold shadow-sm" invisible="is_collective_timer_running or job_status != 'paused'" title="Pause Timer running against reason">
+                                <span class="d-inline-flex align-items-center gap-1 px-2 py-1 rounded bg-warning-subtle border border-warning text-dark font-monospace fs-6 fw-bold shadow-sm" invisible="not has_paused_services and not is_pause_running and pause_duration == 0 and job_status != 'paused'" title="Pause Timer running against reason">
                                     <i class="fa fa-clock-o text-warning"/>
                                     <span>Pause: </span>
                                     <field name="pause_duration" widget="pause_live_timer" readonly="1" nolabel="1"/>
                                 </span>
-                                <span class="text-muted small ms-1" invisible="is_collective_timer_running or job_status != 'paused'">
+                                <span class="text-muted small ms-1" invisible="not has_paused_services and not is_pause_running and pause_duration == 0 and job_status != 'paused'">
                                     Worked:
                                 </span>
                                 <field name="collective_duration" widget="collective_live_timer" readonly="1" nolabel="1"/>
@@ -848,6 +782,8 @@
                                 <field name="accumulated_seconds" column_invisible="1"/>
                                 <field name="repair_id" column_invisible="1"/>
                                 <field name="subtotal" column_invisible="1"/>
+                                <field name="is_pause_running" column_invisible="1"/>
+                                <field name="pause_timer_start" column_invisible="1"/>
                                 <field name="item_code" string="Item Code" optional="show"/>
                                 <field name="product_id" string="Service" domain="[('type', '=', 'service')]" context="{'default_type': 'service', 'default_department_id': department_id, 'default_employee_id': employee_id}" options="{'no_quick_create': True}" required="1"/>
                                 <field name="department_id" string="Department" readonly="1" force_save="1" optional="show" options="{'no_create': True, 'no_create_edit': True}"/>
@@ -862,6 +798,12 @@
                                        decoration-info="line_status == 'working'"
                                        decoration-warning="line_status == 'paused'"
                                        decoration-muted="line_status == 'assigned'"/>
+                                <button name="action_pause_timer" type="object" icon="fa-pause" title="Pause" 
+                                        invisible="not is_group_selected or not is_timer_running" context="{'from_service_line_button': True}" class="btn btn-sm btn-link text-warning"/>
+                                <button name="action_start_timer" type="object" icon="fa-play" title="Resume" 
+                                        invisible="not is_group_selected or is_timer_running or line_status == 'completed'" context="{'from_service_line_button': True}" class="btn btn-sm btn-link text-success"/>
+                                <button name="action_complete_service" type="object" icon="fa-check" title="Complete" 
+                                        invisible="not is_group_selected or line_status == 'completed'" context="{'from_service_line_button': True}" class="btn btn-sm btn-link text-success"/>
                                 <field name="is_timer_paused" string="Reset" widget="reset_timer_button" optional="hide"/>
                             </list>
                         </field>
@@ -873,8 +815,9 @@
                             <field name="employee_id" force_save="1"/>
                             <field name="department_id" invisible="1"/>
                             <field name="status"/>
-                            <field name="pause_reason_display" string="Pause Reason" invisible="job_status != 'paused'"/>
-                            <field name="pause_duration" string="Pause Time" widget="pause_live_timer" invisible="job_status != 'paused'" readonly="1"/>
+                            <field name="pause_reason_display" string="Pause Reason" invisible="not has_paused_services and job_status != 'paused'"/>
+                            <field name="pause_duration" string="Pause Time" widget="pause_live_timer" invisible="not has_paused_services and not is_pause_running and pause_duration == 0 and job_status != 'paused'" readonly="1"/>
+                            <field name="worked_hours" widget="stopwatch_live_timer" readonly="1"/>
                             <field name="start_datetime"/>
                             <field name="end_datetime" readonly="1"/>
                         </group>
@@ -908,6 +851,7 @@
                     <field name="collective_target_hours" invisible="1"/>
                     <field name="collective_target_seconds" invisible="1"/>
                     <field name="collective_remaining_seconds" invisible="1"/>
+                    <field name="timer_mode" invisible="1"/>
                     <field name="pause_reason" invisible="1"/>
                     <field name="pause_notes" invisible="1"/>
                     <field name="is_pause_running" invisible="1"/>

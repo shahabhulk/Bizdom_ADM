@@ -25,6 +25,7 @@ class EmployeeTimelineHistory(models.Model):
         ('working', 'Working'),
         ('paused', 'Paused'),
         ('completed', 'Completed'),
+        ('idle', 'Idle'),
     ], string='Job Status', default='assigned')
 
     display_status = fields.Char(
@@ -263,10 +264,21 @@ class EmployeeTimelineHistory(models.Model):
                 'end_datetime': now,
             })
 
+        job_status = vals.get('job_status')
+        if not job_status:
+            if status in ('working', 'job'):
+                job_status = 'working'
+            elif status == 'idle':
+                job_status = 'idle'
+            elif status in ('assigned', 'paused', 'completed'):
+                job_status = status
+            else:
+                job_status = 'assigned'
+
         log_vals = {
             'employee_id': emp_id,
             'status': status,
-            'job_status': vals.get('job_status') or ('working' if status in ('working', 'job') else status),
+            'job_status': job_status,
             'start_datetime': vals.get('start_datetime') or now,
             'end_datetime': vals.get('end_datetime') or False,
             'job_id': job_id,
