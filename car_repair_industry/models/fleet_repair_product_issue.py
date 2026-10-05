@@ -127,8 +127,12 @@ class FleetRepairProductLineIssue(models.Model):
             qty = line.qty_issued if line.qty_issued > 0 else line.quantity
             revenue = line.unit_price * qty
             line.cost_subtotal = line.cost_price * qty
-            line.margin = revenue - line.cost_subtotal
-            line.margin_percent = (line.margin / revenue * 100.0) if revenue else 0.0
+            if not line.cost_price or float_is_zero(line.cost_price, precision_rounding=0.001):
+                line.margin = 0.0
+                line.margin_percent = 0.0
+            else:
+                line.margin = revenue - line.cost_subtotal
+                line.margin_percent = (line.margin / revenue * 100.0) if revenue else 0.0
 
     @api.onchange('qty_issued')
     def _onchange_qty_issued_cap_return(self):
@@ -1370,8 +1374,12 @@ class FleetRepairProductLineIssue(models.Model):
             qty = line.qty_issued if line.qty_issued > 0 else line.quantity
             revenue = line.unit_price * qty
             cost_subtotal = new_cost_price * qty
-            margin = revenue - cost_subtotal
-            margin_percent = (margin / revenue * 100.0) if revenue else 0.0
+            if not new_cost_price or float_is_zero(new_cost_price, precision_rounding=0.001):
+                margin = 0.0
+                margin_percent = 0.0
+            else:
+                margin = revenue - cost_subtotal
+                margin_percent = (margin / revenue * 100.0) if revenue else 0.0
 
             # Force write to database so stored fields update on completed Job Cards
             line.sudo().write({
