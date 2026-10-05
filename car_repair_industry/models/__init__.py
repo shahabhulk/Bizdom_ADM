@@ -20,6 +20,8 @@ from . import res_partner
 from . import hr_department
 from . import utm_source
 from . import ir_ui_menu
+from . import hr_employee_status
+from . import employee_timeline_history
 
 
 

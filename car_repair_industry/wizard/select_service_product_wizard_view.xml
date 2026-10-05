@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_select_service_product_wizard_form" model="ir.ui.view">
+        <field name="name">select.service.product.wizard.form</field>
+        <field name="model">select.service.product.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Add Services from Product Masters">
+                <sheet>
+                    <div class="alert alert-info d-flex align-items-center py-2 px-3 mb-3">
+                        <i class="fa fa-info-circle fa-lg me-2 text-primary"/>
+                        <div>
+                            Select the service products below from the product masters. They will be added to Job Card <strong><field name="repair_id" readonly="1" options="{'no_open': True}"/></strong> and automatically assigned to <strong><field name="employee_id" readonly="1" options="{'no_open': True}"/></strong> (<field name="department_id" readonly="1" options="{'no_open': True}"/>).
+                        </div>
+                    </div>
+                    <field name="line_ids">
+                        <list editable="bottom" create="false" delete="false">
+                            <field name="selected" string="Select" widget="boolean_toggle"/>
+                            <field name="item_code" string="Item Code"/>
+                            <field name="name" string="Service Name"/>
+                            <field name="department_id" string="Department"/>
+                            <field name="alloted_fru" string="FRU"/>
+                            <field name="list_price" string="Price"/>
+                        </list>
+                    </field>
+                </sheet>
+                <footer>
+                    <button name="action_add_selected_services" string="Add to Job Card" type="object" class="btn-primary"/>
+                    <button string="Cancel" class="btn-secondary" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+</odoo>

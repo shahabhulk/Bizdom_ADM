@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_reset_to_assigned_wizard_form" model="ir.ui.view">
+        <field name="name">reset.to.assigned.wizard.form</field>
+        <field name="model">reset.to.assigned.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Reset to Assigned Confirmation">
+                <field name="status_log_id" invisible="1"/>
+                <div class="alert alert-info d-flex align-items-center mb-3 p-3 rounded">
+                    <i class="fa fa-info-circle fa-2x me-3 text-info"/>
+                    <div>
+                        <strong class="fs-6">Are you sure you want to reset this status to "Assigned"?</strong>
+                        <div class="text-muted small mt-1">
+                            This action will:
+                            <ul class="mb-0 mt-1">
+                                <li>Move the workflow stage back to <strong>Assigned</strong></li>
+                                <li>Stop active service timers and clear the pause duration and reason</li>
+                                <li>Allow technicians to resume or start collective timing fresh</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+                <group>
+                    <group>
+                        <field name="employee_id" options="{'no_open': True}"/>
+                        <field name="job_id" options="{'no_open': True}" invisible="not job_id"/>
+                    </group>
+                    <group>
+                        <field name="current_status"/>
+                        <field name="reset_worked_hours" widget="boolean_toggle"/>
+                    </group>
+                </group>
+                <footer>
+                    <button name="action_confirm_reset_to_assigned" string="Yes, Reset to Assigned" type="object" class="btn-primary fw-bold" icon="fa-check"/>
+                    <button string="Cancel" class="btn-secondary" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_reset_to_assigned_wizard" model="ir.actions.act_window">
+        <field name="name">Reset to Assigned Status</field>
+        <field name="res_model">reset.to.assigned.wizard</field>
+        <field name="view_mode">form</field>
+        <field name="target">new</field>
+        <field name="binding_model_id" ref="car_repair_industry.model_hr_employee_status_log"/>
+        <field name="binding_view_types">form,list</field>
+    </record>
+</odoo>

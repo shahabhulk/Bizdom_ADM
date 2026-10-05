@@ -27,6 +27,10 @@ export class FleetRepairDasboard extends Component {
             currentDepartment: initialDept,
             departmentName: initialDept ? (initialDept.charAt(0).toUpperCase() + initialDept.slice(1)) : 'Car Repair',
             user_department: false,
+            is_head_tech: false,
+            head_tech_jc_count: 0,
+            head_tech_employee_count: 0,
+            currentUserId: null,
             fleet_repair_count: 0,
             bodyshop_repair_count: 0,
             workshop_repair_count: 0,
@@ -46,6 +50,9 @@ export class FleetRepairDasboard extends Component {
         });
     }
 
+    get is_head_tech() { return this.state.is_head_tech; }
+    get head_tech_jc_count() { return this.state.head_tech_jc_count; }
+    get head_tech_employee_count() { return this.state.head_tech_employee_count; }
     get fleet_repair_count() { return this.state.fleet_repair_count; }
     get bodyshop_repair_count() { return this.state.bodyshop_repair_count; }
     get workshop_repair_count() { return this.state.workshop_repair_count; }
@@ -62,6 +69,10 @@ export class FleetRepairDasboard extends Component {
 
     async loadDashboardData(department) {
         const result = await rpc("/fleet_repair/dashboard_data", { department: department || null });
+        this.state.is_head_tech = result.is_head_tech || false;
+        this.state.head_tech_jc_count = result.head_tech_jc_count || 0;
+        this.state.head_tech_employee_count = result.head_tech_employee_count || 0;
+        this.state.currentUserId = result.current_user_id || null;
         this.state.fleet_repair_count = result.fleet_repair_count;
         this.state.bodyshop_repair_count = result.bodyshop_repair_count || 0;
         this.state.workshop_repair_count = result.workshop_repair_count || 0;
@@ -100,6 +111,46 @@ export class FleetRepairDasboard extends Component {
     init(parent, action) {
         this._super.apply(this, arguments);
         this.dashboards_templates = ['DashboardHeader', 'DashboardContent'];
+    }
+
+    async clickHeadTechJobCards(ev) {
+        ev.preventDefault();
+        try {
+            await this.action.doAction('car_repair_industry.action_fleet_repair_bodyshop', {
+                on_reverse_breadcrumb: this.on_reverse_breadcrumb
+            });
+        } catch (e) {
+            this.action.doAction({
+                name: 'Job cards',
+                res_model: 'fleet.repair',
+                views: [[false, 'list'], [false, 'form']],
+                type: 'ir.actions.act_window',
+                domain: [['team_lead_id', '=', this.state.currentUserId], ['state', 'not in', ['done', 'invoiced', 'cancel']]],
+                context: { 'default_team_lead_id': this.state.currentUserId, 'search_default_not_done': 1 },
+            }, {
+                on_reverse_breadcrumb: this.on_reverse_breadcrumb
+            });
+        }
+    }
+
+    async clickHeadTechEmployees(ev) {
+        ev.preventDefault();
+        try {
+            await this.action.doAction('car_repair_industry.action_head_tech_employee_dashboard', {
+                on_reverse_breadcrumb: this.on_reverse_breadcrumb
+            });
+        } catch (e) {
+            this.action.doAction({
+                name: 'Employees',
+                res_model: 'hr.employee',
+                views: [[false, 'kanban'], [false, 'list'], [false, 'form']],
+                type: 'ir.actions.act_window',
+                domain: [['is_my_team', '=', true]],
+                context: { 'search_default_my_team': 1 },
+            }, {
+                on_reverse_breadcrumb: this.on_reverse_breadcrumb
+            });
+        }
     }
 
     clickBodyshop(ev) {

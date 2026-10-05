@@ -56,5 +56,5 @@
         <field name="code">action = model.action_activity_dashboard_redirect('workshop')</field>
     </record>
 
-    <menuitem id="car_repair_dashboard_menu" name="Dashboard" parent="car_repair_industry.menu_main_car_repair" action="car_repair_industry.ir_actions_car_repair_dashboard" sequence="2" groups="car_repair_industry.group_fleet_repair_directeur_commercial,car_repair_industry.group_fleet_repair_service_manager" />
+    <menuitem id="car_repair_dashboard_menu" name="Dashboard" parent="car_repair_industry.menu_main_car_repair" action="car_repair_industry.ir_actions_car_repair_dashboard" sequence="1" groups="car_repair_industry.group_fleet_repair_directeur_commercial,car_repair_industry.group_fleet_repair_service_manager,car_repair_industry.group_fleet_repair_head_technician" />
 </odoo>

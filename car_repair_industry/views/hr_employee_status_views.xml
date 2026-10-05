@@ -22,6 +22,10 @@
                 <field name="current_car_display"/>
                 <field name="current_pause_icon"/>
                 <field name="current_pause_time_display"/>
+                <field name="current_pause_duration"/>
+                <field name="is_pause_running"/>
+                <field name="pause_timer_start"/>
+                <field name="pause_accumulated_seconds"/>
                 <field name="current_service_line_id"/>
                 <field name="has_active_service_timer"/>
                 <field name="active_timer_last_start"/>
@@ -33,7 +37,12 @@
                 <field name="job_title"/>
                 <field name="department_id"/>
                 <field name="coach_id"/>
-                <field name="parent_id"/>
+                <field name="idle_reason"/>
+                <field name="idle_reason_display"/>
+                <field name="is_idle_running"/>
+                <field name="idle_timer_start"/>
+                <field name="idle_accumulated_seconds"/>
+                <field name="idle_duration"/>
                 <templates>
                     <t t-name="card" class="p-3 border rounded shadow-sm bg-white">
                         <main>
@@ -41,8 +50,49 @@
                             <div class="d-flex justify-content-between align-items-center mb-1">
                                 <strong class="fs-5 text-dark fw-bold"><field name="name"/></strong>
                                 <div>
+                                    <!-- Active Job / Working (Live timer running or in job state) -->
+                                    <span t-if="record.has_active_service_timer.raw_value or record.work_status.raw_value == 'job'" 
+                                          class="badge rounded-pill px-3 py-1 fs-6 fw-bold text-bg-success">
+                                        Working
+                                    </span>
+                                    <!-- Completed (When job has been completed) -->
+                                    <span t-elif="record.work_status.raw_value == 'completed'" 
+                                          class="badge rounded-pill px-3 py-1 fs-6 fw-bold text-bg-success">
+                                        Completed
+                                    </span>
+                                    <!-- Assigned (When assigned to a job card / service) -->
+                                    <span t-elif="record.work_status.raw_value == 'assigned' or (record.current_job_id.raw_value and record.work_status.raw_value == 'idle' and !record.is_idle_running.raw_value)" 
+                                          class="badge rounded-pill px-3 py-1 fs-6 fw-bold" 
+                                          style="background-color: #0284C7; color: #fff;">
+                                        Assigned
+                                    </span>
+                                    <!-- Idle with specific reasons (When not active job) -->
+                                    <span t-elif="record.work_status.raw_value == 'idle' and record.idle_reason and record.idle_reason.raw_value == 'training'" 
+                                          class="badge rounded-pill px-3 py-1 fs-6 fw-bold" 
+                                          style="background-color: #6366F1; color: #fff;">
+                                        🎓 Training
+                                    </span>
+                                    <span t-elif="record.work_status.raw_value == 'idle' and record.idle_reason and record.idle_reason.raw_value == 'learning'" 
+                                          class="badge rounded-pill px-3 py-1 fs-6 fw-bold" 
+                                          style="background-color: #0EA5E9; color: #fff;">
+                                        📚 Learning
+                                    </span>
+                                    <span t-elif="record.work_status.raw_value == 'idle' and record.idle_reason and record.idle_reason.raw_value == 'meeting'" 
+                                          class="badge rounded-pill px-3 py-1 fs-6 fw-bold" 
+                                          style="background-color: #8B5CF6; color: #fff;">
+                                        👥 Meeting
+                                    </span>
+                                    <span t-elif="record.work_status.raw_value == 'idle' and record.idle_reason and record.idle_reason.raw_value == 'break_lunch'" 
+                                          class="badge rounded-pill px-3 py-1 fs-6 fw-bold" 
+                                          style="background-color: #10B981; color: #fff;">
+                                        ☕ Break / Lunch
+                                    </span>
+                                    <span t-elif="record.work_status.raw_value == 'idle'" 
+                                          class="badge rounded-pill px-3 py-1 fs-6 fw-bold text-bg-secondary">
+                                        💤 Idle
+                                    </span>
                                     <!-- Paused with specific reasons -->
-                                    <span t-if="record.current_pause_reason and record.current_pause_reason.raw_value == 'waiting_parts'" 
+                                    <span t-elif="record.current_pause_reason and record.current_pause_reason.raw_value == 'waiting_parts'" 
                                           class="badge rounded-pill px-3 py-1 fs-6 fw-bold" 
                                           style="background-color: #F59E0B; color: #000;">
                                         Waiting for Parts
@@ -73,17 +123,12 @@
                                         Other
                                     </span>
                                     <!-- Paused without reason -->
-                                    <span t-elif="!record.has_active_service_timer.raw_value and (record.work_status.raw_value == 'paused' or (record.active_timer_accumulated_seconds and record.active_timer_accumulated_seconds.raw_value &gt; 0))" 
+                                    <span t-elif="record.work_status.raw_value == 'paused' or (record.work_status.raw_value != 'completed' and record.active_timer_accumulated_seconds and record.active_timer_accumulated_seconds.raw_value &gt; 0)" 
                                           class="badge rounded-pill px-3 py-1 fs-6 fw-bold" 
                                           style="background-color: #F59E0B; color: #000;">
                                         Paused
                                     </span>
-                                    <!-- Active Job / Working -->
-                                    <span t-elif="record.has_active_service_timer.raw_value or record.work_status.raw_value == 'job'" 
-                                          class="badge rounded-pill px-3 py-1 fs-6 fw-bold text-bg-success">
-                                        Working
-                                    </span>
-                                    <!-- Downtime / Idle -->
+                                    <!-- Downtime / Idle other states -->
                                     <span t-elif="record.work_status.raw_value == 'waiting_car'" class="badge rounded-pill px-3 py-1 fs-6 fw-bold text-bg-warning text-dark">Waiting for Car</span>
                                     <span t-elif="record.work_status.raw_value == 'parts_unavailable'" class="badge rounded-pill px-3 py-1 fs-6 fw-bold text-bg-danger">Parts Unavailable</span>
                                     <span t-elif="record.work_status.raw_value == 'tools_issue'" class="badge rounded-pill px-3 py-1 fs-6 fw-bold text-bg-danger">Tools Issue</span>
@@ -102,8 +147,58 @@
                                 <i class="fa fa-user me-1 text-dark"/>Coach/Lead: <span class="fw-medium text-dark"><field name="coach_id"/></span>
                             </div>
 
+                            <!-- Inner Idle Activity Box (When in Idle State and no active service timer and no assigned work) -->
+                            <div t-if="record.work_status.raw_value == 'idle' and !record.has_active_service_timer.raw_value and !record.current_job_id.raw_value and !record.current_car_display.raw_value" 
+                                 class="p-3 rounded-3" 
+                                 style="background-color: #F8FAFC; border: 1px solid #E2E8F0;">
+                                <!-- Line 1: Idle Activity & Action Button -->
+                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                    <span class="fw-bold text-dark fs-6">
+                                        <t t-if="record.idle_reason.raw_value == 'training'">🎓 Training</t>
+                                        <t t-elif="record.idle_reason.raw_value == 'learning'">📚 Learning</t>
+                                        <t t-elif="record.idle_reason.raw_value == 'meeting'">👥 Meeting</t>
+                                        <t t-elif="record.idle_reason.raw_value == 'break_lunch'">☕ Break / Lunch</t>
+                                        <t t-else="">💤 Idle Activity</t>
+                                    </span>
+                                    <button name="action_open_idle_wizard" type="object" class="btn btn-sm btn-outline-secondary py-0 px-2" style="font-size: 11px;">
+                                        <i class="fa fa-coffee me-1"/>Idle
+                                    </button>
+                                </div>
+
+                                <!-- Line 2: Activity Description / Notes -->
+                                <div class="d-flex align-items-center gap-2 mb-2 text-muted small">
+                                    <i class="fa fa-coffee text-secondary" style="font-size: 12px; min-width: 14px;"/>
+                                    <span>
+                                        <t t-if="record.idle_reason_display and record.idle_reason_display.raw_value">
+                                            <field name="idle_reason_display"/>
+                                        </t>
+                                        <t t-else="">Idle Activity in progress</t>
+                                    </span>
+                                </div>
+
+                                <!-- Line 3: Live Running Timer Pill -->
+                                <div class="d-flex justify-content-between align-items-center mt-2 px-2 py-1 rounded" 
+                                     style="background-color: #EDE9FE; border: 1px solid #DDD6FE;">
+                                    <div>
+                                        <span t-if="record.is_idle_running and record.is_idle_running.raw_value" 
+                                              class="badge fw-bold" 
+                                              style="background-color: #7C3AED; color: #fff; font-size: 12px;">
+                                            <i class="fa fa-hourglass-half me-1"/> Idle Running
+                                        </span>
+                                        <span t-else="" 
+                                              class="badge fw-bold" 
+                                              style="background-color: #64748B; color: #fff; font-size: 12px;">
+                                            <i class="fa fa-clock-o me-1"/> Idle
+                                        </span>
+                                    </div>
+                                    <span class="fw-bold text-dark font-monospace" style="font-size: 13px;">
+                                        <field name="idle_duration" widget="kanban_live_timer"/>
+                                    </span>
+                                </div>
+                            </div>
+
                             <!-- Inner Job Card Box -->
-                            <div t-if="record.current_job_id.raw_value or record.current_car_display.raw_value or (record.current_license_plate and record.current_license_plate.raw_value)" 
+                            <div t-elif="record.work_status.raw_value == 'assigned' or record.work_status.raw_value == 'completed' or record.work_status.raw_value == 'paused' or record.work_status.raw_value == 'job' or record.current_job_id.raw_value or record.has_active_service_timer.raw_value or record.current_car_display.raw_value or (record.current_license_plate and record.current_license_plate.raw_value)" 
                                  class="p-3 rounded-3" 
                                  style="background-color: #F8FAFC; border: 1px solid #E2E8F0;">
                                 <!-- Line 1: Job Card # and Icon -->
@@ -143,11 +238,18 @@
                                     <span><field name="active_service_name"/></span>
                                 </div>
 
-                                <!-- Line 4: Paused / Running Pill + Time -->
-                                <div class="d-flex justify-content-between align-items-center mt-2 px-2 py-1 rounded" style="background-color: #FEF3C7; border: 1px solid #FDE68A;">
+                                <!-- Line 4: Paused / Running / Assigned / Completed Pill + Time -->
+                                <div class="d-flex justify-content-between align-items-center mt-2 px-2 py-1 rounded" 
+                                     t-attf-style="background-color: #{record.has_active_service_timer.raw_value ? '#DCFCE7' : (record.work_status.raw_value == 'completed' ? '#DCFCE7' : (record.work_status.raw_value == 'assigned' ? '#E0F2FE' : '#FEF3C7'))}; border: 1px solid #{record.has_active_service_timer.raw_value ? '#86EFAC' : (record.work_status.raw_value == 'completed' ? '#86EFAC' : (record.work_status.raw_value == 'assigned' ? '#BAE6FD' : '#FDE68A'))};">
                                     <div>
                                         <span t-if="record.has_active_service_timer.raw_value" class="badge text-bg-success fw-bold" style="font-size: 12px;">
                                             <i class="fa fa-play me-1"/> Running
+                                        </span>
+                                        <span t-elif="record.work_status.raw_value == 'completed'" class="badge fw-bold" style="background-color: #10B981; color: #fff; font-size: 12px;">
+                                            <i class="fa fa-check-circle me-1"/> Completed
+                                        </span>
+                                        <span t-elif="record.work_status.raw_value == 'assigned'" class="badge fw-bold" style="background-color: #0284C7; color: #fff; font-size: 12px;">
+                                            <i class="fa fa-clipboard me-1"/> Assigned
                                         </span>
                                         <span t-else="" class="badge fw-bold" style="background-color: #F59E0B; color: #000; font-size: 12px;">
                                             <i class="fa fa-pause me-1"/> Paused
@@ -157,8 +259,20 @@
                                         <t t-if="record.has_active_service_timer.raw_value">
                                             <field name="active_service_time_diff" widget="kanban_live_timer"/>
                                         </t>
+                                        <t t-elif="record.work_status.raw_value == 'completed'">
+                                            <field name="active_service_time_diff" widget="kanban_live_timer"/>
+                                        </t>
+                                        <t t-elif="record.work_status.raw_value == 'assigned'">
+                                            <span>00:00:00</span>
+                                        </t>
+                                        <t t-elif="record.current_pause_reason and record.current_pause_reason.raw_value">
+                                            <field name="current_pause_duration" widget="kanban_live_timer"/>
+                                        </t>
+                                        <t t-elif="record.is_pause_running and record.is_pause_running.raw_value">
+                                            <field name="current_pause_duration" widget="kanban_live_timer"/>
+                                        </t>
                                         <t t-elif="record.current_pause_time_display and record.current_pause_time_display.raw_value and record.current_pause_time_display.raw_value != '00:00:00'">
-                                            <field name="current_pause_time_display"/>
+                                            <field name="current_pause_duration" widget="kanban_live_timer"/>
                                         </t>
                                         <t t-elif="record.active_service_time_diff and record.active_service_time_diff.raw_value">
                                             <field name="active_service_time_diff" widget="kanban_live_timer"/>
@@ -186,19 +300,43 @@
                 <field name="department_id"/>
                 <field name="job_title"/>
                 <field name="coach_id" string="Coach / Team Lead"/>
-                <field name="parent_id" string="Manager"/>
                 <field name="current_license_plate" string="Licence No"/>
                 <filter string="My Team" name="my_team" domain="[('is_my_team', '=', True)]"/>
                 <separator/>
                 <filter string="Active Jobs" name="active_jobs" domain="[('work_status', '=', 'job')]"/>
+                <filter string="Assigned" name="filter_assigned" domain="[('work_status', '=', 'assigned')]"/>
+                <filter string="Completed" name="filter_completed" domain="[('work_status', '=', 'completed')]"/>
                 <filter string="Downtime / Waiting" name="downtime" domain="[('work_status', 'in', ['waiting_car', 'parts_unavailable', 'tools_issue', 'approval_pending', 'idle'])]"/>
                 <group expand="0" string="Group By">
                     <filter string="Coach / Team Lead" name="group_coach" context="{'group_by': 'coach_id'}"/>
-                    <filter string="Manager" name="group_manager" context="{'group_by': 'parent_id'}"/>
                     <filter string="Status" name="group_status" context="{'group_by': 'work_status'}"/>
                     <filter string="Department" name="group_department" context="{'group_by': 'department_id'}"/>
                 </group>
             </search>
+        </field>
+    </record>
+
+    <!-- Dedicated List View for Head Tech Employee Dashboard (No Manager column) -->
+    <record id="view_employee_head_tech_list" model="ir.ui.view">
+        <field name="name">hr.employee.head.tech.list</field>
+        <field name="model">hr.employee</field>
+        <field name="priority">20</field>
+        <field name="arch" type="xml">
+            <list string="Employees" sample="1">
+                <field name="name" string="Employee Name" readonly="1"/>
+                <field name="work_phone" class="o_force_ltr" readonly="1" optional="show"/>
+                <field name="work_email" width="1" optional="show"/>
+                <field name="activity_ids" widget="list_activity" optional="show"/>
+                <field name="activity_date_deadline" widget="remaining_days" optional="show"/>
+                <field name="department_id"/>
+                <field name="job_title" string="Job Position"/>
+                <field name="work_status" string="Status" widget="badge" 
+                       decoration-success="work_status in ('job', 'completed')" 
+                       decoration-info="work_status == 'assigned'" 
+                       decoration-warning="work_status == 'paused'" 
+                       decoration-danger="work_status in ('waiting_car', 'parts_unavailable', 'tools_issue')" 
+                       decoration-muted="work_status == 'idle'"/>
+            </list>
         </field>
     </record>
 
@@ -209,13 +347,15 @@
         <field name="arch" type="xml">
             <list string="Work &amp; Status Lines">
                 <header>
-                    <button name="action_open_status_wizard_for_employee" 
-                            string="Assign Job / Change Status" 
+                    <button name="action_open_idle_wizard_for_employee" 
+                            string="Idle" 
                             type="object" 
-                            class="btn-primary" 
-                            icon="fa-plus"/>
+                            display="always"
+                            class="btn-secondary fw-bold" 
+                            icon="fa-coffee"/>
                 </header>
                 <field name="employee_id" column_invisible="1" force_save="1"/>
+                <field name="is_current_activity" column_invisible="1"/>
                 <field name="team_lead_id" column_invisible="1"/>
                 <field name="status" column_invisible="1"/>
                 <field name="job_status" column_invisible="1"/>
@@ -230,6 +370,7 @@
                        decoration-warning="pause_reason_display not in ('—', False)"/>
                 <field name="job_id" string="Job Card" 
                        domain="['|', ('id', '=', job_id), '&amp;', ('state', 'not in', ['done', 'invoiced', 'cancel']), ('team_lead_id', '=', team_lead_id)]"/>
+                <field name="service_name" string="Assigned Service(s)"/>
                 <field name="license_plate" string="License Plate"/>
                 <field name="fleet_id" string="Car"/>
                 <field name="model_name" string="Model"/>
@@ -339,66 +480,46 @@
                     <field name="job_status" widget="statusbar" statusbar_visible="assigned,working,paused,completed" invisible="not job_id"/>
                 </header>
                 <sheet>
-                    <!-- Top 3 Summary Cards (Side by side) -->
-                    <div class="row g-3 mb-4 align-items-stretch" invisible="not job_id">
-                        <!-- Card 1: Current Status -->
-                        <div class="col-md-5">
-                            <div class="p-3 rounded-3 h-100 d-flex align-items-center gap-3" 
-                                 style="background-color: #FFF9E6; border: 1px solid #FFE082;">
-                                <!-- Icon Box -->
-                                <div class="rounded-3 d-flex align-items-center justify-content-center shadow-sm" 
-                                     style="width: 58px; height: 58px; min-width: 58px; background-color: #FFE699; font-size: 28px;">
-                                    📦
+                    <!-- Active Pause Banner with Live Running Timer & Reason -->
+                    <div class="alert alert-warning d-flex align-items-center justify-content-between p-3 mb-3 border-start border-warning border-4 shadow-sm rounded" 
+                         invisible="job_status != 'paused'"
+                         style="background-color: #FFFBEB; border-color: #F59E0B;">
+                        <div class="d-flex align-items-center gap-3">
+                            <span class="fs-3">⏸️</span>
+                            <div>
+                                <div class="d-flex align-items-center gap-2">
+                                    <span class="fw-bold text-dark fs-6">Job Paused:</span>
+                                    <span class="badge rounded-pill px-3 py-1 fs-6 fw-bold" style="background-color: #F59E0B; color: #000;" invisible="pause_reason != 'waiting_parts'">
+                                        Waiting for Parts
+                                    </span>
+                                    <span class="badge rounded-pill px-3 py-1 fs-6 fw-bold" style="background-color: #2563EB; color: #fff;" invisible="pause_reason != 'waiting_approval'">
+                                        Waiting for Customer Approval
+                                    </span>
+                                    <span class="badge rounded-pill px-3 py-1 fs-6 fw-bold" style="background-color: #9333EA; color: #fff;" invisible="pause_reason != 'waiting_qc'">
+                                        Waiting for QC
+                                    </span>
+                                    <span class="badge rounded-pill px-3 py-1 fs-6 fw-bold" style="background-color: #EA580C; color: #fff;" invisible="pause_reason != 'assistance_required'">
+                                        Assistance Required
+                                    </span>
+                                    <span class="badge rounded-pill px-3 py-1 fs-6 fw-bold" style="background-color: #D97706; color: #fff;" invisible="pause_reason != 'tools_issue'">
+                                        Tool / Equipment Unavailable
+                                    </span>
+                                    <span class="badge rounded-pill px-3 py-1 fs-6 fw-bold" style="background-color: #64748B; color: #fff;" invisible="pause_reason != 'other'">
+                                        Other
+                                    </span>
+                                    <field name="pause_reason_display" class="fw-bold text-dark" invisible="pause_reason in ('waiting_approval', 'waiting_parts', 'waiting_qc', 'assistance_required', 'tools_issue', 'other')"/>
                                 </div>
-                                <div class="flex-grow-1">
-                                    <div class="text-secondary small fw-semibold text-uppercase mb-1">Current Status</div>
-                                    <div class="mb-1">
-                                        <span class="badge px-3 py-1 fs-6 fw-bold" style="background-color: #FFB300; color: #000; border-radius: 6px;">
-                                            <i class="fa fa-fire me-1" invisible="not pause_reason"/> 
-                                            <field name="pause_reason_display" readonly="1" nolabel="1"/>
-                                        </span>
-                                    </div>
-                                    <div class="small text-muted" invisible="job_status != 'paused'">
-                                        Job is paused since <strong class="text-dark"><field name="pause_time_display" readonly="1" nolabel="1"/></strong>
-                                    </div>
-                                    <div class="small text-muted" invisible="job_status != 'paused'" style="font-size: 11px;">
-                                        Accumulated working time will continue from where it stopped.
-                                    </div>
-                                    <div class="small text-muted" invisible="job_status == 'paused'">
-                                        Accumulated working time is tracking active service progress.
-                                    </div>
+                                <div class="text-muted small mt-1" invisible="not pause_notes">
+                                    <i class="fa fa-commenting-o me-1"/><strong>Reason Details:</strong> <field name="pause_notes" readonly="1" class="d-inline"/>
                                 </div>
                             </div>
                         </div>
-
-                        <!-- Card 2: Worked Time (excluding pauses) -->
-                        <div class="col-md-3">
-                            <div class="p-3 rounded-3 h-100 border bg-white shadow-sm d-flex flex-column justify-content-center">
-                                <div class="text-secondary small fw-semibold mb-2">Worked Time (excluding pauses)</div>
-                                <div class="d-flex align-items-center gap-2">
-                                    <div class="rounded-circle bg-success text-white d-flex align-items-center justify-content-center" 
-                                         style="width: 38px; height: 38px; min-width: 38px;">
-                                        <i class="fa fa-clock-o fs-5"/>
-                                    </div>
-                                    <span class="fs-2 fw-bold text-dark font-monospace">
-                                        <field name="worked_time_display" readonly="1" nolabel="1"/>
-                                    </span>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Card 3: Current Pause Time -->
-                        <div class="col-md-4">
-                            <div class="p-3 rounded-3 h-100 border bg-white shadow-sm d-flex flex-column justify-content-center">
-                                <div class="text-secondary small fw-semibold mb-2">Current Pause Time</div>
-                                <div class="d-flex align-items-center gap-2">
-                                    <div class="rounded-circle bg-warning text-white d-flex align-items-center justify-content-center" 
-                                         style="width: 38px; height: 38px; min-width: 38px;">
-                                        <i class="fa fa-pause fs-5"/>
-                                    </div>
-                                    <span class="fs-2 fw-bold text-dark font-monospace">
-                                        <field name="pause_time_display" readonly="1" nolabel="1"/>
-                                    </span>
+                        <div class="d-flex align-items-center gap-3">
+                            <div class="d-flex flex-column align-items-end">
+                                <span class="text-muted small fw-semibold text-uppercase" style="font-size: 11px;">Pause Duration</span>
+                                <div class="d-flex align-items-center gap-2 bg-white px-3 py-1 rounded border border-warning shadow-sm">
+                                    <i class="fa fa-hourglass-half fa-spin text-warning fs-5"/>
+                                    <field name="pause_duration" widget="pause_live_timer" class="fw-bold fs-5 font-monospace text-danger" readonly="1" nolabel="1"/>
                                 </div>
                             </div>
                         </div>
@@ -415,9 +536,36 @@
                                 <span class="badge rounded-pill px-3 py-1" style="background-color: #10B981; color: white;" invisible="not is_collective_timer_running">
                                     <i class="fa fa-refresh fa-spin me-1"/>Running (Split Evenly)
                                 </span>
-                                <span class="badge rounded-pill px-3 py-1" style="background-color: #F59E0B; color: black;" invisible="is_collective_timer_running or job_status != 'paused'">
+                                <span class="badge rounded-pill px-3 py-1" style="background-color: #F59E0B; color: black;" invisible="is_collective_timer_running or job_status != 'paused' or pause_reason">
                                     <i class="fa fa-pause me-1"/>Paused
                                 </span>
+                                <span class="badge rounded-pill px-3 py-1" style="background-color: #F59E0B; color: #000;" invisible="is_collective_timer_running or job_status != 'paused' or pause_reason != 'waiting_parts'">
+                                    <i class="fa fa-pause me-1"/>Waiting for Parts
+                                </span>
+                                <span class="badge rounded-pill px-3 py-1" style="background-color: #2563EB; color: #fff;" invisible="is_collective_timer_running or job_status != 'paused' or pause_reason != 'waiting_approval'">
+                                    <i class="fa fa-pause me-1"/>Waiting for Approval
+                                </span>
+                                <span class="badge rounded-pill px-3 py-1" style="background-color: #9333EA; color: #fff;" invisible="is_collective_timer_running or job_status != 'paused' or pause_reason != 'waiting_qc'">
+                                    <i class="fa fa-pause me-1"/>Waiting for QC
+                                </span>
+                                <span class="badge rounded-pill px-3 py-1" style="background-color: #EA580C; color: #fff;" invisible="is_collective_timer_running or job_status != 'paused' or pause_reason != 'assistance_required'">
+                                    <i class="fa fa-pause me-1"/>Assistance Required
+                                </span>
+                                <span class="badge rounded-pill px-3 py-1" style="background-color: #D97706; color: #fff;" invisible="is_collective_timer_running or job_status != 'paused' or pause_reason != 'tools_issue'">
+                                    <i class="fa fa-pause me-1"/>Tool / Equipment Unavailable
+                                </span>
+                                <span class="badge rounded-pill px-3 py-1" style="background-color: #64748B; color: #fff;" invisible="is_collective_timer_running or job_status != 'paused' or pause_reason != 'other'">
+                                    <i class="fa fa-pause me-1"/>Other
+                                </span>
+                                <span class="d-inline-flex align-items-center gap-1 px-2 py-1 rounded bg-warning-subtle border border-warning text-dark font-monospace fs-6 fw-bold shadow-sm" invisible="is_collective_timer_running or job_status != 'paused'" title="Pause Timer running against reason">
+                                    <i class="fa fa-clock-o text-warning"/>
+                                    <span>Pause: </span>
+                                    <field name="pause_duration" widget="pause_live_timer" readonly="1" nolabel="1"/>
+                                </span>
+                                <span class="text-muted small ms-1" invisible="is_collective_timer_running or job_status != 'paused'">
+                                    Worked:
+                                </span>
+                                <field name="collective_duration" widget="collective_live_timer" readonly="1" nolabel="1"/>
                             </div>
                             <div class="d-flex align-items-center gap-2">
                                 <button name="action_select_all_group" string="Select All" type="object" class="btn btn-sm btn-link text-decoration-none p-0 me-2"/>
@@ -435,6 +583,7 @@
                                 <field name="timer_last_start" column_invisible="1"/>
                                 <field name="accumulated_seconds" column_invisible="1"/>
                                 <field name="repair_id" column_invisible="1"/>
+                                <field name="subtotal" column_invisible="1"/>
                                 <field name="item_code" string="Item Code" optional="show"/>
                                 <field name="product_id" string="Service" domain="[('type', '=', 'service')]" context="{'default_type': 'service', 'default_department_id': department_id, 'default_employee_id': employee_id}" options="{'no_quick_create': True}" required="1"/>
                                 <field name="department_id" string="Department" readonly="1" force_save="1" optional="show" options="{'no_create': True, 'no_create_edit': True}"/>
@@ -444,6 +593,7 @@
                                 <field name="hours" string="Worked Hrs" optional="show" sum="Total"/>
                                 <field name="alloted_fru" string="FRU" optional="hide"/>
                                 <field name="time_diff" string="Duration" widget="stopwatch_timer" readonly="1" optional="hide"/>
+                                <field name="is_timer_paused" string="Reset" widget="reset_timer_button" optional="hide"/>
                             </list>
                         </field>
                     </div>
@@ -454,6 +604,8 @@
                             <field name="employee_id" force_save="1"/>
                             <field name="department_id" invisible="1"/>
                             <field name="status"/>
+                            <field name="pause_reason_display" string="Pause Reason" invisible="job_status != 'paused'"/>
+                            <field name="pause_duration" string="Pause Time" widget="pause_live_timer" invisible="job_status != 'paused'" readonly="1"/>
                             <field name="start_datetime"/>
                             <field name="end_datetime" readonly="1"/>
                         </group>
@@ -499,6 +651,10 @@
                     <field name="time_diff" invisible="1"/>
                     <field name="pause_reason" invisible="1"/>
                     <field name="pause_notes" invisible="1"/>
+                    <field name="is_pause_running" invisible="1"/>
+                    <field name="pause_timer_start" invisible="1"/>
+                    <field name="pause_accumulated_seconds" invisible="1"/>
+                    <field name="pause_time_display" invisible="1"/>
                 </sheet>
             </form>
         </field>
@@ -510,7 +666,16 @@
         <field name="model">hr.employee.status.log</field>
         <field name="arch" type="xml">
             <list string="Status &amp; Downtime History" create="0">
+                <header>
+                    <button name="action_open_idle_wizard_for_employee" 
+                            string="Idle" 
+                            type="object" 
+                            display="always"
+                            class="btn-secondary fw-bold" 
+                            icon="fa-coffee"/>
+                </header>
                 <field name="employee_id"/>
+                <field name="is_current_activity" string="Current" optional="hide"/>
                 <field name="status" column_invisible="1"/>
                 <field name="job_status" column_invisible="1"/>
                 <field name="display_status" string="Status" widget="badge" 
@@ -521,6 +686,7 @@
                 <field name="pause_reason_display" string="Pause Reason" widget="badge" 
                        decoration-warning="pause_reason_display not in ('—', False)"/>
                 <field name="job_id" string="Job Card"/>
+                <field name="service_name" string="Assigned Service(s)"/>
                 <field name="license_plate" string="License Plate"/>
                 <field name="fleet_id" string="Car"/>
                 <field name="model_name" string="Model"/>
@@ -570,66 +736,46 @@
                     <field name="job_status" widget="statusbar" statusbar_visible="assigned,working,paused,completed" invisible="not job_id"/>
                 </header>
                 <sheet>
-                    <!-- Top 3 Summary Cards (Side by side) -->
-                    <div class="row g-3 mb-4 align-items-stretch" invisible="not job_id">
-                        <!-- Card 1: Current Status -->
-                        <div class="col-md-5">
-                            <div class="p-3 rounded-3 h-100 d-flex align-items-center gap-3" 
-                                 style="background-color: #FFF9E6; border: 1px solid #FFE082;">
-                                <!-- Icon Box -->
-                                <div class="rounded-3 d-flex align-items-center justify-content-center shadow-sm" 
-                                     style="width: 58px; height: 58px; min-width: 58px; background-color: #FFE699; font-size: 28px;">
-                                    📦
+                    <!-- Active Pause Banner with Live Running Timer & Reason -->
+                    <div class="alert alert-warning d-flex align-items-center justify-content-between p-3 mb-3 border-start border-warning border-4 shadow-sm rounded" 
+                         invisible="job_status != 'paused'"
+                         style="background-color: #FFFBEB; border-color: #F59E0B;">
+                        <div class="d-flex align-items-center gap-3">
+                            <span class="fs-3">⏸️</span>
+                            <div>
+                                <div class="d-flex align-items-center gap-2">
+                                    <span class="fw-bold text-dark fs-6">Job Paused:</span>
+                                    <span class="badge rounded-pill px-3 py-1 fs-6 fw-bold" style="background-color: #F59E0B; color: #000;" invisible="pause_reason != 'waiting_parts'">
+                                        Waiting for Parts
+                                    </span>
+                                    <span class="badge rounded-pill px-3 py-1 fs-6 fw-bold" style="background-color: #2563EB; color: #fff;" invisible="pause_reason != 'waiting_approval'">
+                                        Waiting for Customer Approval
+                                    </span>
+                                    <span class="badge rounded-pill px-3 py-1 fs-6 fw-bold" style="background-color: #9333EA; color: #fff;" invisible="pause_reason != 'waiting_qc'">
+                                        Waiting for QC
+                                    </span>
+                                    <span class="badge rounded-pill px-3 py-1 fs-6 fw-bold" style="background-color: #EA580C; color: #fff;" invisible="pause_reason != 'assistance_required'">
+                                        Assistance Required
+                                    </span>
+                                    <span class="badge rounded-pill px-3 py-1 fs-6 fw-bold" style="background-color: #D97706; color: #fff;" invisible="pause_reason != 'tools_issue'">
+                                        Tool / Equipment Unavailable
+                                    </span>
+                                    <span class="badge rounded-pill px-3 py-1 fs-6 fw-bold" style="background-color: #64748B; color: #fff;" invisible="pause_reason != 'other'">
+                                        Other
+                                    </span>
+                                    <field name="pause_reason_display" class="fw-bold text-dark" invisible="pause_reason in ('waiting_approval', 'waiting_parts', 'waiting_qc', 'assistance_required', 'tools_issue', 'other')"/>
                                 </div>
-                                <div class="flex-grow-1">
-                                    <div class="text-secondary small fw-semibold text-uppercase mb-1">Current Status</div>
-                                    <div class="mb-1">
-                                        <span class="badge px-3 py-1 fs-6 fw-bold" style="background-color: #FFB300; color: #000; border-radius: 6px;">
-                                            <i class="fa fa-fire me-1" invisible="not pause_reason"/> 
-                                            <field name="pause_reason_display" readonly="1" nolabel="1"/>
-                                        </span>
-                                    </div>
-                                    <div class="small text-muted" invisible="job_status != 'paused'">
-                                        Job is paused since <strong class="text-dark"><field name="pause_time_display" readonly="1" nolabel="1"/></strong>
-                                    </div>
-                                    <div class="small text-muted" invisible="job_status != 'paused'" style="font-size: 11px;">
-                                        Accumulated working time will continue from where it stopped.
-                                    </div>
-                                    <div class="small text-muted" invisible="job_status == 'paused'">
-                                        Accumulated working time is tracking active service progress.
-                                    </div>
+                                <div class="text-muted small mt-1" invisible="not pause_notes">
+                                    <i class="fa fa-commenting-o me-1"/><strong>Reason Details:</strong> <field name="pause_notes" readonly="1" class="d-inline"/>
                                 </div>
                             </div>
                         </div>
-
-                        <!-- Card 2: Worked Time (excluding pauses) -->
-                        <div class="col-md-3">
-                            <div class="p-3 rounded-3 h-100 border bg-white shadow-sm d-flex flex-column justify-content-center">
-                                <div class="text-secondary small fw-semibold mb-2">Worked Time (excluding pauses)</div>
-                                <div class="d-flex align-items-center gap-2">
-                                    <div class="rounded-circle bg-success text-white d-flex align-items-center justify-content-center" 
-                                         style="width: 38px; height: 38px; min-width: 38px;">
-                                        <i class="fa fa-clock-o fs-5"/>
-                                    </div>
-                                    <span class="fs-2 fw-bold text-dark font-monospace">
-                                        <field name="worked_time_display" readonly="1" nolabel="1"/>
-                                    </span>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Card 3: Current Pause Time -->
-                        <div class="col-md-4">
-                            <div class="p-3 rounded-3 h-100 border bg-white shadow-sm d-flex flex-column justify-content-center">
-                                <div class="text-secondary small fw-semibold mb-2">Current Pause Time</div>
-                                <div class="d-flex align-items-center gap-2">
-                                    <div class="rounded-circle bg-warning text-white d-flex align-items-center justify-content-center" 
-                                         style="width: 38px; height: 38px; min-width: 38px;">
-                                        <i class="fa fa-pause fs-5"/>
-                                    </div>
-                                    <span class="fs-2 fw-bold text-dark font-monospace">
-                                        <field name="pause_time_display" readonly="1" nolabel="1"/>
-                                    </span>
+                        <div class="d-flex align-items-center gap-3">
+                            <div class="d-flex flex-column align-items-end">
+                                <span class="text-muted small fw-semibold text-uppercase" style="font-size: 11px;">Pause Duration</span>
+                                <div class="d-flex align-items-center gap-2 bg-white px-3 py-1 rounded border border-warning shadow-sm">
+                                    <i class="fa fa-hourglass-half fa-spin text-warning fs-5"/>
+                                    <field name="pause_duration" widget="pause_live_timer" class="fw-bold fs-5 font-monospace text-danger" readonly="1" nolabel="1"/>
                                 </div>
                             </div>
                         </div>
@@ -646,9 +792,36 @@
                                 <span class="badge rounded-pill px-3 py-1" style="background-color: #10B981; color: white;" invisible="not is_collective_timer_running">
                                     <i class="fa fa-refresh fa-spin me-1"/>Running (Split Evenly)
                                 </span>
-                                <span class="badge rounded-pill px-3 py-1" style="background-color: #F59E0B; color: black;" invisible="is_collective_timer_running or job_status != 'paused'">
+                                <span class="badge rounded-pill px-3 py-1" style="background-color: #F59E0B; color: black;" invisible="is_collective_timer_running or job_status != 'paused' or pause_reason">
                                     <i class="fa fa-pause me-1"/>Paused
                                 </span>
+                                <span class="badge rounded-pill px-3 py-1" style="background-color: #F59E0B; color: #000;" invisible="is_collective_timer_running or job_status != 'paused' or pause_reason != 'waiting_parts'">
+                                    <i class="fa fa-pause me-1"/>Waiting for Parts
+                                </span>
+                                <span class="badge rounded-pill px-3 py-1" style="background-color: #2563EB; color: #fff;" invisible="is_collective_timer_running or job_status != 'paused' or pause_reason != 'waiting_approval'">
+                                    <i class="fa fa-pause me-1"/>Waiting for Approval
+                                </span>
+                                <span class="badge rounded-pill px-3 py-1" style="background-color: #9333EA; color: #fff;" invisible="is_collective_timer_running or job_status != 'paused' or pause_reason != 'waiting_qc'">
+                                    <i class="fa fa-pause me-1"/>Waiting for QC
+                                </span>
+                                <span class="badge rounded-pill px-3 py-1" style="background-color: #EA580C; color: #fff;" invisible="is_collective_timer_running or job_status != 'paused' or pause_reason != 'assistance_required'">
+                                    <i class="fa fa-pause me-1"/>Assistance Required
+                                </span>
+                                <span class="badge rounded-pill px-3 py-1" style="background-color: #D97706; color: #fff;" invisible="is_collective_timer_running or job_status != 'paused' or pause_reason != 'tools_issue'">
+                                    <i class="fa fa-pause me-1"/>Tool / Equipment Unavailable
+                                </span>
+                                <span class="badge rounded-pill px-3 py-1" style="background-color: #64748B; color: #fff;" invisible="is_collective_timer_running or job_status != 'paused' or pause_reason != 'other'">
+                                    <i class="fa fa-pause me-1"/>Other
+                                </span>
+                                <span class="d-inline-flex align-items-center gap-1 px-2 py-1 rounded bg-warning-subtle border border-warning text-dark font-monospace fs-6 fw-bold shadow-sm" invisible="is_collective_timer_running or job_status != 'paused'" title="Pause Timer running against reason">
+                                    <i class="fa fa-clock-o text-warning"/>
+                                    <span>Pause: </span>
+                                    <field name="pause_duration" widget="pause_live_timer" readonly="1" nolabel="1"/>
+                                </span>
+                                <span class="text-muted small ms-1" invisible="is_collective_timer_running or job_status != 'paused'">
+                                    Worked:
+                                </span>
+                                <field name="collective_duration" widget="collective_live_timer" readonly="1" nolabel="1"/>
                             </div>
                             <div class="d-flex align-items-center gap-2">
                                 <button name="action_select_all_group" string="Select All" type="object" class="btn btn-sm btn-link text-decoration-none p-0 me-2"/>
@@ -666,6 +839,7 @@
                                 <field name="timer_last_start" column_invisible="1"/>
                                 <field name="accumulated_seconds" column_invisible="1"/>
                                 <field name="repair_id" column_invisible="1"/>
+                                <field name="subtotal" column_invisible="1"/>
                                 <field name="item_code" string="Item Code" optional="show"/>
                                 <field name="product_id" string="Service" domain="[('type', '=', 'service')]" context="{'default_type': 'service', 'default_department_id': department_id, 'default_employee_id': employee_id}" options="{'no_quick_create': True}" required="1"/>
                                 <field name="department_id" string="Department" readonly="1" force_save="1" optional="show" options="{'no_create': True, 'no_create_edit': True}"/>
@@ -675,6 +849,7 @@
                                 <field name="hours" string="Worked Hrs" optional="show" sum="Total"/>
                                 <field name="alloted_fru" string="FRU" optional="hide"/>
                                 <field name="time_diff" string="Duration" widget="stopwatch_timer" readonly="1" optional="hide"/>
+                                <field name="is_timer_paused" string="Reset" widget="reset_timer_button" optional="hide"/>
                             </list>
                         </field>
                     </div>
@@ -685,6 +860,8 @@
                             <field name="employee_id" force_save="1"/>
                             <field name="department_id" invisible="1"/>
                             <field name="status"/>
+                            <field name="pause_reason_display" string="Pause Reason" invisible="job_status != 'paused'"/>
+                            <field name="pause_duration" string="Pause Time" widget="pause_live_timer" invisible="job_status != 'paused'" readonly="1"/>
                             <field name="start_datetime"/>
                             <field name="end_datetime" readonly="1"/>
                         </group>
@@ -720,6 +897,10 @@
                     <field name="collective_remaining_seconds" invisible="1"/>
                     <field name="pause_reason" invisible="1"/>
                     <field name="pause_notes" invisible="1"/>
+                    <field name="is_pause_running" invisible="1"/>
+                    <field name="pause_timer_start" invisible="1"/>
+                    <field name="pause_accumulated_seconds" invisible="1"/>
+                    <field name="pause_time_display" invisible="1"/>
                 </sheet>
             </form>
         </field>
@@ -730,17 +911,47 @@
         <field name="name">Employees</field>
         <field name="res_model">hr.employee</field>
         <field name="view_mode">kanban,list,form</field>
-        <field name="view_id" ref="view_employee_head_tech_kanban"/>
+        <field name="view_ids" eval="[(5, 0, 0),
+            (0, 0, {'view_mode': 'kanban', 'view_id': ref('view_employee_head_tech_kanban')}),
+            (0, 0, {'view_mode': 'list', 'view_id': ref('view_employee_head_tech_list')}),
+        ]"/>
         <field name="search_view_id" ref="view_employee_head_tech_search"/>
-        <field name="domain">[]</field>
+        <field name="domain">[('is_my_team', '=', True)]</field>
         <field name="context">{'search_default_my_team': 1}</field>
         <field name="help" type="html">
             <p class="o_view_nocontent_smiling_face">
-                No employees found reporting to you.
+                No employees found.
             </p>
             <p>
-                Employees under your leadership (as Manager, Coach, or Department Manager) will appear here.
+                Employees will appear here.
             </p>
+        </field>
+    </record>
+
+    <!-- Status Log Search View -->
+    <record id="view_hr_employee_status_log_search" model="ir.ui.view">
+        <field name="name">hr.employee.status.log.search</field>
+        <field name="model">hr.employee.status.log</field>
+        <field name="arch" type="xml">
+            <search string="Search Status &amp; Downtime Logs">
+                <field name="employee_id"/>
+                <field name="job_id"/>
+                <field name="license_plate"/>
+                <field name="fleet_id"/>
+                <field name="model_name"/>
+                <filter string="Current Activities" name="filter_current" domain="[('is_current_activity', '=', True)]"/>
+                <separator/>
+                <filter string="Working" name="filter_working" domain="['|', ('job_status', '=', 'working'), ('is_timer_running', '=', True)]"/>
+                <filter string="Paused" name="filter_paused" domain="['|', ('job_status', '=', 'paused'), ('is_pause_running', '=', True)]"/>
+                <filter string="Idle" name="filter_idle" domain="[('status', '=', 'idle')]"/>
+                <filter string="Assigned" name="filter_assigned" domain="[('job_status', '=', 'assigned')]"/>
+                <group expand="0" string="Group By">
+                    <filter string="Employee" name="group_employee" context="{'group_by': 'employee_id'}"/>
+                    <filter string="Job Card" name="group_job" context="{'group_by': 'job_id'}"/>
+                    <filter string="Status" name="group_status" context="{'group_by': 'display_status'}"/>
+                    <filter string="Date" name="group_date" context="{'group_by': 'start_datetime:day'}"/>
+                </group>
+            </search>
         </field>
     </record>
 
@@ -774,6 +985,8 @@
         <field name="name">Employee Status &amp; Downtime Logs</field>
         <field name="res_model">hr.employee.status.log</field>
         <field name="view_mode">list,pivot,graph,form</field>
+        <field name="search_view_id" ref="view_hr_employee_status_log_search"/>
+        <field name="context">{'search_default_filter_current': 1}</field>
         <field name="view_ids" eval="[(5, 0, 0),
             (0, 0, {'view_mode': 'list', 'view_id': ref('view_hr_employee_status_log_list')}),
             (0, 0, {'view_mode': 'form', 'view_id': ref('view_employee_work_status_form')}),
@@ -793,5 +1006,6 @@
               parent="car_repair_industry.menu_main_car_repair"
               action="action_hr_employee_status_log"
               sequence="16"
+              active="false"
               groups="car_repair_industry.group_fleet_repair_head_technician,car_repair_industry.group_fleet_repair_service_manager,car_repair_industry.group_fleet_repair_directeur_commercial"/>
 </odoo>

@@ -21,7 +21,7 @@ class IrUiMenu(models.Model):
         dashboard_menu = self.env.ref('car_repair_industry.car_repair_dashboard_menu', raise_if_not_found=False)
         car_repair_menu = self.env.ref('car_repair_industry.menu_sub_car_repair', raise_if_not_found=False)
 
-        # 1. Managers must NOT see Bodyshop or Workshop menus
+        # 1. Managers must NOT see Job cards (formerly Bodyshop) or Workshop menus
         if is_manager:
             if bodyshop_menu:
                 to_hide_ids.add(bodyshop_menu.id)
@@ -30,39 +30,12 @@ class IrUiMenu(models.Model):
 
         # 2. Head Technicians (who are not managers)
         if is_head_tech and not is_manager:
-            # Hide Dashboard and generic Car Repair menus
-            if dashboard_menu:
-                to_hide_ids.add(dashboard_menu.id)
+            # Hide generic Car Repair menu (manager menu) and Workshop menu
             if car_repair_menu:
                 to_hide_ids.add(car_repair_menu.id)
-
-            # Determine department
-            dep_name = ''
-            employee = self.env['hr.employee'].sudo().search([('user_id', '=', user.id)], limit=1)
-            if employee and employee.department_id and employee.department_id.name:
-                dep_name = employee.department_id.name.lower()
-            else:
-                dep = self.env['hr.department'].sudo().search([
-                    '|', ('name', 'ilike', user.name),
-                    ('name', 'ilike', user.login or '')
-                ], limit=1)
-                if dep and dep.name:
-                    dep_name = dep.name.lower()
-
-            if 'bodyshop' in dep_name:
-                # In Bodyshop: hide Workshop
-                if workshop_menu:
-                    to_hide_ids.add(workshop_menu.id)
-            elif 'workshop' in dep_name:
-                # In Workshop: hide Bodyshop
-                if bodyshop_menu:
-                    to_hide_ids.add(bodyshop_menu.id)
-            else:
-                # Neither: hide both
-                if bodyshop_menu:
-                    to_hide_ids.add(bodyshop_menu.id)
-                if workshop_menu:
-                    to_hide_ids.add(workshop_menu.id)
+            if workshop_menu:
+                to_hide_ids.add(workshop_menu.id)
+            # Dashboard menu and Job cards menu are visible to Head Technicians irrespective of department
 
         # 3. Non-head technicians and non-managers
         if not is_head_tech and not is_manager:

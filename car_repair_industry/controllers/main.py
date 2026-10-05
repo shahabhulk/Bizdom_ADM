@@ -173,7 +173,26 @@ class Appointment(http.Controller):
             ('state', 'not in', ['done', 'invoiced', 'cancel'])
         ])
 
+        user = request.env.user
+        is_manager = (
+            user.has_group('car_repair_industry.group_fleet_repair_directeur_commercial') or
+            user.has_group('car_repair_industry.group_fleet_repair_service_manager')
+        )
+        is_head_tech = user.has_group('car_repair_industry.group_fleet_repair_head_technician') and not is_manager
+
+        head_tech_jc_count = request.env['fleet.repair'].sudo().search_count([
+            ('team_lead_id', '=', user.id),
+            ('state', 'not in', ['done', 'invoiced', 'cancel'])
+        ])
+        head_tech_employee_count = request.env['hr.employee'].search_count([
+            ('is_my_team', '=', True)
+        ])
+
         dashboard_data = {
+            'is_head_tech': is_head_tech,
+            'head_tech_jc_count': head_tech_jc_count,
+            'head_tech_employee_count': head_tech_employee_count,
+            'current_user_id': user.id,
             'fleet_repair_count': len(fleet_repair),
             'bodyshop_repair_count': bodyshop_repair_count,
             'workshop_repair_count': workshop_repair_count,
