@@ -102,10 +102,11 @@ class HrEmployee(models.Model):
 
     # Idle Status & Timer Tracking
     idle_reason = fields.Selection([
+        ('no_job', 'No Job'),
         ('training', 'Training'),
-        ('learning', 'Learning'),
         ('meeting', 'Meeting'),
         ('break_lunch', 'Break / Lunch'),
+        ('learning', 'No Job'),
     ], string='Idle Reason', tracking=True)
     is_idle_running = fields.Boolean(string='Is Idle Timer Running', default=False)
     idle_timer_start = fields.Datetime(string='Idle Timer Start')
@@ -129,13 +130,14 @@ class HrEmployee(models.Model):
     @api.depends('idle_reason')
     def _compute_idle_reason_display(self):
         reason_map = {
+            'no_job': '📋 No Job',
             'training': '🎓 Training',
-            'learning': '📚 Learning',
+            'learning': '📋 No Job',
             'meeting': '👥 Meeting',
             'break_lunch': '☕ Break / Lunch',
         }
         for emp in self:
-            emp.idle_reason_display = reason_map.get(emp.idle_reason, 'Idle')
+            emp.idle_reason_display = reason_map.get(emp.idle_reason, '📋 No Job')
 
     @api.depends(
         'work_status',
@@ -181,7 +183,7 @@ class HrEmployee(models.Model):
                 completed_sline_ids.update(clog.service_line_ids.ids)
 
             pending_assigned_lines = assigned_lines.filtered(
-                lambda l: l.id not in completed_sline_ids and (not l.status_log_id or l.status_log_id.job_status != 'completed')
+                lambda l: not l.timer_end and l.line_status != 'completed' and l.id not in completed_sline_ids and (not l.status_log_id or l.status_log_id.job_status != 'completed')
             )
 
             # Auto-reconcile assigned work status if employee has assigned work on open job cards
@@ -191,10 +193,19 @@ class HrEmployee(models.Model):
                     emp.current_job_id = pending_assigned_lines[0].repair_id
                 if not emp.current_service_line_id:
                     emp.current_service_line_id = pending_assigned_lines[0]
-            elif not running_lines and not paused_lines and not pending_assigned_lines and not emp.is_idle_running:
-                latest_log = emp.status_log_ids and emp.status_log_ids[0]
-                if emp.work_status == 'completed' or (latest_log and latest_log.job_status == 'completed'):
-                    emp.work_status = 'completed'
+            elif not running_lines and not paused_lines and not pending_assigned_lines:
+                # All assigned jobs are completed! Show Idle state with No Job
+                if not emp.is_idle_running:
+                    emp.work_status = 'idle'
+                    emp.idle_reason = 'no_job'
+                emp.current_job_id = False
+                emp.current_service_line_id = False
+                emp.current_job_name = False
+                emp.current_job_card_label = False
+                emp.current_car_model = False
+                emp.current_car_display = False
+                emp.current_pause_reason = False
+                emp.current_pause_icon = False
 
             if running_lines:
                 rline = running_lines[0]
@@ -265,6 +276,8 @@ class HrEmployee(models.Model):
                 emp.is_timer_paused = False
                 emp.accumulated_seconds = 0.0
                 emp.alloted_fru = 0
+                emp.current_job_id = False
+                emp.current_service_line_id = False
                 emp.current_job_name = False
                 emp.current_job_card_label = False
                 emp.current_car_model = False
@@ -276,6 +289,8 @@ class HrEmployee(models.Model):
                 emp.is_pause_running = False
                 emp.current_pause_duration = 0.0
                 emp.current_pause_time_display = '00:00:00'
+                if not emp.idle_reason:
+                    emp.idle_reason = 'no_job'
                 continue
             else:
                 emp.has_active_service_timer = False
@@ -283,11 +298,11 @@ class HrEmployee(models.Model):
                 emp.is_timer_running = False
                 # If assigned, paused or stopped on a job, retain the service line's accumulated duration & name
                 target_sline = emp.current_service_line_id
-                if not target_sline or not target_sline.exists():
+                if not target_sline or not target_sline.exists() or target_sline.timer_end or target_sline.line_status == 'completed':
                     if pending_assigned_lines:
                         target_sline = pending_assigned_lines[0]
-                    elif assigned_lines:
-                        target_sline = assigned_lines[0]
+                    else:
+                        target_sline = False
                 if target_sline and target_sline.exists():
                     emp.active_timer_accumulated_seconds = target_sline.accumulated_seconds or 0.0
                     emp.active_service_time_diff = target_sline.time_diff or 0.0
@@ -312,6 +327,8 @@ class HrEmployee(models.Model):
                     emp.is_timer_paused = False
                     emp.accumulated_seconds = 0.0
                     emp.alloted_fru = 0
+                    emp.current_job_id = False
+                    emp.current_service_line_id = False
 
                 latest_log = self.env['hr.employee.status.log'].search([
                     ('employee_id', '=', emp.id),
@@ -815,8 +832,9 @@ class HrEmployee(models.Model):
         now = fields.Datetime.now()
 
         reason_labels = {
+            'no_job': 'No Job',
             'training': 'Training',
-            'learning': 'Learning',
+            'learning': 'No Job',
             'meeting': 'Meeting',
             'break_lunch': 'Break / Lunch',
         }
@@ -936,11 +954,18 @@ class HrEmployee(models.Model):
         if open_timeline_idle:
             open_timeline_idle.write({'end_datetime': now})
 
+        pending_work = self.env['fleet.repair.service.line'].search_count([
+            ('employee_id', '=', self.id),
+            ('repair_id.state', 'not in', ['done', 'invoiced', 'cancel']),
+            ('timer_end', '=', False),
+            ('line_status', '!=', 'completed'),
+        ])
         self.write({
             'is_idle_running': False,
             'idle_timer_start': False,
             'idle_accumulated_seconds': 0.0,
-            'idle_reason': False,
+            'idle_reason': 'no_job' if not pending_work else False,
+            'work_status': 'idle' if not pending_work else 'assigned',
             'status_notes': False,
         })
 
@@ -1080,10 +1105,11 @@ class HrEmployeeStatusLog(models.Model):
     ], string='Pause Reason')
     pause_notes = fields.Text(string='Pause Notes')
     idle_reason = fields.Selection([
+        ('no_job', 'No Job'),
         ('training', 'Training'),
-        ('learning', 'Learning'),
         ('meeting', 'Meeting'),
         ('break_lunch', 'Break / Lunch'),
+        ('learning', 'No Job'),
     ], string='Idle Reason')
     worked_time_display = fields.Char(string='Worked Time', compute='_compute_time_metrics')
     pause_time_display = fields.Char(string='Pause Time', compute='_compute_time_metrics')
@@ -1151,8 +1177,9 @@ class HrEmployeeStatusLog(models.Model):
             'other': '⚪ Other',
         }
         idle_map = {
+            'no_job': '📋 No Job',
             'training': '🎓 Training',
-            'learning': '📚 Learning',
+            'learning': '📋 No Job',
             'meeting': '👥 Meeting',
             'break_lunch': '☕ Break / Lunch',
         }
@@ -1619,6 +1646,15 @@ class HrEmployeeStatusLog(models.Model):
 
         total_accumulated = sum(all_lines.mapped('accumulated_seconds') or [0.0])
 
+        # Check if employee has other open pending service lines
+        other_pending = self.env['fleet.repair.service.line'].search_count([
+            ('employee_id', '=', emp.id),
+            ('repair_id.state', 'not in', ['done', 'invoiced', 'cancel']),
+            ('id', 'not in', all_lines.ids),
+            ('timer_end', '=', False),
+            ('line_status', '!=', 'completed'),
+        ]) if emp else 0
+
         # Record into employee.timeline.history
         if emp:
             self.env['employee.timeline.history'].create_activity_log(
@@ -1633,16 +1669,27 @@ class HrEmployeeStatusLog(models.Model):
                 status_log_id=self.id,
             )
 
-            # Update the employee record
-            emp.sudo().write({
-                'work_status': 'completed',
-                'current_job_id': False,
-                'current_service_line_id': False,
-                'current_pause_reason': False,
-                'is_idle_running': False,
-                'idle_reason': False,
-                'idle_timer_start': False,
-            })
+            # Update the employee record: if no more pending jobs, set to idle / no_job
+            if other_pending:
+                emp.sudo().write({
+                    'work_status': 'assigned',
+                    'current_job_id': False,
+                    'current_service_line_id': False,
+                    'current_pause_reason': False,
+                    'is_idle_running': False,
+                    'idle_reason': False,
+                    'idle_timer_start': False,
+                })
+            else:
+                emp.sudo().write({
+                    'work_status': 'idle',
+                    'idle_reason': 'no_job',
+                    'current_job_id': False,
+                    'current_service_line_id': False,
+                    'current_pause_reason': False,
+                    'is_idle_running': False,
+                    'idle_timer_start': False,
+                })
 
         # Remove the status log so it disappears from hr.employee.status.log immediately
         self.with_context(skip_service_line_sync=True, skip_status_log_sync=True).unlink()

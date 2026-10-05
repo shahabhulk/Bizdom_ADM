@@ -61,21 +61,21 @@
                                         Completed
                                     </span>
                                     <!-- Assigned (When assigned to a job card / service) -->
-                                    <span t-elif="record.work_status.raw_value == 'assigned' or (record.current_job_id.raw_value and record.work_status.raw_value == 'idle' and !record.is_idle_running.raw_value)" 
+                                    <span t-elif="record.work_status.raw_value == 'assigned'" 
                                           class="badge rounded-pill px-3 py-1 fs-6 fw-bold" 
                                           style="background-color: #0284C7; color: #fff;">
                                         Assigned
                                     </span>
                                     <!-- Idle with specific reasons (When not active job) -->
+                                    <span t-elif="record.work_status.raw_value == 'idle' and record.idle_reason and (record.idle_reason.raw_value == 'no_job' or record.idle_reason.raw_value == 'learning')" 
+                                          class="badge rounded-pill px-3 py-1 fs-6 fw-bold" 
+                                          style="background-color: #64748B; color: #fff;">
+                                        📋 No Job
+                                    </span>
                                     <span t-elif="record.work_status.raw_value == 'idle' and record.idle_reason and record.idle_reason.raw_value == 'training'" 
                                           class="badge rounded-pill px-3 py-1 fs-6 fw-bold" 
                                           style="background-color: #6366F1; color: #fff;">
                                         🎓 Training
-                                    </span>
-                                    <span t-elif="record.work_status.raw_value == 'idle' and record.idle_reason and record.idle_reason.raw_value == 'learning'" 
-                                          class="badge rounded-pill px-3 py-1 fs-6 fw-bold" 
-                                          style="background-color: #0EA5E9; color: #fff;">
-                                        📚 Learning
                                     </span>
                                     <span t-elif="record.work_status.raw_value == 'idle' and record.idle_reason and record.idle_reason.raw_value == 'meeting'" 
                                           class="badge rounded-pill px-3 py-1 fs-6 fw-bold" 
@@ -89,7 +89,7 @@
                                     </span>
                                     <span t-elif="record.work_status.raw_value == 'idle'" 
                                           class="badge rounded-pill px-3 py-1 fs-6 fw-bold text-bg-secondary">
-                                        💤 Idle
+                                        📋 No Job
                                     </span>
                                     <!-- Paused with specific reasons -->
                                     <span t-elif="record.current_pause_reason and record.current_pause_reason.raw_value == 'waiting_parts'" 
@@ -147,18 +147,18 @@
                                 <i class="fa fa-user me-1 text-dark"/>Coach/Lead: <span class="fw-medium text-dark"><field name="coach_id"/></span>
                             </div>
 
-                            <!-- Inner Idle Activity Box (When in Idle State and no active service timer and no assigned work) -->
-                            <div t-if="record.work_status.raw_value == 'idle' and !record.has_active_service_timer.raw_value and !record.current_job_id.raw_value and !record.current_car_display.raw_value" 
+                            <!-- Inner Idle Activity Box (When in Idle State and no active service timer) -->
+                            <div t-if="record.work_status.raw_value == 'idle' and !record.has_active_service_timer.raw_value" 
                                  class="p-3 rounded-3" 
                                  style="background-color: #F8FAFC; border: 1px solid #E2E8F0;">
                                 <!-- Line 1: Idle Activity & Action Button -->
                                 <div class="d-flex justify-content-between align-items-center mb-2">
                                     <span class="fw-bold text-dark fs-6">
-                                        <t t-if="record.idle_reason.raw_value == 'training'">🎓 Training</t>
-                                        <t t-elif="record.idle_reason.raw_value == 'learning'">📚 Learning</t>
+                                        <t t-if="record.idle_reason.raw_value == 'no_job' or record.idle_reason.raw_value == 'learning'">📋 No Job</t>
+                                        <t t-elif="record.idle_reason.raw_value == 'training'">🎓 Training</t>
                                         <t t-elif="record.idle_reason.raw_value == 'meeting'">👥 Meeting</t>
                                         <t t-elif="record.idle_reason.raw_value == 'break_lunch'">☕ Break / Lunch</t>
-                                        <t t-else="">💤 Idle Activity</t>
+                                        <t t-else="">📋 No Job</t>
                                     </span>
                                     <button name="action_open_idle_wizard" type="object" class="btn btn-sm btn-outline-secondary py-0 px-2" style="font-size: 11px;">
                                         <i class="fa fa-coffee me-1"/>Idle
@@ -169,10 +169,13 @@
                                 <div class="d-flex align-items-center gap-2 mb-2 text-muted small">
                                     <i class="fa fa-coffee text-secondary" style="font-size: 12px; min-width: 14px;"/>
                                     <span>
-                                        <t t-if="record.idle_reason_display and record.idle_reason_display.raw_value">
+                                        <t t-if="record.idle_reason.raw_value == 'no_job' or record.idle_reason.raw_value == 'learning' or (!record.idle_reason.raw_value and record.work_status.raw_value == 'idle')">
+                                            No active job assigned / waiting for job
+                                        </t>
+                                        <t t-elif="record.idle_reason_display and record.idle_reason_display.raw_value">
                                             <field name="idle_reason_display"/>
                                         </t>
-                                        <t t-else="">Idle Activity in progress</t>
+                                        <t t-else="">No active job assigned / waiting for job</t>
                                     </span>
                                 </div>
 

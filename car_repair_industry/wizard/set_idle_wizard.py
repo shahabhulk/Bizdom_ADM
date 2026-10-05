@@ -12,26 +12,28 @@ class SetIdleWizard(models.TransientModel):
     current_work_status = fields.Selection(related='employee_id.work_status', string='Current Status', readonly=True)
     is_already_idle = fields.Boolean(compute='_compute_idle_state')
     current_idle_reason = fields.Selection([
+        ('no_job', 'No Job'),
         ('training', 'Training'),
-        ('learning', 'Learning'),
         ('meeting', 'Meeting'),
         ('break_lunch', 'Break / Lunch'),
+        ('learning', 'No Job'),
     ], compute='_compute_idle_state', string='Current Idle Reason')
     current_idle_display = fields.Char(compute='_compute_idle_state', string='Current Activity')
 
     idle_reason = fields.Selection([
+        ('no_job', 'No Job'),
         ('training', 'Training'),
-        ('learning', 'Learning'),
         ('meeting', 'Meeting'),
         ('break_lunch', 'Break / Lunch'),
-    ], string='Select Activity', required=True, default='training')
+    ], string='Select Activity', required=True, default='no_job')
     notes = fields.Text(string='Notes / Details (Optional)')
 
     @api.depends('employee_id', 'employee_id.is_idle_running', 'employee_id.idle_reason')
     def _compute_idle_state(self):
         reason_map = {
             'training': '🎓 Training',
-            'learning': '📚 Learning',
+            'no_job': '📋 No Job',
+            'learning': '📋 No Job',
             'meeting': '👥 Meeting',
             'break_lunch': '☕ Break / Lunch',
         }
@@ -54,8 +56,12 @@ class SetIdleWizard(models.TransientModel):
         self.idle_reason = 'training'
         return self.action_start_idle()
 
+    def action_choose_no_job(self):
+        self.idle_reason = 'no_job'
+        return self.action_start_idle()
+
     def action_choose_learning(self):
-        self.idle_reason = 'learning'
+        self.idle_reason = 'no_job'
         return self.action_start_idle()
 
     def action_choose_meeting(self):
