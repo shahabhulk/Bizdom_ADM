@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_set_idle_wizard_form" model="ir.ui.view">
+        <field name="name">set.idle.wizard.form</field>
+        <field name="model">set.idle.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Set Idle Status">
+                <sheet>
+                    <field name="is_already_idle" invisible="1"/>
+                    <field name="current_work_status" invisible="1"/>
+                    
+                    <!-- Alert when already in idle -->
+                    <div class="alert alert-info d-flex align-items-center mb-3 p-3 rounded" invisible="not is_already_idle">
+                        <i class="fa fa-info-circle fa-2x me-3 text-info"/>
+                        <div>
+                            <strong>Currently in Idle Mode: <field name="current_idle_display" readonly="1" class="fw-bold text-dark"/></strong>
+                            <div class="text-muted small">Select an activity below to switch, or click <strong>Stop Idle Timer</strong> to finish.</div>
+                        </div>
+                    </div>
+
+                    <!-- Header description when starting idle -->
+                    <div class="alert alert-light border d-flex align-items-center mb-3 p-3 rounded" invisible="is_already_idle">
+                        <i class="fa fa-coffee fa-2x me-3 text-secondary"/>
+                        <div>
+                            <strong>Set Employee Idle Activity: <field name="employee_name" readonly="1" class="fw-bold text-primary"/></strong>
+                            <div class="text-muted small">Any running service timer will be automatically paused and an idle timer will start.</div>
+                        </div>
+                    </div>
+
+                    <group>
+                        <field name="employee_id" readonly="1" force_save="1"/>
+                    </group>
+
+                    <!-- 4 Quick Choice Buttons -->
+                    <div class="mb-3">
+                        <label for="idle_reason" string="Choose Idle Activity" class="fw-bold mb-2"/>
+                        <div class="row g-2">
+                            <div class="col-6">
+                                <button name="action_choose_training" 
+                                        type="object" 
+                                        class="btn btn-outline-primary w-100 text-start p-3 rounded-3 d-flex align-items-center gap-2">
+                                    <span class="fs-4">🎓</span>
+                                    <div>
+                                        <div class="fw-bold">Training</div>
+                                        <div class="small text-muted">Workshop training / technical courses</div>
+                                    </div>
+                                </button>
+                            </div>
+                            <div class="col-6">
+                                <button name="action_choose_learning" 
+                                        type="object" 
+                                        class="btn btn-outline-info w-100 text-start p-3 rounded-3 d-flex align-items-center gap-2">
+                                    <span class="fs-4">📚</span>
+                                    <div>
+                                        <div class="fw-bold">Learning</div>
+                                        <div class="small text-muted">Self-study / SOP learning</div>
+                                    </div>
+                                </button>
+                            </div>
+                            <div class="col-6">
+                                <button name="action_choose_meeting" 
+                                        type="object" 
+                                        class="btn btn-outline-secondary w-100 text-start p-3 rounded-3 d-flex align-items-center gap-2">
+                                    <span class="fs-4">👥</span>
+                                    <div>
+                                        <div class="fw-bold">Meeting</div>
+                                        <div class="small text-muted">Team briefing / management meeting</div>
+                                    </div>
+                                </button>
+                            </div>
+                            <div class="col-6">
+                                <button name="action_choose_break_lunch" 
+                                        type="object" 
+                                        class="btn btn-outline-dark w-100 text-start p-3 rounded-3 d-flex align-items-center gap-2">
+                                    <span class="fs-4">☕</span>
+                                    <div>
+                                        <div class="fw-bold">Break / Lunch</div>
+                                        <div class="small text-muted">Lunch break / rest period</div>
+                                    </div>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <group>
+                        <field name="idle_reason" widget="radio" string="Or Select Manually" options="{'horizontal': true}"/>
+                        <field name="notes" placeholder="Optional notes or details..."/>
+                    </group>
+                </sheet>
+                <footer>
+                    <button name="action_start_idle" string="Start Idle Timer" type="object" class="btn btn-primary fw-bold" icon="fa-play"/>
+                    <button name="action_end_idle" string="Stop Idle Timer" type="object" class="btn btn-danger fw-bold" icon="fa-stop" invisible="not is_already_idle"/>
+                    <button string="Cancel" class="btn btn-secondary" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+</odoo>

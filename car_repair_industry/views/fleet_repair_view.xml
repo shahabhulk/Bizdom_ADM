@@ -222,6 +222,8 @@
                                         <field name="timer_end" string="End Date" readonly="1"/>
                                         <field name="is_timer_running" column_invisible="1"/>
                                         <field name="timer_last_start" column_invisible="1"/>
+                                        <field name="is_collective" column_invisible="1"/>
+                                        <field name="collective_member_count" column_invisible="1"/>
                                         <field name="accumulated_seconds" column_invisible="1"/>
                                         <field name="time_diff" string="Duration" widget="stopwatch_timer" sum="Total"
                                                decoration-success="fru_status == 'green'"
@@ -238,6 +240,7 @@
                                                force_save="1"/>
                                         <field name="subtotal" widget="monetary"
                                                options="{'currency_field': 'currency_id'}"/>
+                                        <field name="hours" string="Hrs" optional="hide"/>
                                         <field name="currency_id" column_invisible="1"/>
                                     </list>
                                 </field>
@@ -393,9 +396,9 @@
         </record>
 
         <record model="ir.actions.act_window" id="action_fleet_repair_bodyshop">
-            <field name="name">Bodyshop Job Cards</field>
+            <field name="name">Job cards</field>
             <field name="res_model">fleet.repair</field>
-            <field name="domain">[('department_id.name', 'ilike', 'bodyshop'), ('team_lead_id', '=', uid), ('state', 'not in', ['done', 'invoiced', 'cancel'])]</field>
+            <field name="domain">[('team_lead_id', '=', uid), ('state', 'not in', ['done', 'invoiced', 'cancel'])]</field>
             <field name="view_mode">list,form</field>
             <field name="search_view_id" ref="view_repair_order_filter"/>
             <field name="view_id" ref="view_fleet_repair_tree"/>
@@ -415,13 +418,13 @@
         <!--Menuitems-->
         <menuitem id="menu_main_car_repair" name="Car Repair" sequence="50"/>
 
-        <!-- Bodyshop and Workshop menus for Head Technicians (sequence 2, in place of Car Repair Dashboard) -->
-        <menuitem name="Bodyshop" parent="menu_main_car_repair" id="menu_fleet_repair_bodyshop" sequence="2"
+        <!-- Job cards menu for Head Technicians (sequence 2, irrespective of department) -->
+        <menuitem name="Job cards" parent="menu_main_car_repair" id="menu_fleet_repair_bodyshop" sequence="2"
                   action="action_fleet_repair_bodyshop"
                   groups="car_repair_industry.group_fleet_repair_head_technician"/>
         <menuitem name="Workshop" parent="menu_main_car_repair" id="menu_fleet_repair_workshop" sequence="2"
                   action="action_fleet_repair_workshop"
-                  groups="car_repair_industry.group_fleet_repair_head_technician"/>
+                  groups="base.group_no_one"/>
 
         <!-- Car Repair Menu for Managers -->
         <menuitem name="Car Repair" parent="menu_main_car_repair" id="menu_sub_car_repair" sequence="3"

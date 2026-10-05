@@ -1,0 +1,178 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Employee Timeline History List View -->
+    <record id="view_employee_timeline_history_list" model="ir.ui.view">
+        <field name="name">employee.timeline.history.list</field>
+        <field name="model">employee.timeline.history</field>
+        <field name="arch" type="xml">
+            <list string="Employee Timeline History" create="0">
+                <field name="employee_id"/>
+                <field name="status" column_invisible="1"/>
+                <field name="job_status" column_invisible="1"/>
+                <field name="display_status" string="Status" widget="badge" 
+                       decoration-info="display_status in ('Working', 'Assigned')" 
+                       decoration-warning="display_status == 'Paused'"
+                       decoration-success="display_status == 'Completed'"
+                       decoration-muted="display_status == 'Idle'"/>
+                <field name="pause_reason_display" string="Pause Reason" widget="badge" 
+                       decoration-warning="pause_reason_display not in ('—', False)"/>
+                <field name="idle_reason_display" string="Idle Reason" optional="show" widget="badge"
+                       decoration-info="idle_reason_display not in ('—', False)"/>
+                <field name="job_id" string="Job Card"/>
+                <field name="license_plate" string="License Plate"/>
+                <field name="fleet_id" string="Car"/>
+                <field name="model_name" string="Model"/>
+                <field name="start_datetime" string="Start Time"/>
+                <field name="end_datetime" string="End Time"/>
+                <field name="duration_display" string="Duration" optional="show"/>
+                <field name="worked_time_display" string="Worked Time"/>
+                <field name="pause_time_display" string="Pause Time"/>
+                <field name="total_elapsed_display" string="Total Elapsed"/>
+                <field name="notes" string="Notes" optional="hide"/>
+                <button name="action_open_repair_order" type="object" icon="fa-external-link" title="Open Job Card" invisible="not job_id" class="btn btn-sm btn-link"/>
+            </list>
+        </field>
+    </record>
+
+    <!-- Employee Timeline History Form View -->
+    <record id="view_employee_timeline_history_form" model="ir.ui.view">
+        <field name="name">employee.timeline.history.form</field>
+        <field name="model">employee.timeline.history</field>
+        <field name="arch" type="xml">
+            <form string="Employee Activity Detail" create="0" edit="0">
+                <header>
+                    <button name="action_open_repair_order" string="Open Job Card" type="object" class="btn btn-outline-primary" invisible="not job_id" icon="fa-external-link"/>
+                </header>
+                <sheet>
+                    <div class="oe_title">
+                        <h1>
+                            <field name="display_name" readonly="1"/>
+                        </h1>
+                    </div>
+                    <group>
+                        <group string="Activity Info">
+                            <field name="employee_id" readonly="1"/>
+                            <field name="display_status" string="Status" widget="badge" 
+                                   decoration-info="display_status in ('Working', 'Assigned')" 
+                                   decoration-warning="display_status == 'Paused'"
+                                   decoration-success="display_status == 'Completed'"
+                                   decoration-muted="display_status == 'Idle'"/>
+                            <field name="pause_reason_display" string="Pause Reason" invisible="status != 'paused' and job_status != 'paused'"/>
+                            <field name="pause_notes" string="Pause Notes" invisible="not pause_notes"/>
+                            <field name="idle_reason_display" string="Idle Reason" invisible="status != 'idle'"/>
+                            <field name="notes" string="Notes" invisible="not notes"/>
+                        </group>
+                        <group string="Job Card &amp; Vehicle">
+                            <field name="job_id" readonly="1" invisible="not job_id"/>
+                            <field name="service_line_id" readonly="1" invisible="not service_line_id"/>
+                            <field name="service_name" readonly="1" invisible="not service_name"/>
+                            <field name="license_plate" readonly="1" invisible="not job_id"/>
+                            <field name="fleet_id" readonly="1" invisible="not job_id"/>
+                            <field name="model_name" readonly="1" invisible="not job_id"/>
+                        </group>
+                    </group>
+                    <group string="Time Metrics">
+                        <group>
+                            <field name="start_datetime" readonly="1"/>
+                            <field name="end_datetime" readonly="1"/>
+                            <field name="duration" readonly="1" widget="float_time"/>
+                            <field name="duration_display" readonly="1"/>
+                        </group>
+                        <group>
+                            <field name="worked_time_display" readonly="1"/>
+                            <field name="pause_time_display" readonly="1"/>
+                            <field name="total_elapsed_display" readonly="1"/>
+                        </group>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <!-- Employee Timeline History Search View -->
+    <record id="view_employee_timeline_history_search" model="ir.ui.view">
+        <field name="name">employee.timeline.history.search</field>
+        <field name="model">employee.timeline.history</field>
+        <field name="arch" type="xml">
+            <search string="Search Timeline History">
+                <field name="employee_id"/>
+                <field name="job_id"/>
+                <field name="license_plate"/>
+                <field name="fleet_id"/>
+                <field name="model_name"/>
+                <field name="service_name"/>
+                <filter string="Ongoing Activities" name="filter_ongoing" domain="[('end_datetime', '=', False)]"/>
+                <filter string="Finished Activities" name="filter_finished" domain="[('end_datetime', '!=', False)]"/>
+                <separator/>
+                <filter string="Working" name="filter_working" domain="['|', ('status', 'in', ['working', 'job']), ('job_status', '=', 'working')]"/>
+                <filter string="Paused" name="filter_paused" domain="['|', ('status', '=', 'paused'), ('job_status', '=', 'paused')]"/>
+                <filter string="Idle" name="filter_idle" domain="[('status', '=', 'idle')]"/>
+                <filter string="Assigned" name="filter_assigned" domain="['|', ('status', '=', 'assigned'), ('job_status', '=', 'assigned')]"/>
+                <filter string="Completed" name="filter_completed" domain="['|', ('status', '=', 'completed'), ('job_status', '=', 'completed')]"/>
+                <separator/>
+                <filter string="Today" name="filter_today" domain="[('start_datetime', '&gt;=', datetime.datetime.now().strftime('%Y-%m-%d 00:00:00'))]"/>
+                <group expand="0" string="Group By">
+                    <filter string="Employee" name="group_employee" context="{'group_by': 'employee_id'}"/>
+                    <filter string="Job Card" name="group_job" context="{'group_by': 'job_id'}"/>
+                    <filter string="Status" name="group_status" context="{'group_by': 'display_status'}"/>
+                    <filter string="Pause Reason" name="group_pause_reason" context="{'group_by': 'pause_reason'}"/>
+                    <filter string="Date" name="group_date" context="{'group_by': 'start_datetime:day'}"/>
+                    <filter string="Month" name="group_month" context="{'group_by': 'start_datetime:month'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <!-- Employee Timeline History Pivot View -->
+    <record id="view_employee_timeline_history_pivot" model="ir.ui.view">
+        <field name="name">employee.timeline.history.pivot</field>
+        <field name="model">employee.timeline.history</field>
+        <field name="arch" type="xml">
+            <pivot string="Employee Activity Analysis" sample="1">
+                <field name="employee_id" type="row"/>
+                <field name="display_status" type="col"/>
+                <field name="duration" type="measure"/>
+            </pivot>
+        </field>
+    </record>
+
+    <!-- Employee Timeline History Graph View -->
+    <record id="view_employee_timeline_history_graph" model="ir.ui.view">
+        <field name="name">employee.timeline.history.graph</field>
+        <field name="model">employee.timeline.history</field>
+        <field name="arch" type="xml">
+            <graph string="Activity Duration Analysis" type="bar" sample="1">
+                <field name="employee_id"/>
+                <field name="duration" type="measure"/>
+            </graph>
+        </field>
+    </record>
+
+    <!-- Window Action for Employee Timeline History -->
+    <record id="action_employee_timeline_history" model="ir.actions.act_window">
+        <field name="name">Employee Timeline History</field>
+        <field name="res_model">employee.timeline.history</field>
+        <field name="view_mode">list,pivot,graph,form</field>
+        <field name="search_view_id" ref="view_employee_timeline_history_search"/>
+        <field name="view_ids" eval="[(5, 0, 0),
+            (0, 0, {'view_mode': 'list', 'view_id': ref('view_employee_timeline_history_list')}),
+            (0, 0, {'view_mode': 'form', 'view_id': ref('view_employee_timeline_history_form')}),
+        ]"/>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                No timeline records found.
+            </p>
+            <p>
+                Each and every activity of employees (working, pausing, resuming, idle, completions) is recorded here as per the timeline.
+            </p>
+        </field>
+    </record>
+
+    <!-- Top Menu Item in Car Repair -->
+    <menuitem id="menu_employee_timeline_history"
+              name="Timeline History"
+              parent="car_repair_industry.menu_main_car_repair"
+              action="action_employee_timeline_history"
+              sequence="17"
+              groups="car_repair_industry.group_fleet_repair_head_technician,car_repair_industry.group_fleet_repair_service_manager,car_repair_industry.group_fleet_repair_directeur_commercial"/>
+</odoo>
