@@ -225,7 +225,7 @@
                                         <field name="is_collective" column_invisible="1"/>
                                         <field name="collective_member_count" column_invisible="1"/>
                                         <field name="accumulated_seconds" column_invisible="1"/>
-                                        <field name="time_diff" string="Duration" widget="stopwatch_timer" sum="Total"
+                                        <field name="time_diff" string="Duration" widget="stopwatch_timer" sum="Total" optional="hide"
                                                decoration-success="fru_status == 'green'"
                                                decoration-warning="fru_status == 'yellow'"
                                                decoration-danger="fru_status == 'red'"/>
