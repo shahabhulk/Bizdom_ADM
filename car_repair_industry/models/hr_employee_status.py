@@ -1032,6 +1032,7 @@ class HrEmployeeStatusLog(models.Model):
         ('job', 'Active Job'),
         ('assigned', 'Assigned'),
         ('paused', 'Paused'),
+        ('completed', 'Completed'),
         ('waiting_car', 'Waiting for Car'),
         ('parts_unavailable', 'Parts Arrival / Not Available'),
         ('tools_issue', 'Tools Issue'),
@@ -1048,8 +1049,8 @@ class HrEmployeeStatusLog(models.Model):
     def _compute_display_status(self):
         pause_dict = dict(self._fields['pause_reason'].selection) if 'pause_reason' in self._fields else {}
         for rec in self:
-            if rec.job_id or rec.status == 'job':
-                if rec.job_status == 'completed':
+            if rec.job_id or rec.status in ('job', 'completed'):
+                if rec.job_status == 'completed' or rec.status == 'completed':
                     rec.display_status = 'Completed'
                 elif rec.is_timer_running or rec.job_status == 'working':
                     rec.display_status = 'Working'
