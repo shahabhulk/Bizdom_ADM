@@ -229,6 +229,11 @@
                                                decoration-success="fru_status == 'green'"
                                                decoration-warning="fru_status == 'yellow'"
                                                decoration-danger="fru_status == 'red'"/>
+                                        <field name="line_status" string="Status" widget="badge" optional="show"
+                                               decoration-success="line_status == 'completed'"
+                                               decoration-info="line_status == 'working'"
+                                               decoration-warning="line_status == 'paused'"
+                                               decoration-muted="line_status == 'assigned'"/>
                                         <field name="is_timer_paused" string="Reset" widget="reset_timer_button" optional="hide"/>
                                         <field name="alloted_fru" string="FRU"
                                                readonly="parent.state in ('done', 'cancel', 'invoiced')"/>

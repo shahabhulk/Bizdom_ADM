@@ -2060,6 +2060,24 @@ class FleetRepairServiceLine(models.Model):
         default='green',
     )
     receipt_date = fields.Datetime(related='repair_id.receipt_date', string='JC date', store=True, readonly=True)
+    line_status = fields.Selection([
+        ('assigned', 'Assigned'),
+        ('working', 'Working'),
+        ('paused', 'Paused'),
+        ('completed', 'Completed'),
+    ], string='Status', compute='_compute_line_status', store=True)
+
+    @api.depends('is_timer_running', 'is_timer_paused', 'timer_end', 'timer_start')
+    def _compute_line_status(self):
+        for line in self:
+            if line.is_timer_running:
+                line.line_status = 'working'
+            elif line.is_timer_paused:
+                line.line_status = 'paused'
+            elif line.timer_end:
+                line.line_status = 'completed'
+            else:
+                line.line_status = 'assigned'
 
     @api.depends('timer_start', 'timer_end', 'is_timer_running', 'accumulated_seconds', 'timer_last_start', 'alloted_fru', 'quantity', 'unit_price', 'is_collective', 'collective_member_count')
     def _compute_time_diff(self):
