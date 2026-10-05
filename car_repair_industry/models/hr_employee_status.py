@@ -728,13 +728,12 @@ class HrEmployee(models.Model):
             active_slines._sync_to_employee_status_log()
 
         # Remove completed logs so this model only acts as a temporary live tracker of ongoing work
-        if not self.env.context.get('skip_complete_unlink'):
-            completed_logs = self.env['hr.employee.status.log'].search([
-                ('employee_id', '=', self.id),
-                '|', ('job_status', '=', 'completed'), ('status', '=', 'completed')
-            ])
-            if completed_logs:
-                completed_logs.with_context(skip_service_line_sync=True).unlink()
+        completed_logs = self.env['hr.employee.status.log'].search([
+            ('employee_id', '=', self.id),
+            '|', ('job_status', '=', 'completed'), ('status', '=', 'completed')
+        ])
+        if completed_logs:
+            completed_logs.with_context(skip_service_line_sync=True).unlink()
 
         lead_user_id = False
         if self.coach_id and self.coach_id.user_id:
@@ -1591,85 +1590,74 @@ class HrEmployeeStatusLog(models.Model):
     def action_complete_job(self):
         self.ensure_one()
         now = fields.Datetime.now()
-        # Stop all running service lines without triggering sync (which would overwrite our status)
-        running_lines = self.service_line_ids.filtered(lambda l: l.is_timer_running)
-        for line in running_lines:
+        emp = self.employee_id
+        repair = self.job_id
+
+        # Find and complete ALL service lines assigned to this employee on this job card
+        all_lines = self.env['fleet.repair.service.line'].search([
+            ('employee_id', '=', emp.id),
+            ('repair_id', '=', repair.id)
+        ]) if (emp and repair) else self.service_line_ids
+
+        for line in all_lines:
+            line_vals = {
+                'is_timer_running': False,
+                'is_timer_paused': False,
+            }
+            if not line.timer_end:
+                line_vals['timer_end'] = now
             if line.timer_last_start:
                 delta = now - line.timer_last_start
                 run_sec = delta.total_seconds()
                 if line.is_collective and (line.collective_member_count or 1) > 1:
                     run_sec = run_sec / float(line.collective_member_count)
-                line.accumulated_seconds += run_sec
-            line.with_context(skip_status_log_sync=True).write({
-                'timer_last_start': False,
-                'timer_end': now,
-                'is_timer_running': False,
-                'is_timer_paused': False,
-            })
+                line.accumulated_seconds = (line.accumulated_seconds or 0.0) + run_sec
+                line_vals['timer_last_start'] = False
+            line.with_context(skip_status_log_sync=True).write(line_vals)
             line._compute_time_diff()
             line._sync_to_work_lines()
 
-        # Also mark all paused lines as no longer paused (job is done)
-        paused_lines = self.service_line_ids.filtered(lambda l: l.is_timer_paused)
-        if paused_lines:
-            paused_lines.with_context(skip_status_log_sync=True).write({
-                'is_timer_paused': False,
-            })
-
-        # Calculate total accumulated time for the status log
-        total_accumulated = sum(self.service_line_ids.mapped('accumulated_seconds') or [0.0])
-
-        # Update the status log directly without calling _sync which would override status
-        log_vals = {
-            'job_status': 'completed',
-            'status': 'completed',
-            'end_datetime': now,
-            'is_timer_running': False,
-            'is_timer_paused': False,
-            'accumulated_seconds': total_accumulated,
-            'pause_reason': False,
-            'pause_notes': False,
-            'is_current_activity': False,
-        }
-        if self.is_pause_running and self.pause_timer_start:
-            delta = now - self.pause_timer_start
-            log_vals['pause_accumulated_seconds'] = (self.pause_accumulated_seconds or 0.0) + max(0, delta.total_seconds())
-        log_vals['is_pause_running'] = False
-        log_vals['pause_timer_start'] = False
-        self.with_context(skip_service_timer_sync=True, skip_status_log_sync=True).write(log_vals)
+        total_accumulated = sum(all_lines.mapped('accumulated_seconds') or [0.0])
 
         # Record into employee.timeline.history
-        self.env['employee.timeline.history'].create_activity_log(
-            self.employee_id.id,
-            status='completed',
-            job_id=self.job_id.id if self.job_id else False,
-            service_line_id=self.service_line_id.id if self.service_line_id else False,
-            service_name=self.service_name or '',
-            start_datetime=now,
-            end_datetime=now,
-            accumulated_seconds=total_accumulated,
-            status_log_id=self.id,
-        )
+        if emp:
+            self.env['employee.timeline.history'].create_activity_log(
+                emp.id,
+                status='completed',
+                job_id=repair.id if repair else False,
+                service_line_id=self.service_line_id.id if self.service_line_id else False,
+                service_name=self.service_name or '',
+                start_datetime=now,
+                end_datetime=now,
+                accumulated_seconds=total_accumulated,
+                status_log_id=self.id,
+            )
 
-        # Update the employee record
-        if self.employee_id:
-            first_sline = self.service_line_ids[0] if self.service_line_ids else False
-            self.employee_id.sudo().write({
+            # Update the employee record
+            emp.sudo().write({
                 'work_status': 'completed',
-                'current_job_id': self.job_id.id if self.job_id else False,
-                'current_service_line_id': first_sline.id if first_sline else False,
+                'current_job_id': False,
+                'current_service_line_id': False,
                 'current_pause_reason': False,
                 'is_idle_running': False,
                 'idle_reason': False,
                 'idle_timer_start': False,
             })
 
-        emp = self.employee_id
+        # Remove the status log so it disappears from hr.employee.status.log immediately
+        self.with_context(skip_service_line_sync=True, skip_status_log_sync=True).unlink()
+
         if emp:
-            # Transition to the employee work lines list view.
-            # We skip unlinking during this RPC to prevent Odoo FormController from throwing FetchRecordError ("Records cannot be found / might have been deleted").
-            # The list view domain immediately filters it out (job_status != 'completed'), so it disappears from the live work board instantly.
-            return emp.with_context(skip_complete_unlink=True).action_open_employee_work_lines()
+            action = emp.action_open_employee_work_lines()
+            action['target'] = 'main'
+            action['context'] = {
+                'default_employee_id': emp.id,
+                'search_default_employee_id': emp.id,
+                'active_id': emp.id,
+                'active_ids': [emp.id],
+                'active_model': 'hr.employee',
+            }
+            return action
         return {'type': 'ir.actions.act_window_close'}
 
     def action_select_all_group(self):

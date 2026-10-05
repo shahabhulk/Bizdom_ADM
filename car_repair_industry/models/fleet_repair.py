@@ -2169,7 +2169,7 @@ class FleetRepairServiceLine(models.Model):
 
             running_lines = all_emp_slines.filtered(lambda l: l.is_timer_running)
             paused_lines = all_emp_slines.filtered(lambda l: l.is_timer_paused)
-            completed_lines = all_emp_slines.filtered(lambda l: l.timer_end and not l.is_timer_running and not l.is_timer_paused and (l.accumulated_seconds or 0) > 0)
+            completed_lines = all_emp_slines.filtered(lambda l: bool(l.timer_end) and not l.is_timer_running and not l.is_timer_paused)
 
             # If all service lines on this job card are completed, job is done for this employee
             if completed_lines and len(completed_lines) == len(all_emp_slines):
