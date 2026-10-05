@@ -593,6 +593,11 @@
                                 <field name="hours" string="Worked Hrs" optional="show" sum="Total"/>
                                 <field name="alloted_fru" string="FRU" optional="hide"/>
                                 <field name="time_diff" string="Duration" widget="stopwatch_timer" readonly="1" optional="hide"/>
+                                <field name="line_status" string="Status" widget="badge" optional="show"
+                                       decoration-success="line_status == 'completed'"
+                                       decoration-info="line_status == 'working'"
+                                       decoration-warning="line_status == 'paused'"
+                                       decoration-muted="line_status == 'assigned'"/>
                                 <field name="is_timer_paused" string="Reset" widget="reset_timer_button" optional="hide"/>
                             </list>
                         </field>
@@ -849,6 +854,11 @@
                                 <field name="hours" string="Worked Hrs" optional="show" sum="Total"/>
                                 <field name="alloted_fru" string="FRU" optional="hide"/>
                                 <field name="time_diff" string="Duration" widget="stopwatch_timer" readonly="1" optional="hide"/>
+                                <field name="line_status" string="Status" widget="badge" optional="show"
+                                       decoration-success="line_status == 'completed'"
+                                       decoration-info="line_status == 'working'"
+                                       decoration-warning="line_status == 'paused'"
+                                       decoration-muted="line_status == 'assigned'"/>
                                 <field name="is_timer_paused" string="Reset" widget="reset_timer_button" optional="hide"/>
                             </list>
                         </field>
