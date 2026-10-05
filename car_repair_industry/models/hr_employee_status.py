@@ -728,12 +728,13 @@ class HrEmployee(models.Model):
             active_slines._sync_to_employee_status_log()
 
         # Remove completed logs so this model only acts as a temporary live tracker of ongoing work
-        completed_logs = self.env['hr.employee.status.log'].search([
-            ('employee_id', '=', self.id),
-            '|', ('job_status', '=', 'completed'), ('status', '=', 'completed')
-        ])
-        if completed_logs:
-            completed_logs.with_context(skip_service_line_sync=True).unlink()
+        if not self.env.context.get('skip_complete_unlink'):
+            completed_logs = self.env['hr.employee.status.log'].search([
+                ('employee_id', '=', self.id),
+                '|', ('job_status', '=', 'completed'), ('status', '=', 'completed')
+            ])
+            if completed_logs:
+                completed_logs.with_context(skip_service_line_sync=True).unlink()
 
         lead_user_id = False
         if self.coach_id and self.coach_id.user_id:
@@ -1620,14 +1621,14 @@ class HrEmployeeStatusLog(models.Model):
         # Update the status log directly without calling _sync which would override status
         log_vals = {
             'job_status': 'completed',
-            'status': 'job',
+            'status': 'completed',
             'end_datetime': now,
             'is_timer_running': False,
             'is_timer_paused': False,
             'accumulated_seconds': total_accumulated,
             'pause_reason': False,
             'pause_notes': False,
-            'is_current_activity': True,
+            'is_current_activity': False,
         }
         if self.is_pause_running and self.pause_timer_start:
             delta = now - self.pause_timer_start
@@ -1662,11 +1663,12 @@ class HrEmployeeStatusLog(models.Model):
                 'idle_timer_start': False,
             })
 
-        # Once the job is completed it disappears from hr.employee.status.log (permanent audit in employee.timeline.history)
         emp = self.employee_id
-        self.with_context(skip_service_line_sync=True).unlink()
         if emp:
-            return emp.action_open_employee_work_lines()
+            # Transition to the employee work lines list view.
+            # We skip unlinking during this RPC to prevent Odoo FormController from throwing FetchRecordError ("Records cannot be found / might have been deleted").
+            # The list view domain immediately filters it out (job_status != 'completed'), so it disappears from the live work board instantly.
+            return emp.with_context(skip_complete_unlink=True).action_open_employee_work_lines()
         return {'type': 'ir.actions.act_window_close'}
 
     def action_select_all_group(self):
