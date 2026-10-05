@@ -5,6 +5,7 @@
         <field name="model">assign.job.wizard</field>
         <field name="arch" type="xml">
             <form string="Employee Status &amp; Job Assignment">
+                <field name="repair_id_domain" invisible="1"/>
                 <field name="team_lead_id" invisible="1"/>
                 <field name="has_active_timer" invisible="1"/>
                 <field name="is_timer_running" invisible="1"/>
@@ -48,7 +49,7 @@
                     </group>
                     <group invisible="status == 'idle'">
                         <field name="repair_id" 
-                               domain="['|', ('id', '=', repair_id), '&amp;', ('state', 'not in', ['done', 'invoiced', 'cancel']), ('team_lead_id', '=', team_lead_id)]" 
+                               domain="repair_id_domain" 
                                options="{'no_create': True}" 
                                required="status == 'job'"/>
                         <field name="product_id" 

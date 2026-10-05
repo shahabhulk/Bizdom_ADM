@@ -10,8 +10,6 @@
                 <field name="status" column_invisible="1"/>
                 <field name="job_status" column_invisible="1"/>
                 <field name="display_status" string="Status" widget="badge" 
-                       decoration-info="display_status in ('Working', 'Assigned')" 
-                       decoration-warning="display_status == 'Paused'"
                        decoration-success="display_status == 'Completed'"
                        decoration-muted="display_status == 'Idle'"/>
                 <field name="pause_reason_display" string="Pause Reason" widget="badge" 
@@ -42,48 +40,132 @@
             <form string="Employee Activity Detail" create="0" edit="0">
                 <header>
                     <button name="action_open_repair_order" string="Open Job Card" type="object" class="btn btn-outline-primary" invisible="not job_id" icon="fa-external-link"/>
+                    <field name="job_status" widget="statusbar" statusbar_visible="assigned,working,paused,completed" invisible="not job_id"/>
                 </header>
                 <sheet>
-                    <div class="oe_title">
-                        <h1>
-                            <field name="display_name" readonly="1"/>
-                        </h1>
+                    <field name="has_paused_services" invisible="1"/>
+                    <field name="pause_reason" invisible="1"/>
+                    <field name="pause_notes" invisible="1"/>
+
+                    <!-- Service Tasks Section -->
+                    <div class="mb-4" invisible="not job_id">
+                        <div class="d-flex align-items-center justify-content-between mb-2">
+                            <div class="d-flex align-items-center gap-2">
+                                <span class="fw-bold text-dark fs-6 text-uppercase">
+                                    SERVICE TASKS
+                                </span>
+                                <i class="fa fa-arrow-right text-muted small" style="font-size: 11px;"/>
+                                <span class="badge rounded-pill px-3 py-1" style="background-color: #10B981; color: white;" invisible="not is_collective_timer_running or timer_mode != 'stopwatch'">
+                                    <i class="fa fa-clock-o fa-spin me-1"/>Stopwatch
+                                </span>
+                                <span class="badge rounded-pill px-3 py-1" style="background-color: #10B981; color: white;" invisible="not is_collective_timer_running or timer_mode == 'stopwatch'">
+                                    <i class="fa fa-refresh fa-spin me-1"/>Collective Timer
+                                </span>
+                                <span class="badge rounded-pill px-3 py-1" style="background-color: #EF4444; color: white;" invisible="is_collective_timer_running or job_status != 'paused' or pause_reason">
+                                    <i class="fa fa-pause me-1"/>Stop
+                                </span>
+                                <span class="badge rounded-pill px-3 py-1" style="background-color: #F59E0B; color: #000;" invisible="is_collective_timer_running or job_status != 'paused' or pause_reason != 'waiting_parts'">
+                                    <i class="fa fa-pause me-1"/>Waiting for Parts
+                                </span>
+                                <span class="badge rounded-pill px-3 py-1" style="background-color: #2563EB; color: #fff;" invisible="is_collective_timer_running or job_status != 'paused' or pause_reason != 'waiting_approval'">
+                                    <i class="fa fa-pause me-1"/>Waiting for Approval
+                                </span>
+                                <span class="badge rounded-pill px-3 py-1" style="background-color: #9333EA; color: #fff;" invisible="is_collective_timer_running or job_status != 'paused' or pause_reason != 'waiting_qc'">
+                                    <i class="fa fa-pause me-1"/>Waiting for QC
+                                </span>
+                                <span class="badge rounded-pill px-3 py-1" style="background-color: #EA580C; color: #fff;" invisible="is_collective_timer_running or job_status != 'paused' or pause_reason != 'assistance_required'">
+                                    <i class="fa fa-pause me-1"/>Assistance Required
+                                </span>
+                                <span class="badge rounded-pill px-3 py-1" style="background-color: #D97706; color: #fff;" invisible="is_collective_timer_running or job_status != 'paused' or pause_reason != 'tools_issue'">
+                                    <i class="fa fa-pause me-1"/>Tool / Equipment Unavailable
+                                </span>
+                                <span class="badge rounded-pill px-3 py-1" style="background-color: #64748B; color: #fff;" invisible="is_collective_timer_running or job_status != 'paused' or pause_reason != 'other'">
+                                    <i class="fa fa-pause me-1"/>Other
+                                </span>
+                                <span class="d-inline-flex align-items-center gap-1 px-2 py-1 rounded bg-warning-subtle border border-warning text-dark font-monospace fs-6 fw-bold shadow-sm" invisible="not has_paused_services and not is_pause_running and pause_duration == 0 and job_status != 'paused'" title="Pause Timer running against reason">
+                                    <i class="fa fa-clock-o text-warning"/>
+                                    <span>Pause: </span>
+                                    <field name="pause_duration" widget="pause_live_timer" readonly="1" nolabel="1"/>
+                                </span>
+                                <span class="text-muted small ms-1" invisible="not has_paused_services and not is_pause_running and pause_duration == 0 and job_status != 'paused'">
+                                    Worked:
+                                </span>
+                                <field name="collective_duration" widget="collective_live_timer" readonly="1" nolabel="1"/>
+                            </div>
+                        </div>
+                        <field name="service_line_ids" readonly="1">
+                            <list>
+                                <field name="item_code" string="Item Code" optional="show"/>
+                                <field name="product_id" string="Service"/>
+                                <field name="department_id" string="Department" optional="show"/>
+                                <field name="employee_id" string="Assigned Technician"/>
+                                <field name="timer_start" string="Start Date" optional="show"/>
+                                <field name="timer_end" string="End Date" optional="show"/>
+                                <field name="hours" string="Worked Hrs" optional="show" sum="Total"/>
+                                <field name="alloted_fru" string="FRU" optional="hide"/>
+                                <field name="time_diff" string="Duration" widget="stopwatch_timer" readonly="1" optional="hide"/>
+                                <field name="line_status" string="Status" widget="badge" optional="show"
+                                       decoration-success="line_status == 'completed'"
+                                       decoration-info="line_status == 'working'"
+                                       decoration-danger="line_status == 'paused'"
+                                       decoration-muted="line_status == 'assigned'"/>
+                            </list>
+                        </field>
                     </div>
+
+                    <!-- Job and Car Details -->
                     <group>
-                        <group string="Activity Info">
+                        <group string="Status Information">
                             <field name="employee_id" readonly="1"/>
-                            <field name="display_status" string="Status" widget="badge" 
-                                   decoration-info="display_status in ('Working', 'Assigned')" 
-                                   decoration-warning="display_status == 'Paused'"
-                                   decoration-success="display_status == 'Completed'"
-                                   decoration-muted="display_status == 'Idle'"/>
-                            <field name="pause_reason_display" string="Pause Reason" invisible="status != 'paused' and job_status != 'paused'"/>
-                            <field name="pause_notes" string="Pause Notes" invisible="not pause_notes"/>
-                            <field name="idle_reason_display" string="Idle Reason" invisible="status != 'idle'"/>
-                            <field name="notes" string="Notes" invisible="not notes"/>
-                        </group>
-                        <group string="Job Card &amp; Vehicle">
-                            <field name="job_id" readonly="1" invisible="not job_id"/>
-                            <field name="service_line_id" readonly="1" invisible="not service_line_id"/>
-                            <field name="service_name" readonly="1" invisible="not service_name"/>
-                            <field name="license_plate" readonly="1" invisible="not job_id"/>
-                            <field name="fleet_id" readonly="1" invisible="not job_id"/>
-                            <field name="model_name" readonly="1" invisible="not job_id"/>
-                        </group>
-                    </group>
-                    <group string="Time Metrics">
-                        <group>
+                            <field name="department_id" invisible="1"/>
+                            <field name="status" readonly="1"/>
+                            <field name="pause_reason_display" string="Pause Reason" invisible="not has_paused_services and job_status != 'paused'"/>
+                            <field name="pause_duration" string="Pause Time" widget="pause_live_timer" invisible="not has_paused_services and not is_pause_running and pause_duration == 0 and job_status != 'paused'" readonly="1"/>
+                            <field name="worked_hours" widget="stopwatch_live_timer" readonly="1"/>
                             <field name="start_datetime" readonly="1"/>
                             <field name="end_datetime" readonly="1"/>
-                            <field name="duration" readonly="1" widget="float_time"/>
-                            <field name="duration_display" readonly="1"/>
                         </group>
-                        <group>
-                            <field name="worked_time_display" readonly="1"/>
-                            <field name="pause_time_display" readonly="1"/>
-                            <field name="total_elapsed_display" readonly="1"/>
+                        <group string="Job Card">
+                            <field name="job_id" string="Job Card No" readonly="1"/>
+                            <field name="duration" invisible="1"/>
+                            <field name="service_line_id" invisible="1"/>
                         </group>
                     </group>
+                    <group string="Car Details" invisible="not job_id">
+                        <group>
+                            <field name="license_plate" readonly="1"/>
+                            <field name="fleet_id" string="Car" readonly="1"/>
+                            <field name="model_name" string="Model" readonly="1"/>
+                        </group>
+                        <group>
+                            <field name="vin_sn" string="Chassis Number" readonly="1"/>
+                            <field name="kilometers_num" string="KMS" readonly="1"/>
+                        </group>
+                    </group>
+                    <group>
+                        <field name="notes" placeholder="Optional notes or downtime reason..." readonly="1"/>
+                    </group>
+                    <!-- Invisible dependencies -->
+                    <field name="is_timer_running" invisible="1"/>
+                    <field name="is_timer_paused" invisible="1"/>
+                    <field name="timer_start" invisible="1"/>
+                    <field name="timer_last_start" invisible="1"/>
+                    <field name="timer_end" invisible="1"/>
+                    <field name="product_id" invisible="1"/>
+                    <field name="time_diff" invisible="1"/>
+                    <field name="alloted_fru" invisible="1"/>
+                    <field name="is_collective_timer_running" invisible="1"/>
+                    <field name="collective_selected_count" invisible="1"/>
+                    <field name="collective_timer_last_start" invisible="1"/>
+                    <field name="collective_accumulated_seconds" invisible="1"/>
+                    <field name="collective_target_hours" invisible="1"/>
+                    <field name="collective_target_seconds" invisible="1"/>
+                    <field name="collective_remaining_seconds" invisible="1"/>
+                    <field name="timer_mode" invisible="1"/>
+                    <field name="is_pause_running" invisible="1"/>
+                    <field name="pause_timer_start" invisible="1"/>
+                    <field name="pause_accumulated_seconds" invisible="1"/>
+                    <field name="pause_time_display" invisible="1"/>
                 </sheet>
             </form>
         </field>
@@ -104,10 +186,7 @@
                 <filter string="Ongoing Activities" name="filter_ongoing" domain="[('end_datetime', '=', False)]"/>
                 <filter string="Finished Activities" name="filter_finished" domain="[('end_datetime', '!=', False)]"/>
                 <separator/>
-                <filter string="Working" name="filter_working" domain="['|', ('status', 'in', ['working', 'job']), ('job_status', '=', 'working')]"/>
-                <filter string="Paused" name="filter_paused" domain="['|', ('status', '=', 'paused'), ('job_status', '=', 'paused')]"/>
-                <filter string="Idle" name="filter_idle" domain="[('status', '=', 'idle')]"/>
-                <filter string="Assigned" name="filter_assigned" domain="['|', ('status', '=', 'assigned'), ('job_status', '=', 'assigned')]"/>
+                <filter string="Idle" name="filter_idle" domain="['|', ('status', '=', 'idle'), ('job_status', '=', 'idle')]"/>
                 <filter string="Completed" name="filter_completed" domain="['|', ('status', '=', 'completed'), ('job_status', '=', 'completed')]"/>
                 <separator/>
                 <filter string="Today" name="filter_today" domain="[('start_datetime', '&gt;=', datetime.datetime.now().strftime('%Y-%m-%d 00:00:00'))]"/>
@@ -153,6 +232,7 @@
         <field name="name">Employee Timeline History</field>
         <field name="res_model">employee.timeline.history</field>
         <field name="view_mode">list,pivot,graph,form</field>
+        <field name="domain">['|', ('status', 'in', ['idle', 'completed']), ('job_status', 'in', ['idle', 'completed'])]</field>
         <field name="search_view_id" ref="view_employee_timeline_history_search"/>
         <field name="view_ids" eval="[(5, 0, 0),
             (0, 0, {'view_mode': 'list', 'view_id': ref('view_employee_timeline_history_list')}),

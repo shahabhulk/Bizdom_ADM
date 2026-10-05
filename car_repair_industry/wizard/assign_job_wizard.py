@@ -25,10 +25,14 @@ class AssignJobWizard(models.TransientModel):
         ('idle', 'Idle')
     ], string='Status', required=True, default='job')
 
+    repair_id_domain = fields.Char(
+        compute='_compute_repair_id_domain',
+        string='Job Card Domain',
+    )
     repair_id = fields.Many2one(
         'fleet.repair',
         string='Job Card',
-        domain="['|', ('id', '=', repair_id), '&', ('state', 'not in', ['done', 'invoiced', 'cancel']), ('team_lead_id', '=', team_lead_id)]"
+        domain="repair_id_domain"
     )
     department_id = fields.Many2one(
         'hr.department',
@@ -215,7 +219,52 @@ class AssignJobWizard(models.TransientModel):
             if not res.get('service_line_id') and not self.env.context.get('default_service_line_id'):
                 if emp.current_service_line_id:
                     res['service_line_id'] = emp.current_service_line_id.id
+        if 'repair_id_domain' in fields_list or not res.get('repair_id_domain'):
+            user = self.env.user
+            is_admin = (
+                self.env.is_admin() or
+                user.has_group('base.group_system') or
+                user.has_group('base.group_erp_manager') or
+                user.has_group('car_repair_industry.group_fleet_repair_directeur_commercial') or
+                user.has_group('car_repair_industry.group_fleet_repair_service_manager')
+            )
+            lead_id = res.get('team_lead_id')
+            base_domain = [('state', 'not in', ['done', 'invoiced', 'cancel'])]
+            if not is_admin and lead_id:
+                domain = ['&'] + base_domain + [('team_lead_id', '=', lead_id)]
+            else:
+                domain = base_domain
+            if res.get('repair_id'):
+                domain = ['|', ('id', '=', res.get('repair_id'))] + domain
+            res['repair_id_domain'] = str(domain)
         return res
+
+    def _is_admin_or_manager(self):
+        user = self.env.user
+        return (
+            self.env.is_admin() or
+            user.has_group('base.group_system') or
+            user.has_group('base.group_erp_manager') or
+            user.has_group('car_repair_industry.group_fleet_repair_directeur_commercial') or
+            user.has_group('car_repair_industry.group_fleet_repair_service_manager')
+        )
+
+    @api.depends('team_lead_id', 'repair_id')
+    def _compute_repair_id_domain(self):
+        is_admin = self._is_admin_or_manager()
+        for wizard in self:
+            base_domain = [('state', 'not in', ['done', 'invoiced', 'cancel'])]
+            if not is_admin and wizard.team_lead_id:
+                domain = ['&'] + base_domain + [('team_lead_id', '=', wizard.team_lead_id.id)]
+            else:
+                domain = base_domain
+            if wizard.repair_id:
+                domain = ['|', ('id', '=', wizard.repair_id.id)] + domain
+            wizard.repair_id_domain = str(domain)
+
+    @api.onchange('team_lead_id', 'employee_id', 'repair_id')
+    def _onchange_repair_id_domain(self):
+        self._compute_repair_id_domain()
 
     @api.onchange('employee_id')
     def _onchange_employee_id(self):

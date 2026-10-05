@@ -10,4 +10,5 @@ from . import pause_job_wizard
 from . import set_idle_wizard
 from . import reset_employee_timers_wizard
 from . import reset_to_assigned_wizard
+from . import update_service_wizard
 

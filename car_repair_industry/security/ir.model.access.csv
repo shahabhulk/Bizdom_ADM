@@ -56,3 +56,4 @@ access_set_idle_wizard,set.idle.wizard,model_set_idle_wizard,base.group_user,1,1
 access_reset_employee_timers_wizard,reset.employee.timers.wizard,model_reset_employee_timers_wizard,base.group_user,1,1,1,1
 access_reset_to_assigned_wizard,reset.to.assigned.wizard,model_reset_to_assigned_wizard,base.group_user,1,1,1,1
 access_employee_timeline_history_user,employee.timeline.history.user,model_employee_timeline_history,base.group_user,1,1,1,1
+access_update_service_wizard,update.service.wizard,model_update_service_wizard,base.group_user,1,1,1,1

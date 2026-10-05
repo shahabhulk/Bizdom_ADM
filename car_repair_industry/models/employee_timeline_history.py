@@ -9,23 +9,24 @@ class EmployeeTimelineHistory(models.Model):
 
     employee_id = fields.Many2one('hr.employee', string='Employee', required=True, ondelete='cascade', index=True)
     status = fields.Selection([
-        ('job', 'Active Job'),
-        ('working', 'Working'),
         ('assigned', 'Assigned'),
-        ('paused', 'Paused'),
+        ('working', 'Working'),
+        ('paused', 'Stop'),
+        ('completed', 'Completed'),
+        ('idle', 'Idle'),
+        ('job', 'Active Job'),
         ('waiting_car', 'Waiting for Car'),
         ('parts_unavailable', 'Parts Arrival / Not Available'),
         ('tools_issue', 'Tools Issue'),
         ('approval_pending', 'Customer Approval Pending'),
-        ('idle', 'Idle'),
-        ('completed', 'Completed'),
-    ], string='Status', required=True, default='assigned')
+    ], string='Status', required=True, default='completed')
     job_status = fields.Selection([
         ('assigned', 'Assigned'),
         ('working', 'Working'),
-        ('paused', 'Paused'),
+        ('paused', 'Stop'),
         ('completed', 'Completed'),
-    ], string='Job Status', default='assigned')
+        ('idle', 'Idle'),
+    ], string='Job Status', default='completed')
 
     display_status = fields.Char(
         string='Status',
@@ -33,22 +34,15 @@ class EmployeeTimelineHistory(models.Model):
         store=True,
     )
 
-    @api.depends('status', 'job_status', 'pause_reason')
+    @api.depends('status', 'job_status', 'idle_reason')
     def _compute_display_status(self):
-        status_dict = dict(self._fields['status'].selection)
         for rec in self:
-            if rec.status == 'idle':
+            if rec.status == 'idle' or rec.job_status == 'idle' or rec.idle_reason:
                 rec.display_status = 'Idle'
             elif rec.status == 'completed' or rec.job_status == 'completed':
                 rec.display_status = 'Completed'
-            elif rec.status == 'paused' or rec.job_status == 'paused' or rec.pause_reason:
-                rec.display_status = 'Paused'
-            elif rec.status in ('working', 'job') or rec.job_status == 'working':
-                rec.display_status = 'Working'
-            elif rec.status == 'assigned' or rec.job_status == 'assigned':
-                rec.display_status = 'Assigned'
             else:
-                rec.display_status = status_dict.get(rec.status, rec.status or 'Assigned')
+                rec.display_status = 'Completed' if rec.end_datetime else 'Idle'
 
     @api.depends('employee_id.name', 'display_status', 'job_id.sequence', 'job_id.name', 'start_datetime')
     def _compute_display_name(self):
@@ -104,27 +98,17 @@ class EmployeeTimelineHistory(models.Model):
             'break_lunch': '☕ Break / Lunch',
         }
         for rec in self:
-            if rec.status == 'idle':
+            if rec.status == 'idle' or rec.job_status == 'idle' or rec.idle_reason:
                 rec.idle_reason_display = idle_map.get(rec.idle_reason, rec.notes or 'Idle')
                 rec.pause_reason_display = '—'
-            elif rec.pause_reason and rec.pause_reason in reason_map:
-                rec.pause_reason_display = reason_map[rec.pause_reason]
-                rec.idle_reason_display = '—'
-            elif rec.pause_reason:
-                pause_dict = dict(self._fields['pause_reason'].selection) if 'pause_reason' in self._fields else {}
-                rec.pause_reason_display = pause_dict.get(rec.pause_reason, rec.pause_reason)
-                rec.idle_reason_display = '—'
-            elif rec.job_status == 'completed' or rec.status == 'completed':
-                rec.pause_reason_display = '✅ Completed'
-                rec.idle_reason_display = '—'
-            elif rec.job_status == 'working' or rec.status in ('working', 'job'):
-                rec.pause_reason_display = '🔧 Working'
-                rec.idle_reason_display = '—'
-            elif rec.job_status == 'paused' or rec.status == 'paused':
-                rec.pause_reason_display = '⚪ Other'
-                rec.idle_reason_display = '—'
-            elif rec.job_status == 'assigned' or rec.status == 'assigned':
-                rec.pause_reason_display = '📋 Assigned'
+            elif rec.status == 'completed' or rec.job_status == 'completed':
+                if rec.pause_reason and rec.pause_reason in reason_map:
+                    rec.pause_reason_display = reason_map[rec.pause_reason]
+                elif rec.pause_reason:
+                    pause_dict = dict(self._fields['pause_reason'].selection) if 'pause_reason' in self._fields else {}
+                    rec.pause_reason_display = pause_dict.get(rec.pause_reason, rec.pause_reason)
+                else:
+                    rec.pause_reason_display = '✅ Completed'
                 rec.idle_reason_display = '—'
             else:
                 rec.pause_reason_display = '—'
@@ -154,6 +138,71 @@ class EmployeeTimelineHistory(models.Model):
         store=True,
         readonly=True,
     )
+    vin_sn = fields.Char(
+        string='Chassis Number',
+        related='job_id.vin_sn',
+        store=True,
+        readonly=True,
+    )
+    kilometers_num = fields.Char(
+        string='KMS',
+        related='job_id.kilometers_num',
+        store=True,
+        readonly=True,
+    )
+    department_id = fields.Many2one(
+        'hr.department',
+        string='Department',
+        related='employee_id.department_id',
+        store=True,
+        readonly=True,
+    )
+    service_line_ids = fields.Many2many(
+        'fleet.repair.service.line',
+        string='Service Tasks',
+        compute='_compute_service_line_ids',
+    )
+    worked_hours = fields.Float(
+        string='Worked Hours',
+        compute='_compute_worked_hours',
+        store=True,
+        digits=(16, 2),
+    )
+    pause_duration = fields.Float(
+        string='Pause Duration',
+        compute='_compute_pause_duration',
+        store=True,
+        digits=(16, 2),
+    )
+    has_paused_services = fields.Boolean(
+        string='Has Paused Services',
+        compute='_compute_has_paused_services',
+    )
+    collective_duration = fields.Float(
+        string='Collective Duration',
+        compute='_compute_collective_duration',
+    )
+    is_collective_timer_running = fields.Boolean(string='Collective Timer Running', default=False)
+    is_pause_running = fields.Boolean(string='Pause Running', default=False)
+    is_timer_running = fields.Boolean(string='Timer Running', default=False)
+    collective_selected_count = fields.Integer(string='Selected Count', default=0)
+    collective_timer_last_start = fields.Datetime(string='Collective Last Start')
+    collective_accumulated_seconds = fields.Float(string='Collective Accumulated Seconds', default=0.0)
+    collective_target_hours = fields.Float(string='Collective Target Hours', default=0.0)
+    collective_target_seconds = fields.Float(string='Collective Target Seconds', default=0.0)
+    collective_remaining_seconds = fields.Float(string='Collective Remaining Seconds', default=0.0)
+    timer_mode = fields.Selection([
+        ('countdown', 'Countdown'),
+        ('stopwatch', 'Stopwatch'),
+    ], string='Timer Mode', default='stopwatch')
+    pause_timer_start = fields.Datetime(string='Pause Timer Start')
+    timer_start = fields.Datetime(string='Timer Start', compute='_compute_timer_aliases', store=True, readonly=False)
+    timer_last_start = fields.Datetime(string='Timer Last Start')
+    timer_end = fields.Datetime(string='Timer End', compute='_compute_timer_aliases', store=True, readonly=False)
+    is_timer_paused = fields.Boolean(string='Is Timer Paused', default=False)
+    alloted_fru = fields.Integer(string='Alloted FRU', default=0)
+    time_diff = fields.Float(string='Duration', compute='_compute_time_diff')
+    product_id = fields.Many2one('product.product', string='Service', related='service_line_id.product_id', store=True, readonly=True)
 
     start_datetime = fields.Datetime(string='Start Time', default=fields.Datetime.now, required=True, index=True)
     end_datetime = fields.Datetime(string='End Time', index=True)
@@ -166,6 +215,71 @@ class EmployeeTimelineHistory(models.Model):
     pause_accumulated_seconds = fields.Float(string='Pause Seconds', default=0.0)
     notes = fields.Text(string='Notes')
     status_log_id = fields.Many2one('hr.employee.status.log', string='Status Log', ondelete='set null')
+
+    @api.depends('job_id', 'job_id.service_line_ids', 'service_line_id', 'status_log_id', 'employee_id')
+    def _compute_service_line_ids(self):
+        for rec in self:
+            lines = self.env['fleet.repair.service.line']
+            if rec.status_log_id and rec.status_log_id.service_line_ids:
+                lines = rec.status_log_id.service_line_ids
+            elif rec.job_id and rec.employee_id:
+                lines = rec.job_id.service_line_ids.filtered(
+                    lambda l: l.employee_id == rec.employee_id or (rec.status_log_id and l.status_log_id == rec.status_log_id)
+                )
+                if not lines:
+                    lines = rec.job_id.service_line_ids
+            elif rec.job_id:
+                lines = rec.job_id.service_line_ids
+            elif rec.service_line_id:
+                lines = rec.service_line_id
+            rec.service_line_ids = lines
+
+    @api.depends('accumulated_seconds', 'duration', 'service_line_ids.hours', 'service_line_ids.accumulated_seconds')
+    def _compute_worked_hours(self):
+        for rec in self:
+            if rec.accumulated_seconds:
+                rec.worked_hours = round(rec.accumulated_seconds / 3600.0, 2)
+            elif rec.service_line_ids:
+                s_hours = sum(l.hours or (l.accumulated_seconds / 3600.0 if l.accumulated_seconds else 0.0) for l in rec.service_line_ids)
+                rec.worked_hours = round(s_hours, 2)
+            else:
+                rec.worked_hours = round(rec.duration or 0.0, 2)
+
+    @api.depends('pause_accumulated_seconds', 'service_line_ids.pause_accumulated_seconds')
+    def _compute_pause_duration(self):
+        for rec in self:
+            if rec.pause_accumulated_seconds:
+                rec.pause_duration = round(rec.pause_accumulated_seconds / 3600.0, 2)
+            elif rec.service_line_ids:
+                p_sec = sum(l.pause_accumulated_seconds or 0.0 for l in rec.service_line_ids)
+                rec.pause_duration = round(p_sec / 3600.0, 2)
+            else:
+                rec.pause_duration = 0.0
+
+    @api.depends('pause_reason', 'pause_duration', 'service_line_ids.line_status')
+    def _compute_has_paused_services(self):
+        for rec in self:
+            rec.has_paused_services = bool(
+                rec.pause_reason or
+                (rec.pause_duration and rec.pause_duration > 0) or
+                any(l.line_status == 'paused' for l in rec.service_line_ids)
+            )
+
+    @api.depends('worked_hours', 'accumulated_seconds')
+    def _compute_collective_duration(self):
+        for rec in self:
+            rec.collective_duration = rec.worked_hours or (rec.accumulated_seconds / 3600.0 if rec.accumulated_seconds else 0.0)
+
+    @api.depends('start_datetime', 'end_datetime')
+    def _compute_timer_aliases(self):
+        for rec in self:
+            rec.timer_start = rec.start_datetime or False
+            rec.timer_end = rec.end_datetime or False
+
+    @api.depends('duration', 'worked_hours')
+    def _compute_time_diff(self):
+        for rec in self:
+            rec.time_diff = rec.worked_hours or rec.duration or 0.0
 
     @api.depends('start_datetime', 'end_datetime')
     def _compute_duration(self):
@@ -213,17 +327,55 @@ class EmployeeTimelineHistory(models.Model):
             rec.pause_time_display = _fmt(pause_sec)
             rec.total_elapsed_display = _fmt(total_sec)
 
+
+
     @api.model
     def create_activity_log(self, employee_id, status, **vals):
-        """Creates a timeline history record for the employee and closes any open previous activity."""
+        """Creates a timeline history record for the employee.
+        Timeline history strictly only stores 'completed' and 'idle' records."""
         now = fields.Datetime.now()
         emp_id = employee_id.id if hasattr(employee_id, 'id') else employee_id
         if not emp_id:
             return False
 
+        job_status = vals.get('job_status')
+        # Strictly restrict timeline history to only idle and completed
+        if status not in ('idle', 'completed') and job_status not in ('idle', 'completed'):
+            return False
+
         job_id = vals.get('job_id') or False
         if hasattr(job_id, 'id'):
             job_id = job_id.id
+
+        # Prevent duplicate completed records for the same employee and job card
+        if job_id and (status == 'completed' or job_status == 'completed'):
+            existing_completed = self.search([
+                ('employee_id', '=', emp_id),
+                ('job_id', '=', job_id),
+                '|', ('status', '=', 'completed'), ('job_status', '=', 'completed'),
+            ], order='accumulated_seconds desc, id desc', limit=1)
+            if existing_completed:
+                update_vals = {
+                    'status': 'completed',
+                    'job_status': 'completed',
+                    'end_datetime': vals.get('end_datetime') or now,
+                }
+                new_acc = vals.get('accumulated_seconds') or 0.0
+                if new_acc > (existing_completed.accumulated_seconds or 0.0):
+                    update_vals['accumulated_seconds'] = new_acc
+                new_pause = vals.get('pause_accumulated_seconds') or 0.0
+                if new_pause > (existing_completed.pause_accumulated_seconds or 0.0):
+                    update_vals['pause_accumulated_seconds'] = new_pause
+                if vals.get('notes'):
+                    update_vals['notes'] = vals.get('notes')
+                if vals.get('status_log_id') and not existing_completed.status_log_id:
+                    update_vals['status_log_id'] = vals.get('status_log_id')
+                if vals.get('service_name') and not existing_completed.service_name:
+                    update_vals['service_name'] = vals.get('service_name')
+                if vals.get('start_datetime') and (not existing_completed.start_datetime or vals['start_datetime'] < existing_completed.start_datetime):
+                    update_vals['start_datetime'] = vals['start_datetime']
+                existing_completed.write(update_vals)
+                return existing_completed
 
         # Check if an open timeline record already exists for this employee
         open_prev = self.search([
@@ -231,33 +383,23 @@ class EmployeeTimelineHistory(models.Model):
             ('end_datetime', '=', False),
         ], order='id desc')
 
-        # If an open record already matches the SAME status for the SAME job, update it instead of creating a duplicate!
-        status_family = ('working', 'job') if status in ('working', 'job') else (status,)
-        matching_open = open_prev.filtered(
-            lambda r: r.status in status_family and ((not job_id and not r.job_id) or (r.job_id and r.job_id.id == job_id))
-        )
-        if matching_open:
-            target = matching_open[0]
-            update_vals = {}
-            if vals.get('pause_reason') and target.pause_reason != vals.get('pause_reason'):
-                update_vals['pause_reason'] = vals.get('pause_reason')
-            if vals.get('pause_notes') and target.pause_notes != vals.get('pause_notes'):
-                update_vals['pause_notes'] = vals.get('pause_notes')
-            if vals.get('idle_reason') and target.idle_reason != vals.get('idle_reason'):
-                update_vals['idle_reason'] = vals.get('idle_reason')
-            if vals.get('service_name') and not target.service_name:
-                update_vals['service_name'] = vals.get('service_name')
-            if vals.get('accumulated_seconds'):
-                update_vals['accumulated_seconds'] = vals.get('accumulated_seconds')
-            if vals.get('pause_accumulated_seconds'):
-                update_vals['pause_accumulated_seconds'] = vals.get('pause_accumulated_seconds')
-            if vals.get('status_log_id') and not target.status_log_id:
-                update_vals['status_log_id'] = vals.get('status_log_id')
-            if update_vals:
-                target.write(update_vals)
-            return target
+        # If an open idle record already matches, update it instead of creating a duplicate
+        if status == 'idle' or job_status == 'idle':
+            matching_open = open_prev.filtered(lambda r: r.status == 'idle' or r.job_status == 'idle')
+            if matching_open:
+                target = matching_open[0]
+                update_vals = {}
+                if vals.get('idle_reason') and target.idle_reason != vals.get('idle_reason'):
+                    update_vals['idle_reason'] = vals.get('idle_reason')
+                if vals.get('notes') and target.notes != vals.get('notes'):
+                    update_vals['notes'] = vals.get('notes')
+                if vals.get('accumulated_seconds'):
+                    update_vals['accumulated_seconds'] = vals.get('accumulated_seconds')
+                if update_vals:
+                    target.write(update_vals)
+                return target
 
-        # Close any open previous timeline record for this employee with a DIFFERENT status
+        # Close any open previous timeline record for this employee
         for prev in open_prev:
             prev.write({
                 'end_datetime': now,
@@ -266,7 +408,7 @@ class EmployeeTimelineHistory(models.Model):
         log_vals = {
             'employee_id': emp_id,
             'status': status,
-            'job_status': vals.get('job_status') or ('working' if status in ('working', 'job') else status),
+            'job_status': job_status or status,
             'start_datetime': vals.get('start_datetime') or now,
             'end_datetime': vals.get('end_datetime') or False,
             'job_id': job_id,
@@ -284,17 +426,51 @@ class EmployeeTimelineHistory(models.Model):
 
     def init(self):
         super().init()
-        # Seed existing status logs into employee timeline history if not present
+        # 1. Clean up any records from employee timeline history that are neither completed nor idle
+        self.env.cr.execute("""
+            DELETE FROM employee_timeline_history 
+            WHERE (status IS NULL OR status NOT IN ('idle', 'completed'))
+              AND (job_status IS NULL OR job_status NOT IN ('idle', 'completed'));
+        """)
+        # 2. Fix records that have idle_reason set but status was not idle
+        self.env.cr.execute("""
+            UPDATE employee_timeline_history
+            SET status = 'idle', job_status = 'idle'
+            WHERE idle_reason IS NOT NULL AND status != 'idle';
+        """)
+        # 3. Deduplicate completed job records: keep only 1 record per (employee_id, job_id)
+        self.env.cr.execute("""
+            DELETE FROM employee_timeline_history
+            WHERE id NOT IN (
+                SELECT DISTINCT ON (employee_id, job_id) id
+                FROM employee_timeline_history
+                WHERE job_id IS NOT NULL AND (status = 'completed' OR job_status = 'completed')
+                ORDER BY employee_id, job_id, accumulated_seconds DESC, id DESC
+            )
+            AND job_id IS NOT NULL AND (status = 'completed' OR job_status = 'completed');
+        """)
+        # 4. Deduplicate idle records: keep only 1 record per (employee_id, start_datetime)
+        self.env.cr.execute("""
+            DELETE FROM employee_timeline_history
+            WHERE id NOT IN (
+                SELECT DISTINCT ON (employee_id, start_datetime) id
+                FROM employee_timeline_history
+                WHERE status = 'idle'
+                ORDER BY employee_id, start_datetime, id DESC
+            )
+            AND status = 'idle';
+        """)
+        # 5. Seed missing completed status logs from hr_employee_status_log (strictly 1 per employee and job)
         self.env.cr.execute("""
             INSERT INTO employee_timeline_history (
                 employee_id, status, job_status, pause_reason, pause_notes, idle_reason, notes,
                 job_id, service_line_id, start_datetime, end_datetime,
                 accumulated_seconds, pause_accumulated_seconds, status_log_id, create_date, write_date
             )
-            SELECT 
+            SELECT DISTINCT ON (l.employee_id, l.job_id)
                 l.employee_id,
-                l.status,
-                l.job_status,
+                'completed',
+                'completed',
                 l.pause_reason,
                 l.pause_notes,
                 l.idle_reason,
@@ -309,9 +485,46 @@ class EmployeeTimelineHistory(models.Model):
                 COALESCE(l.create_date, NOW() AT TIME ZONE 'UTC'),
                 COALESCE(l.write_date, NOW() AT TIME ZONE 'UTC')
             FROM hr_employee_status_log l
-            WHERE NOT EXISTS (
-                SELECT 1 FROM employee_timeline_history eth WHERE eth.status_log_id = l.id
-            );
+            WHERE (l.job_status = 'completed' OR l.status = 'completed')
+              AND l.job_id IS NOT NULL
+              AND NOT EXISTS (
+                  SELECT 1 FROM employee_timeline_history eth 
+                  WHERE eth.employee_id = l.employee_id AND eth.job_id = l.job_id
+              )
+            ORDER BY l.employee_id, l.job_id, l.accumulated_seconds DESC, l.id DESC;
+        """)
+        # 6. Seed missing idle logs
+        self.env.cr.execute("""
+            INSERT INTO employee_timeline_history (
+                employee_id, status, job_status, pause_reason, pause_notes, idle_reason, notes,
+                job_id, service_line_id, start_datetime, end_datetime,
+                accumulated_seconds, pause_accumulated_seconds, status_log_id, create_date, write_date
+            )
+            SELECT 
+                l.employee_id,
+                'idle',
+                'idle',
+                l.pause_reason,
+                l.pause_notes,
+                COALESCE(l.idle_reason, 'no_job'),
+                l.notes,
+                l.job_id,
+                l.service_line_id,
+                l.start_datetime,
+                l.end_datetime,
+                COALESCE(l.accumulated_seconds, 0.0),
+                COALESCE(l.pause_accumulated_seconds, 0.0),
+                l.id,
+                COALESCE(l.create_date, NOW() AT TIME ZONE 'UTC'),
+                COALESCE(l.write_date, NOW() AT TIME ZONE 'UTC')
+            FROM hr_employee_status_log l
+            WHERE (l.status = 'idle' OR l.job_status = 'idle')
+              AND NOT EXISTS (
+                  SELECT 1 FROM employee_timeline_history eth 
+                  WHERE eth.employee_id = l.employee_id 
+                    AND eth.status = 'idle' 
+                    AND eth.start_datetime = l.start_datetime
+              );
         """)
 
     def action_open_repair_order(self):
