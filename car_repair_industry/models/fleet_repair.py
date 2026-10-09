@@ -1945,7 +1945,7 @@ class FleetRepairServiceLine(models.Model):
         'hr.employee',
         string='Employee',
         domain="[('department_id', '=', department_id)] if department_id else []",
-        required=True
+        # required=True
     )
     uom_id = fields.Many2one('uom.uom', string='Unit of Measure')
     unit_price = fields.Float(string='Price')
