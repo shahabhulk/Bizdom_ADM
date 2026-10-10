@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_reset_employee_timers_wizard_form" model="ir.ui.view">
+        <field name="name">reset.employee.timers.wizard.form</field>
+        <field name="model">reset.employee.timers.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Reset All Timers Confirmation">
+                <field name="status_log_id" invisible="1"/>
+                <div class="alert alert-danger d-flex align-items-center mb-3 p-3 rounded">
+                    <i class="fa fa-exclamation-triangle fa-2x me-3 text-danger"/>
+                    <div>
+                        <strong class="fs-6">Are you sure you want to reset all timers?</strong>
+                        <div class="text-muted small mt-1">
+                            This action will permanently reset:
+                            <ul class="mb-0 mt-1">
+                                <li><strong>Service Task Timers</strong> (Worked hours &amp; elapsed duration back to 0)</li>
+                                <li><strong>Pause Timer</strong> (All accumulated pause time back to 00:00:00)</li>
+                                <li><strong>Idle Timer &amp; Collective Timer</strong></li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+                <group>
+                    <field name="employee_id" options="{'no_open': True}"/>
+                    <field name="job_id" options="{'no_open': True}" invisible="not job_id"/>
+                </group>
+                <footer>
+                    <button name="action_confirm_reset" string="Yes, Reset All Timers" type="object" class="btn-danger fw-bold" icon="fa-undo"/>
+                    <button string="Cancel" class="btn-secondary" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_reset_employee_timers_wizard" model="ir.actions.act_window">
+        <field name="name">Reset All Timers</field>
+        <field name="res_model">reset.employee.timers.wizard</field>
+        <field name="view_mode">form</field>
+        <field name="target">new</field>
+        <field name="binding_model_id" ref="car_repair_industry.model_hr_employee_status_log"/>
+        <field name="binding_view_types">form,list</field>
+    </record>
+</odoo>

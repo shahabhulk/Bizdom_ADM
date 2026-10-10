@@ -47,3 +47,13 @@ access_fleet_lead_question_line,fleet.lead.question.line,car_repair_industry.mod
 access_fleet_lead_question,fleet.lead.question,car_repair_industry.model_fleet_lead_question,base.group_user,1,1,1,1
 access_fleet_repair_service_line,fleet.repair.service.line,car_repair_industry.model_fleet_repair_service_line,base.group_user,1,1,1,1
 access_invoice_print_wizard,invoice.print.wizard,model_invoice_print_wizard,base.group_user,1,1,1,1
+access_assign_job_wizard,assign.job.wizard,model_assign_job_wizard,base.group_user,1,1,1,1
+access_hr_employee_status_log_user,hr.employee.status.log.user,model_hr_employee_status_log,base.group_user,1,1,1,1
+access_select_service_product_wizard,select.service.product.wizard,model_select_service_product_wizard,base.group_user,1,1,1,1
+access_select_service_product_wizard_line,select.service.product.wizard.line,model_select_service_product_wizard_line,base.group_user,1,1,1,1
+access_pause_job_wizard,pause.job.wizard,model_pause_job_wizard,base.group_user,1,1,1,1
+access_set_idle_wizard,set.idle.wizard,model_set_idle_wizard,base.group_user,1,1,1,1
+access_reset_employee_timers_wizard,reset.employee.timers.wizard,model_reset_employee_timers_wizard,base.group_user,1,1,1,1
+access_reset_to_assigned_wizard,reset.to.assigned.wizard,model_reset_to_assigned_wizard,base.group_user,1,1,1,1
+access_employee_timeline_history_user,employee.timeline.history.user,model_employee_timeline_history,base.group_user,1,1,1,1
+access_update_service_wizard,update.service.wizard,model_update_service_wizard,base.group_user,1,1,1,1

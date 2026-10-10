@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_assign_job_wizard_form" model="ir.ui.view">
+        <field name="name">assign.job.wizard.form</field>
+        <field name="model">assign.job.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Employee Status &amp; Job Assignment">
+                <field name="repair_id_domain" invisible="1"/>
+                <field name="team_lead_id" invisible="1"/>
+                <field name="has_active_timer" invisible="1"/>
+                <field name="is_timer_running" invisible="1"/>
+                <field name="is_timer_paused" invisible="1"/>
+                <field name="timer_start" invisible="1"/>
+                <field name="timer_last_start" invisible="1"/>
+                <field name="timer_end" invisible="1"/>
+                <field name="accumulated_seconds" invisible="1"/>
+                <field name="alloted_fru" invisible="1"/>
+
+                <!-- Active Running Timer Banner -->
+                <div class="alert alert-success d-flex justify-content-between align-items-center py-2 px-3 mb-3" invisible="not has_active_timer">
+                    <div>
+                        <i class="fa fa-clock-o fa-lg me-2 text-success"/>
+                        <strong>Active Service Timer: </strong>
+                        <span class="fs-5 fw-bold text-success me-2">
+                            <field name="time_diff" widget="stopwatch_timer" readonly="1"/>
+                        </span>
+                        <span class="text-muted ms-2" invisible="not active_timer_job_name">
+                            | <strong>Job Card:</strong> <field name="active_timer_job_name" readonly="1" class="fw-semibold"/>
+                        </span>
+                        <span class="text-muted ms-2" invisible="not active_timer_service_name">
+                            (<field name="active_timer_service_name" readonly="1"/>)
+                        </span>
+                    </div>
+                    <div>
+                        <span class="badge text-bg-success px-2 py-1"><i class="fa fa-pause me-1"/>Running</span>
+                    </div>
+                </div>
+
+                <div class="alert alert-light border d-flex align-items-center py-2 px-3 mb-3" invisible="has_active_timer or not status_duration_info">
+                    <i class="fa fa-info-circle fa-lg me-2 text-primary"/>
+                    <span><strong>Current Status:</strong> <field name="status_duration_info" readonly="1"/></span>
+                </div>
+
+                <group>
+                    <group>
+                        <field name="employee_id" readonly="1"/>
+                        <field name="department_id" invisible="1"/>
+                        <field name="status" widget="radio"/>
+                    </group>
+                    <group invisible="status == 'idle'">
+                        <field name="repair_id" 
+                               domain="repair_id_domain" 
+                               options="{'no_create': True}" 
+                               required="status == 'job'"/>
+                        <field name="product_id" 
+                               string="Service"
+                               domain="[('type', '=', 'service'), '|', ('department_id', '=', False), ('department_id', '=', department_id)]" 
+                               options="{'no_create': True}" 
+                               invisible="not repair_id" 
+                               required="status == 'job' and repair_id"/>
+                        <field name="service_line_id" invisible="1"/>
+                        <div invisible="not repair_id" class="mt-2">
+                            <button name="action_open_job_card" 
+                                    string="Open Job Card" 
+                                    type="object" 
+                                    icon="fa-external-link" 
+                                    class="btn btn-outline-primary"/>
+                        </div>
+                    </group>
+                </group>
+
+                <group>
+                    <field name="notes" placeholder="Optional downtime reason or status notes..."/>
+                </group>
+                <footer>
+                    <button name="action_apply_status" string="Confirm &amp; Update Status" type="object" class="btn-primary"/>
+                    <button string="Cancel" class="btn-secondary" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_assign_job_wizard" model="ir.actions.act_window">
+        <field name="name">Manage Employee Status</field>
+        <field name="res_model">assign.job.wizard</field>
+        <field name="view_mode">form</field>
+        <field name="target">new</field>
+    </record>
+</odoo>
