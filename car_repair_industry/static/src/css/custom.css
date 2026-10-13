@@ -74,3 +74,92 @@ label.o_required_modifier::after {
 .o_fleet_repair_clear_btn:hover {
     color: #dc3545 !important;
 }
+
+/* ==========================================================================
+   Car Repair - Job Card Statusbar Stage Colors (fleet.repair)
+   - First three statuses (Received, Assigned, In Progress): Red (#dc3545 / border #b02a37)
+   - Parts status: Yellow (#ffc107 / border #d39e00)
+   - Approval, Delivery, Delivered, and Done statuses: Green (#198754 / border #146c43)
+   - Inactive statuses retain default neutral gray
+   ========================================================================== */
+
+/* RED ACTIVE STAGES: Received (draft), Assigned (assigned), In Progress (in_progress) */
+.o_form_view:has([name="job_card_display"]) .o_field_statusbar[name="state"] > .o_statusbar_status > .o_arrow_button.o_arrow_button_current[data-value="draft"],
+.o_form_view:has([name="job_card_display"]) .o_field_statusbar[name="state"] > .o_statusbar_status > .o_arrow_button.o_arrow_button_current[data-value="assigned"],
+.o_form_view:has([name="job_card_display"]) .o_field_statusbar[name="state"] > .o_statusbar_status > .o_arrow_button.o_arrow_button_current[data-value="in_progress"],
+.o_fleet_repair_statusbar > .o_statusbar_status > .o_arrow_button.o_arrow_button_current[data-value="draft"],
+.o_fleet_repair_statusbar > .o_statusbar_status > .o_arrow_button.o_arrow_button_current[data-value="assigned"],
+.o_fleet_repair_statusbar > .o_statusbar_status > .o_arrow_button.o_arrow_button_current[data-value="in_progress"],
+.o_statusbar_status:has(> .o_arrow_button[data-value="parts"]) > .o_arrow_button.o_arrow_button_current[data-value="draft"],
+.o_statusbar_status:has(> .o_arrow_button[data-value="parts"]) > .o_arrow_button.o_arrow_button_current[data-value="assigned"],
+.o_statusbar_status:has(> .o_arrow_button[data-value="parts"]) > .o_arrow_button.o_arrow_button_current[data-value="in_progress"] {
+    background-color: #dc3545 !important;
+    color: #ffffff !important;
+    font-weight: 600 !important;
+    --o-statusbar-background-active: #dc3545;
+    --o-statusbar-border-active: #b02a37;
+}
+
+.o_form_view:has([name="job_card_display"]) .o_field_statusbar[name="state"] > .o_statusbar_status > .o_arrow_button.o_arrow_button_current[data-value="draft"]::before,
+.o_form_view:has([name="job_card_display"]) .o_field_statusbar[name="state"] > .o_statusbar_status > .o_arrow_button.o_arrow_button_current[data-value="assigned"]::before,
+.o_form_view:has([name="job_card_display"]) .o_field_statusbar[name="state"] > .o_statusbar_status > .o_arrow_button.o_arrow_button_current[data-value="in_progress"]::before,
+.o_fleet_repair_statusbar > .o_statusbar_status > .o_arrow_button.o_arrow_button_current[data-value="draft"]::before,
+.o_fleet_repair_statusbar > .o_statusbar_status > .o_arrow_button.o_arrow_button_current[data-value="assigned"]::before,
+.o_fleet_repair_statusbar > .o_statusbar_status > .o_arrow_button.o_arrow_button_current[data-value="in_progress"]::before,
+.o_statusbar_status:has(> .o_arrow_button[data-value="parts"]) > .o_arrow_button.o_arrow_button_current[data-value="draft"]::before,
+.o_statusbar_status:has(> .o_arrow_button[data-value="parts"]) > .o_arrow_button.o_arrow_button_current[data-value="assigned"]::before,
+.o_statusbar_status:has(> .o_arrow_button[data-value="parts"]) > .o_arrow_button.o_arrow_button_current[data-value="in_progress"]::before {
+    background-color: #b02a37 !important;
+}
+
+/* YELLOW ACTIVE STAGE: Parts (parts) */
+.o_form_view:has([name="job_card_display"]) .o_field_statusbar[name="state"] > .o_statusbar_status > .o_arrow_button.o_arrow_button_current[data-value="parts"],
+.o_fleet_repair_statusbar > .o_statusbar_status > .o_arrow_button.o_arrow_button_current[data-value="parts"],
+.o_statusbar_status:has(> .o_arrow_button[data-value="parts"]) > .o_arrow_button.o_arrow_button_current[data-value="parts"] {
+    background-color: #ffc107 !important;
+    color: #212529 !important;
+    font-weight: 600 !important;
+    --o-statusbar-background-active: #ffc107;
+    --o-statusbar-border-active: #d39e00;
+}
+
+.o_form_view:has([name="job_card_display"]) .o_field_statusbar[name="state"] > .o_statusbar_status > .o_arrow_button.o_arrow_button_current[data-value="parts"]::before,
+.o_fleet_repair_statusbar > .o_statusbar_status > .o_arrow_button.o_arrow_button_current[data-value="parts"]::before,
+.o_statusbar_status:has(> .o_arrow_button[data-value="parts"]) > .o_arrow_button.o_arrow_button_current[data-value="parts"]::before {
+    background-color: #d39e00 !important;
+}
+
+/* GREEN ACTIVE STAGES: Approval (approval), Delivery (delivery), Delivered (delivered), Done (done) */
+.o_form_view:has([name="job_card_display"]) .o_field_statusbar[name="state"] > .o_statusbar_status > .o_arrow_button.o_arrow_button_current[data-value="approval"],
+.o_form_view:has([name="job_card_display"]) .o_field_statusbar[name="state"] > .o_statusbar_status > .o_arrow_button.o_arrow_button_current[data-value="delivery"],
+.o_form_view:has([name="job_card_display"]) .o_field_statusbar[name="state"] > .o_statusbar_status > .o_arrow_button.o_arrow_button_current[data-value="delivered"],
+.o_form_view:has([name="job_card_display"]) .o_field_statusbar[name="state"] > .o_statusbar_status > .o_arrow_button.o_arrow_button_current[data-value="done"],
+.o_fleet_repair_statusbar > .o_statusbar_status > .o_arrow_button.o_arrow_button_current[data-value="approval"],
+.o_fleet_repair_statusbar > .o_statusbar_status > .o_arrow_button.o_arrow_button_current[data-value="delivery"],
+.o_fleet_repair_statusbar > .o_statusbar_status > .o_arrow_button.o_arrow_button_current[data-value="delivered"],
+.o_fleet_repair_statusbar > .o_statusbar_status > .o_arrow_button.o_arrow_button_current[data-value="done"],
+.o_statusbar_status:has(> .o_arrow_button[data-value="parts"]) > .o_arrow_button.o_arrow_button_current[data-value="approval"],
+.o_statusbar_status:has(> .o_arrow_button[data-value="parts"]) > .o_arrow_button.o_arrow_button_current[data-value="delivery"],
+.o_statusbar_status:has(> .o_arrow_button[data-value="parts"]) > .o_arrow_button.o_arrow_button_current[data-value="delivered"],
+.o_statusbar_status:has(> .o_arrow_button[data-value="parts"]) > .o_arrow_button.o_arrow_button_current[data-value="done"] {
+    background-color: #198754 !important;
+    color: #ffffff !important;
+    font-weight: 600 !important;
+    --o-statusbar-background-active: #198754;
+    --o-statusbar-border-active: #146c43;
+}
+
+.o_form_view:has([name="job_card_display"]) .o_field_statusbar[name="state"] > .o_statusbar_status > .o_arrow_button.o_arrow_button_current[data-value="approval"]::before,
+.o_form_view:has([name="job_card_display"]) .o_field_statusbar[name="state"] > .o_statusbar_status > .o_arrow_button.o_arrow_button_current[data-value="delivery"]::before,
+.o_form_view:has([name="job_card_display"]) .o_field_statusbar[name="state"] > .o_statusbar_status > .o_arrow_button.o_arrow_button_current[data-value="delivered"]::before,
+.o_form_view:has([name="job_card_display"]) .o_field_statusbar[name="state"] > .o_statusbar_status > .o_arrow_button.o_arrow_button_current[data-value="done"]::before,
+.o_fleet_repair_statusbar > .o_statusbar_status > .o_arrow_button.o_arrow_button_current[data-value="approval"]::before,
+.o_fleet_repair_statusbar > .o_statusbar_status > .o_arrow_button.o_arrow_button_current[data-value="delivery"]::before,
+.o_fleet_repair_statusbar > .o_statusbar_status > .o_arrow_button.o_arrow_button_current[data-value="delivered"]::before,
+.o_fleet_repair_statusbar > .o_statusbar_status > .o_arrow_button.o_arrow_button_current[data-value="done"]::before,
+.o_statusbar_status:has(> .o_arrow_button[data-value="parts"]) > .o_arrow_button.o_arrow_button_current[data-value="approval"]::before,
+.o_statusbar_status:has(> .o_arrow_button[data-value="parts"]) > .o_arrow_button.o_arrow_button_current[data-value="delivery"]::before,
+.o_statusbar_status:has(> .o_arrow_button[data-value="parts"]) > .o_arrow_button.o_arrow_button_current[data-value="delivered"]::before,
+.o_statusbar_status:has(> .o_arrow_button[data-value="parts"]) > .o_arrow_button.o_arrow_button_current[data-value="done"]::before {
+    background-color: #146c43 !important;
+}

@@ -138,10 +138,22 @@ class Appointment(http.Controller):
             feedback_domain = [('department_ids.name', 'ilike', department)]
             service_type_domain = [('department_id.name', 'ilike', department)]
 
-        fleet_repair = request.env['fleet.repair'].sudo().search(repair_domain + [('state', 'not in', ['done', 'invoiced', 'cancel'])])
+        fleet_repair = request.env['fleet.repair'].sudo().search(
+            repair_domain + [
+                ('state', 'not in', ['delivered', 'done', 'cancel']),
+                '|',
+                ('invoice_order_id', '=', False),
+                ('invoice_order_id.state', '=', 'draft'),
+            ]
+        )
         fleet_diagnose = request.env['fleet.diagnose'].sudo().search(diagnose_domain)
         fleet_diagnos_d = request.env['fleet.diagnose'].sudo().search(diagnose_domain + [('state', '=', 'in_progress')])
-        fleet_repair_d = request.env['fleet.repair'].sudo().search(repair_domain + [('state', '=', 'done')])
+        fleet_repair_d = request.env['fleet.repair'].sudo().search(
+            repair_domain + [
+                ('state', 'in', ['delivery', 'delivered']),
+                ('invoice_payment_status', 'in', ['not_paid', 'in_payment', 'partial', 'paid']),
+            ]
+        )
         fleet_workorder = request.env['fleet.workorder'].sudo().search(workorder_domain)
         fleet_service_type = request.env['service.type'].sudo().search(service_type_domain)
         lead_count = request.env['crm.lead'].sudo().search_count([
@@ -154,6 +166,7 @@ class Appointment(http.Controller):
         company_expense_count = request.env['hr.expense'].sudo().search_count([
             ('company_id', '=', company_id),
         ])
+
 
         user_department = False
         employee = request.env['hr.employee'].sudo().search([('user_id', '=', request.env.uid)], limit=1)
