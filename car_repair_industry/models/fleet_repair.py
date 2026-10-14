@@ -3157,7 +3157,7 @@ class FleetRepairServiceLine(models.Model):
             line.hours = val
             line.hrs = val
 
-    @api.onchange('alloted_fru', 'unit_price')
+    @api.onchange('alloted_fru')
     def _onchange_alloted_fru(self):
         for line in self:
             if line.alloted_fru and line.alloted_fru > 0:
@@ -3167,7 +3167,19 @@ class FleetRepairServiceLine(models.Model):
             else:
                 line.unit_price = 0.0
                 line.quantity = 1.0
+                line.subtotal = 0.0
+            val = round((line.subtotal or 0.0) / 2400.0, 2)
+            line.hours = val
+            line.hrs = val
+
+    @api.onchange('unit_price')
+    def _onchange_unit_price(self):
+        for line in self:
+            if not line.alloted_fru or line.alloted_fru <= 0:
+                line.quantity = 1.0
                 line.subtotal = line.unit_price or 0.0
+            else:
+                line.subtotal = float(line.alloted_fru) * (line.unit_price or 200.0)
             val = round((line.subtotal or 0.0) / 2400.0, 2)
             line.hours = val
             line.hrs = val
