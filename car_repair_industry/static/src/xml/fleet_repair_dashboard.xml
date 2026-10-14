@@ -123,7 +123,7 @@
                 <!-- 4. Done Card -->
                 <div class="col-lg-3 col-md-6 mb-4" t-on-click="clickCarRepair">
                     <a class="CarRepairList" data-activity_type="Fleet Repair Done"
-                       data-domain="[('state','=','delivered','delivery')]">
+                       data-domain="[('state','in',['delivery','done'])]">
                         <div class="activity_block">
                             <div class="activity_block_left nth4" style="background: #ffdc68;">
                                 <i class="fa fa-check-circle"></i>
