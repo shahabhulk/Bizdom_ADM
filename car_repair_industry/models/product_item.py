@@ -32,10 +32,7 @@ class ProductTemplate(models.Model):
         domain="[('department_ids', 'in', department_id)]",
         default=False
     )
-    alloted_fru = fields.Integer(
-        string="Alloted FRU",
-        default=lambda self: 1 if self.env.context.get('default_type') == 'service' else 0
-    )
+    alloted_fru = fields.Integer(string="Alloted FRU", default=0)
 
     def init(self):
         super().init()
@@ -80,11 +77,11 @@ class ProductTemplate(models.Model):
             END $$;
         """)
 
-    @api.constrains('type', 'alloted_fru')
+    @api.constrains('alloted_fru')
     def _check_alloted_fru(self):
         for record in self:
-            if record.type == 'service' and record.alloted_fru <= 0:
-                raise ValidationError(_("Alloted FRU is mandatory for service products and must be greater than zero."))
+            if record.alloted_fru and record.alloted_fru < 0:
+                raise ValidationError(_("Alloted FRU cannot be negative."))
 
     @api.model_create_multi
     def create(self, vals_list):
@@ -163,11 +160,18 @@ class ProductTemplate(models.Model):
             if len(self.categ_id.department_ids) == 1:
                 self.department_id = self.categ_id.department_ids[0]
 
+    @api.onchange('type')
+    def _onchange_type(self):
+        if self.type == 'service' and not self.alloted_fru:
+            self.alloted_fru = 0
+
     @api.model
     def default_get(self, fields_list):
         res = super().default_get(fields_list)
         if 'categ_id' in fields_list and not self._context.get('default_categ_id'):
             res['categ_id'] = False
+        if 'alloted_fru' in fields_list and (res.get('type') == 'service' or self._context.get('default_type') == 'service'):
+            res['alloted_fru'] = 0
         return res
 
     # display_name = fields.Char(compute='_compute_display_name', store=True)
@@ -237,6 +241,8 @@ class ProductProduct(models.Model):
         res = super().default_get(fields_list)
         if 'categ_id' in fields_list and not self._context.get('default_categ_id'):
             res['categ_id'] = False
+        if 'alloted_fru' in fields_list and (res.get('type') == 'service' or self._context.get('default_type') == 'service'):
+            res['alloted_fru'] = 0
         return res
 
     @api.model

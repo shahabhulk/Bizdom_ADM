@@ -240,7 +240,7 @@
                                                options="{'product_type': 'service'}" string="Item Code" optional="show"
                                                readonly="parent.state in ('done', 'delivery', 'cancel', 'invoiced')"/>
                                         <field name="product_id" string="Service" domain="[('type', '=', 'service')]"
-                                               context="{'default_type': 'service', 'default_categ_id': False, 'default_alloted_fru': 1}"
+                                               context="{'default_type': 'service', 'default_categ_id': False, 'default_alloted_fru': 0}"
                                                options="{'no_quick_create': True}"
                                                readonly="parent.state in ('done', 'delivery', 'cancel', 'invoiced')"/>
                                         <field name="department_id" required="1" optional="hide"

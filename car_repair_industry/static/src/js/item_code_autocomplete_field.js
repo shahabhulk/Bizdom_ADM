@@ -138,7 +138,7 @@ export class ItemCodeAutoCompleteField extends Component {
             default_categ_id: false,
         };
         if (isService) {
-            context.default_alloted_fru = 1.0;
+            context.default_alloted_fru = 0;
         }
         this.dialog.add(FormViewDialog, {
             resModel: "product.product",
