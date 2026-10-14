@@ -616,7 +616,7 @@ export class StopwatchTimerWidget extends Component {
                     { context: this.props.record.context }
                 );
 
-                if (!result) {
+                if (!result || (result && typeof result === "object" && result.type === "ir.actions.client" && result.tag === "reload")) {
                     const root = this.props.record.model?.root;
                     if (root) {
                         await root.load();
@@ -647,11 +647,14 @@ export class StopwatchTimerWidget extends Component {
                     }
                 }
 
-                if (isStarting && root && root.data && root.data.state && root.data.state !== "workorder" && root.data.state !== "done" && root.data.state !== "cancel") {
-                    root.data.state = "workorder";
+                if (isStarting && root && root.data && root.data.state && root.data.state !== "in_progress" && root.data.state !== "delivery" && root.data.state !== "done" && root.data.state !== "cancel") {
+                    root.data.state = "in_progress";
                     if (root._values) {
-                        root._values.state = "workorder";
+                        root._values.state = "in_progress";
                     }
+                }
+                if (root) {
+                    await root.load();
                 }
             }
         } catch (error) {
@@ -810,6 +813,8 @@ export class ResetTimerButtonWidget extends Component {
             this.props.record.data.accumulated_seconds = 0.0;
             this.props.record.data.time_diff = 0.0;
             this.props.record.data.fru_status = "green";
+            this.props.record.data.line_status = "assigned";
+            this.props.record.data.pause_reason_display = "Assigned";
             if (this.props.record._values) {
                 Object.assign(this.props.record._values, {
                     timer_start: false,
@@ -820,6 +825,8 @@ export class ResetTimerButtonWidget extends Component {
                     accumulated_seconds: 0.0,
                     time_diff: 0.0,
                     fru_status: "green",
+                    line_status: "assigned",
+                    pause_reason_display: "Assigned",
                 });
             }
 
@@ -844,16 +851,20 @@ export class ResetTimerButtonWidget extends Component {
                     [[this.props.record.resId]],
                     { context: this.props.record.context }
                 );
-                if (result && typeof result === "object") {
+                if (result && typeof result === "object" && result.type !== "ir.actions.client") {
                     Object.assign(this.props.record.data, result);
                     if (this.props.record._values) {
                         Object.assign(this.props.record._values, result);
                     }
-                    timerBus.trigger("RESET_TIMER", {
-                        resId: this.props.record.resId,
-                        recordId: this.props.record.id,
-                        record: this.props.record,
-                    });
+                }
+                timerBus.trigger("RESET_TIMER", {
+                    resId: this.props.record.resId,
+                    recordId: this.props.record.id,
+                    record: this.props.record,
+                });
+                const root = this.props.record.model?.root;
+                if (root) {
+                    await root.load();
                 }
             }
         } catch (error) {

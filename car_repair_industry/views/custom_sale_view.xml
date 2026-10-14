@@ -76,6 +76,7 @@
                 </xpath>
                 <xpath expr="//field[@name='delivery_date']" position="after">
                     <field name="job_card_name" invisible="move_type in ('in_invoice', 'in_refund')"/>
+                    <field name="job_card_state" widget="badge" invisible="move_type in ('in_invoice', 'in_refund')"/>
                     <field name="license_plate" invisible="move_type in ('in_invoice', 'in_refund')"/>
                     <field name="car_name" invisible="move_type in ('in_invoice', 'in_refund')"/>
                     <field name="model_name" invisible="move_type in ('in_invoice', 'in_refund')"/>
@@ -115,6 +116,37 @@
             <field name="arch" type="xml">
                 <xpath expr="//field[@name='invoice_payment_term_id']" position="after">
                     <field name="create_form_fleet" invisible="1"/>
+                </xpath>
+            </field>
+        </record>
+
+        <record id="custom_view_invoice_tree" model="ir.ui.view">
+            <field name="name">account.invoice.list.custom</field>
+            <field name="model">account.move</field>
+            <field name="inherit_id" ref="account.view_invoice_tree"/>
+            <field name="arch" type="xml">
+                <xpath expr="//field[@name='status_in_payment']" position="after">
+                    <field name="job_card_name" string="Job Card" optional="show"/>
+                    <field name="job_card_state" string="Job Card Status" widget="badge"
+                           decoration-success="job_card_state in ('delivery', 'done')"
+                           decoration-info="job_card_state in ('draft', 'assigned')"
+                           decoration-warning="job_card_state in ('in_progress', 'approval', 'parts')"
+                           decoration-danger="job_card_state == 'cancel'"
+                           optional="show"/>
+                </xpath>
+            </field>
+        </record>
+
+        <record id="custom_view_account_invoice_filter" model="ir.ui.view">
+            <field name="name">account.invoice.select.custom</field>
+            <field name="model">account.move</field>
+            <field name="inherit_id" ref="account.view_account_invoice_filter"/>
+            <field name="arch" type="xml">
+                <xpath expr="//field[@name='name'][1]" position="after">
+                    <field name="job_card_name" string="Job Card No"/>
+                </xpath>
+                <xpath expr="//filter[@name='status']" position="after">
+                    <filter name="group_by_job_card_state" string="Job Card Status" context="{'group_by': 'job_card_state'}"/>
                 </xpath>
             </field>
         </record>

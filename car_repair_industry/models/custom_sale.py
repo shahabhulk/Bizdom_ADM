@@ -131,7 +131,9 @@ class SaleAdvancePaymentInv(models.TransientModel):
         if self._context.get('active_id'):
             sale_obj = self.env['sale.order'].browse(self._context.get('active_id'))
             if sale_obj.diagnose_id and sale_obj.diagnose_id.fleet_repair_id:
-                sale_obj.diagnose_id.fleet_repair_id.write({'state': 'invoiced'})
+                repair = sale_obj.diagnose_id.fleet_repair_id
+                if 'invoiced' in dict(repair._fields['state'].selection):
+                    repair.write({'state': 'invoiced'})
         return res
 
 
@@ -147,7 +149,13 @@ class AccountInvoice(models.Model):
     fleet_feedback_ids = fields.One2many('fleet.repair.feedback', 'account_move_id', string='Service Feedbacks')
     fleet_repair_id = fields.Many2one('fleet.repair', string='Repair Order')
     # job_card_name = fields.Char(string='Job Card No', compute='_compute_job_card_name')
-    job_card_name = fields.Char(string='Job Card No', related='fleet_repair_invoice_id.sequence')
+    job_card_name = fields.Char(string='Job Card No', related='fleet_repair_invoice_id.sequence', store=True)
+    job_card_state = fields.Selection(
+        related='fleet_repair_invoice_id.state',
+        string='Job Card Status',
+        readonly=True,
+        store=True,
+    )
     car_name=fields.Char(string='Car name', related='fleet_repair_invoice_id.fleet_id.name')
     apply_taxes = fields.Boolean(
         string='Apply Taxes',
@@ -412,7 +420,10 @@ class AccountInvoice(models.Model):
                 invoice_line_ids = vals.get('invoice_line_ids', [])
 
                 if sale_obj and sale_obj.workorder_id and sale_obj.workorder_id.fleet_repair_id:
-                    vals.update({'create_form_fleet': True})
+                    vals.update({
+                        'create_form_fleet': True,
+                        'fleet_repair_invoice_id': sale_obj.workorder_id.fleet_repair_id.id,
+                    })
                     repair_obj = self.env['fleet.repair.line'].browse(sale_obj.workorder_id.fleet_repair_line.id)
                     for line_vals in invoice_line_ids:
                         car_model = line_vals[2].get('car_model')
@@ -466,15 +477,27 @@ class AccountInvoice(models.Model):
                         if sale_obj and sale_obj.workorder_id and sale_obj.workorder_id.fleet_repair_id:
                             repair_obj = sale_obj.workorder_id.fleet_repair_id
                     if repair_obj:
-                        repair_obj.with_context(skip_sync_draft_invoices=True).write({'state': 'done'})
-                        template_id = self.env.ref('car_repair_industry.car_repair_service_done').id
-                        template = self.env['mail.template'].browse(template_id)
-                        template.send_mail(repair_obj.id, force_send=True)
+                        target_state = 'delivery' if 'delivery' in dict(repair_obj._fields['state'].selection) else 'done'
+                        if repair_obj.state != target_state:
+                            repair_obj.with_context(
+                                skip_sync_draft_invoices=True,
+                                skip_timer_check=True,
+                                skip_status_update_from_service_lines=True,
+                            ).write({'state': target_state})
+                        template = self.env.ref('car_repair_industry.car_repair_service_done', raise_if_not_found=False)
+                        if template and repair_obj.client_id and repair_obj.client_id.email:
+                            try:
+                                template.send_mail(repair_obj.id, force_send=True)
+                            except Exception:
+                                pass
                         
             elif vals.get('state') == 'draft':
                 for move in self:
                     if move.fleet_repair_invoice_id:
-                        move.fleet_repair_invoice_id.with_context(skip_sync_draft_invoices=True).write({'state': 'draft'})
+                        move.fleet_repair_invoice_id.with_context(
+                            skip_sync_draft_invoices=True,
+                            skip_timer_check=True,
+                        ).write({'state': 'draft'})
         return super(AccountInvoice, self).write(vals)
 
 
@@ -490,7 +513,9 @@ class MailComposeMessage(models.TransientModel):
             if order.state == 'draft':
                 order.state = 'sent'
                 if order.diagnose_id and order.diagnose_id.fleet_repair_id:
-                    order.diagnose_id.fleet_repair_id.write({'state': 'quote'})
+                    repair = order.diagnose_id.fleet_repair_id
+                    if 'quote' in dict(repair._fields['state'].selection):
+                        repair.write({'state': 'quote'})
             self = self.with_context(mail_post_autofollow=True)
         return super(MailComposeMessage, self).send_mail(auto_commit=auto_commit)
 

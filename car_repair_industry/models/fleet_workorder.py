@@ -165,7 +165,7 @@ class FleetWorkOrder(models.Model):
 		date_now = datetime.now()
 		self.write({'state':'startworking', 'date_start': date_now})
 		if self.fleet_repair_id:
-			self.fleet_repair_id.sudo().write({'state': 'workorder'})
+			self.fleet_repair_id.sudo().write({'state': 'in_progress'})
 		return True
 
 	def action_done(self):

@@ -182,15 +182,21 @@ class FleetRepair(models.Model):
     service_detail = fields.Text(string='Repair Details')
     state = fields.Selection([
         ('draft', 'Received'),
-        ('diagnosis', 'In Diagnosis'),
-        ('diagnosis_complete', 'Diagnosis Complete'),
-        ('quote', 'Quotation Sent'),
-        ('saleorder', 'Quotation Approved'),
-        ('workorder', 'Work in Progress'),
-        ('work_completed', 'Work Completed'),
-        ('invoiced', 'Invoiced'),
+        ('assigned', 'Assigned'),
+        ('in_progress', 'In Progress'),
+        ('approval', 'Approval'),
+        ('parts', 'Parts'),
+        ('delivery', 'Delivery'),
+        ('delivered','Delivered'),
         ('done', 'Done'),
         ('cancel', 'Cancelled'),
+        # ('diagnosis', 'In Diagnosis'),
+        # ('diagnosis_complete', 'Diagnosis Complete'),
+        # ('quote', 'Quotation Sent'),
+        # ('saleorder', 'Quotation Approved'),
+        # ('workorder', 'Work in Progress'),
+        # ('work_completed', 'Work Completed'),
+        # ('invoiced', 'Invoiced'),
     ], 'Status', default="draft", readonly=False, copy=False, help="Gives the status of the fleet repairing.",
         index=True, tracking=False)
     diagnose_id = fields.Many2one('fleet.diagnose', string='Car Diagnose', copy=False)
@@ -240,6 +246,14 @@ class FleetRepair(models.Model):
         currency_field='currency_id',
         compute='_compute_invoice_paid_amount',
     )
+    invoice_ids = fields.One2many('account.move', 'fleet_repair_invoice_id', string='Invoices')
+    invoice_payment_status = fields.Selection([
+        ('paid', 'Paid'),
+        ('partial', 'Partially Paid'),
+        ('in_payment', 'In Payment'),
+        ('not_paid', 'Not Paid'),
+        ('draft', 'Draft Invoice'),
+    ], string='Payment Status', compute='_compute_invoice_payment_status', search='_search_invoice_payment_status')
     company_id = fields.Many2one('res.company', store=True, copy=False,
                                  string="Company",
                                  default=lambda self: self.env.user.company_id.id)
@@ -568,48 +582,7 @@ class FleetRepair(models.Model):
             else:
                 self.kilometers_num = False
 
-            # Check if active job card exists for warning
-            domain = [
-                ('state', 'not in', ['done', 'cancel']),
-            ]
-            if self._origin and self._origin.id:
-                domain.append(('id', '!=', self._origin.id))
 
-            plate_name = car.license_plate
-            if plate_name:
-                domain.extend([
-                    '|',
-                    ('license_plate', '=', car.id),
-                    ('license_plate.license_plate', '=ilike', plate_name.strip())
-                ])
-            else:
-                domain.append(('license_plate', '=', car.id))
-
-            existing_repairs = self.search(domain)
-            for existing in existing_repairs:
-                invoice_posted = False
-                if existing.invoice_order_id and existing.invoice_order_id.state == 'posted':
-                    invoice_posted = True
-                else:
-                    posted_count = self.env['account.move'].search_count([
-                        ('fleet_repair_invoice_id', '=', existing.id),
-                        ('state', '=', 'posted'),
-                    ])
-                    if posted_count > 0:
-                        invoice_posted = True
-
-                if not invoice_posted:
-                    state_label = dict(self._fields['state'].selection).get(existing.state, existing.state)
-                    jc_ref = existing.sequence or existing.name or _("ID %s") % existing.id
-                    display_plate = plate_name or car.name or _("Selected Vehicle")
-                    warning = {
-                        'title': _("Active Job Card Exists"),
-                        'message': _(
-                            "A Job Card (%s) with License Plate '%s' is already active (Status: %s).\n\n"
-                            "A new Job Card for the same License Plate cannot be created until the existing Job Card is Done or its Invoice is Posted."
-                        ) % (jc_ref, display_plate, state_label)
-                    }
-                    break
         else:
             self.vehicle_id = False
             self.vin_sn = False
@@ -649,15 +622,74 @@ class FleetRepair(models.Model):
                 if update_vals:
                     vehicle.write(update_vals)
 
+    def _update_header_status_from_service_lines(self):
+        for rec in self:
+            if rec.state in ('done', 'cancel'):
+                continue
+            service_lines = rec.service_line_ids
+            if not service_lines:
+                if rec.state in ('assigned', 'in_progress', 'delivery'):
+                    rec.sudo().with_context(skip_timer_check=True).write({'state': 'draft'})
+                continue
+
+            has_working = any(l.is_timer_running or l.line_status == 'working' for l in service_lines)
+            if has_working:
+                if rec.state != 'in_progress':
+                    rec.sudo().with_context(skip_timer_check=True).write({'state': 'in_progress'})
+                continue
+
+            # When no service line is working:
+            # Check remaining non-completed lines (pending work)
+            pending_lines = service_lines.filtered(lambda l: l.line_status != 'completed')
+            if pending_lines:
+                all_assigned_or_stopped = all(
+                    bool(l.employee_id) and l.line_status in ('assigned', 'paused')
+                    for l in pending_lines
+                )
+                if rec.state in ('draft', 'assigned', 'in_progress', 'delivery'):
+                    if all_assigned_or_stopped:
+                        if rec.state != 'assigned':
+                            rec.sudo().with_context(skip_timer_check=True).write({'state': 'assigned'})
+                    elif rec.state == 'assigned':
+                        rec.sudo().with_context(skip_timer_check=True).write({'state': 'draft'})
+            elif service_lines and all(l.line_status == 'completed' for l in service_lines):
+                if rec.state not in ('delivery', 'done', 'cancel'):
+                    rec.sudo().with_context(skip_timer_check=True).write({'state': 'delivery'})
+
+    @api.onchange('service_line_ids', 'service_line_ids.employee_id', 'service_line_ids.line_status', 'service_line_ids.is_timer_running')
+    def _onchange_service_line_ids_status(self):
+        if self.state in ('done', 'cancel'):
+            return
+        service_lines = self.service_line_ids
+        if not service_lines:
+            if self.state in ('assigned', 'in_progress', 'delivery'):
+                self.state = 'draft'
+            return
+
+        has_working = any(l.is_timer_running or l.line_status == 'working' for l in service_lines)
+        if has_working:
+            self.state = 'in_progress'
+            return
+
+        pending_lines = service_lines.filtered(lambda l: l.line_status != 'completed')
+        if pending_lines:
+            all_assigned_or_stopped = all(
+                bool(l.employee_id) and l.line_status in ('assigned', 'paused')
+                for l in pending_lines
+            )
+            if self.state in ('draft', 'assigned', 'in_progress', 'delivery'):
+                if all_assigned_or_stopped:
+                    self.state = 'assigned'
+                elif self.state == 'assigned':
+                    self.state = 'draft'
+        elif service_lines and all(l.line_status == 'completed' for l in service_lines):
+            if self.state not in ('delivery', 'done', 'cancel'):
+                self.state = 'delivery'
+
     @api.model_create_multi
     def create(self, vals_list):
         records = super().create(vals_list)
-        for rec in records:
-            has_active_timer = any(rec.service_line_ids.mapped('is_timer_running')) or \
-                               any(rec.fleet_work_line_ids.mapped('is_timer_running')) or \
-                               any(rec.timesheet_ids.mapped('is_timer_running'))
-            if has_active_timer and rec.state != 'workorder' and rec.state not in ('done', 'cancel'):
-                rec.sudo().write({'state': 'workorder'})
+        records._update_header_status_from_service_lines()
         records._sync_vehicle_data()
         records.action_sync_work_lines_from_service_lines()
         return records
@@ -669,14 +701,39 @@ class FleetRepair(models.Model):
         return True
 
     def write(self, vals):
-        res = super().write(vals)
-        if 'state' in vals and vals.get('state') != 'workorder':
+        if vals.get('state') == 'delivered':
             for rec in self:
-                has_active_timer = any(rec.service_line_ids.mapped('is_timer_running')) or \
-                                   any(rec.fleet_work_line_ids.mapped('is_timer_running'))
-                if has_active_timer:
-                    raise UserError(_('Cannot change status while a timer is active and ongoing. The Job Card must remain in "Work in Progress" until all timers are paused or stopped.'))
+                if rec.state != 'delivered':
+                    invoices = self.env['account.move'].sudo().search([
+                        '|',
+                        ('fleet_repair_invoice_id', '=', rec.id),
+                        ('id', '=', rec.invoice_order_id.id if rec.invoice_order_id else False),
+                        ('state', '!=', 'cancel'),
+                    ])
+                    if not invoices and rec.sale_order_id:
+                        invoices = rec.sale_order_id.invoice_ids.filtered(lambda m: m.state != 'cancel')
 
+                    if not invoices:
+                        raise UserError(_("No invoice found for this Job Card. Please create and post the invoice bill before proceeding to Delivered status."))
+
+                    unposted_invoices = invoices.filtered(lambda m: m.state != 'posted')
+                    if unposted_invoices:
+                        inv_names = [m.name for m in unposted_invoices if m.name and m.name != '/']
+                        if inv_names:
+                            raise UserError(_(
+                                "Please post the invoice bill (%s) before proceeding to Delivered status."
+                            ) % ", ".join(inv_names))
+                        else:
+                            raise UserError(_(
+                                "Please post the invoice bill before proceeding to Delivered status."
+                            ))
+        res = super().write(vals)
+        if 'state' in vals and vals.get('state') not in ('in_progress', 'quote'):
+            if not self.env.context.get('skip_timer_check'):
+                for rec in self:
+                    has_active_timer = any(rec.service_line_ids.mapped('is_timer_running'))
+                    if has_active_timer:
+                        raise UserError(_('Cannot change status while a timer is active and ongoing. The Job Card must remain in "In Progress" until all timers are paused or stopped.'))
 
         vehicle_trigger_fields = {'vehicle_id', 'client_id', 'license_plate', 'odometer', 'fuel_level'}
         if any(f in vals for f in vehicle_trigger_fields):
@@ -688,6 +745,8 @@ class FleetRepair(models.Model):
 
         if 'service_line_ids' in vals:
             self.action_sync_work_lines_from_service_lines()
+            if not self.env.context.get('skip_status_update_from_service_lines'):
+                self._update_header_status_from_service_lines()
         return res
 
 
@@ -930,49 +989,8 @@ class FleetRepair(models.Model):
 
     @api.constrains('license_plate', 'state')
     def _check_active_job_card_license_plate(self):
-        for record in self:
-            if not record.license_plate:
-                continue
-
-            vehicle = record.license_plate
-            plate_name = vehicle.license_plate or False
-
-            domain = [
-                ('id', '!=', record.id),
-                ('state', 'not in', ['done', 'cancel']),
-            ]
-
-            if plate_name:
-                domain.extend([
-                    '|',
-                    ('license_plate', '=', vehicle.id),
-                    ('license_plate.license_plate', '=ilike', plate_name.strip())
-                ])
-            else:
-                domain.append(('license_plate', '=', vehicle.id))
-
-            existing_repairs = self.search(domain)
-            for existing in existing_repairs:
-                invoice_posted = False
-                if existing.invoice_order_id and existing.invoice_order_id.state == 'posted':
-                    invoice_posted = True
-                else:
-                    posted_count = self.env['account.move'].search_count([
-                        ('fleet_repair_invoice_id', '=', existing.id),
-                        ('state', '=', 'posted'),
-                    ])
-                    if posted_count > 0:
-                        invoice_posted = True
-
-                if not invoice_posted:
-                    state_label = dict(self._fields['state'].selection).get(existing.state, existing.state)
-                    jc_ref = existing.sequence or existing.name or _("ID %s") % existing.id
-                    display_plate = plate_name or vehicle.name or _("Selected Vehicle")
-
-                    raise ValidationError(_(
-                        "A Job Card (%s) with License Plate '%s' is already active (Status: %s).\n\n"
-                        "A new Job Card for the same License Plate cannot be created until the existing Job Card is Done or its Invoice is Posted."
-                    ) % (jc_ref, display_plate, state_label))
+        # Validation removed: multiple job cards for the same license plate are allowed
+        pass
 
     @api.onchange('promised_date', 'receipt_date')
     def _onchange_promised_date(self):
@@ -1081,6 +1099,61 @@ class FleetRepair(models.Model):
                 ('payment_state', '=', 'paid'),
             ])
             rec.invoice_paid_amount = sum(invoices.mapped('amount_total'))
+
+    @api.depends('invoice_ids.payment_state', 'invoice_ids.state', 'invoice_order_id.payment_state', 'invoice_order_id.state')
+    def _compute_invoice_payment_status(self):
+        for rec in self:
+            invoice = rec.invoice_order_id if rec.invoice_order_id and rec.invoice_order_id.state != 'cancel' else False
+            if not invoice and rec.invoice_ids:
+                valid_invoices = rec.invoice_ids.filtered(lambda m: m.state != 'cancel')
+                posted_invoices = valid_invoices.filtered(lambda m: m.state == 'posted')
+                invoice = posted_invoices[-1] if posted_invoices else (valid_invoices[-1] if valid_invoices else False)
+
+            if not invoice:
+                invoice = self.env['account.move'].search([
+                    ('fleet_repair_invoice_id', '=', rec.id),
+                    ('state', '!=', 'cancel'),
+                ], order='id desc', limit=1)
+
+            if not invoice:
+                rec.invoice_payment_status = False
+            elif invoice.state == 'draft':
+                rec.invoice_payment_status = 'draft'
+            elif invoice.payment_state in ('paid', 'reversed'):
+                rec.invoice_payment_status = 'paid'
+            elif invoice.payment_state in ('partial', 'in_payment'):
+                rec.invoice_payment_status = invoice.payment_state
+            elif invoice.payment_state == 'not_paid':
+                rec.invoice_payment_status = 'not_paid'
+            else:
+                rec.invoice_payment_status = False
+
+    def _search_invoice_payment_status(self, operator, value):
+        if operator not in ('=', '!=', 'in', 'not in'):
+            return []
+
+        values = value if isinstance(value, (list, tuple)) else [value]
+        target_ids = set()
+
+        for val in values:
+            if val == 'draft':
+                move_domain = [('state', '=', 'draft')]
+            elif val == 'paid':
+                move_domain = [('state', '=', 'posted'), ('payment_state', 'in', ('paid', 'reversed'))]
+            elif val in ('partial', 'in_payment', 'not_paid'):
+                move_domain = [('state', '=', 'posted'), ('payment_state', '=', val)]
+            else:
+                continue
+
+            moves = self.env['account.move'].search(move_domain)
+            repairs = moves.mapped('fleet_repair_invoice_id')
+            repairs |= self.search([('invoice_order_id', 'in', moves.ids)])
+            target_ids.update(repairs.ids)
+
+        if operator in ('=', 'in'):
+            return [('id', 'in', list(target_ids))]
+        else:
+            return [('id', 'not in', list(target_ids))]
 
     def _compute_inv_count(self):
         for rec in self:
@@ -1499,7 +1572,7 @@ class FleetRepair(models.Model):
         self.write({'state': 'confirm'})
 
     def workorder_created(self):
-        self.write({'state': 'workorder'})
+        self.write({'state': 'in_progress'})
 
     @api.onchange('client_id')
     def onchange_partner_id(self):
@@ -2331,6 +2404,9 @@ class FleetRepairServiceLine(models.Model):
         self._compute_line_status()
         self._compute_pause_reason_display()
         self._sync_to_work_lines()
+        repairs = self.mapped('repair_id')
+        repairs.invalidate_recordset(['service_line_ids', 'fleet_work_line_ids'])
+        repairs._update_header_status_from_service_lines()
         return False
 
     def action_open_update_service_wizard(self):
@@ -2770,8 +2846,9 @@ class FleetRepairServiceLine(models.Model):
                 'is_group_selected': True,
             })
 
-            if rec.repair_id and rec.repair_id.state != 'workorder' and rec.repair_id.state not in ('done', 'cancel'):
-                rec.repair_id.sudo().write({'state': 'workorder'})
+            if rec.repair_id and rec.repair_id.state not in ('done', 'cancel'):
+                rec.repair_id.invalidate_recordset(['service_line_ids'])
+                rec.repair_id._update_header_status_from_service_lines()
             rec._compute_time_diff()
             rec._sync_to_work_lines()
             rec._sync_to_employee_status_log()
@@ -2862,6 +2939,10 @@ class FleetRepairServiceLine(models.Model):
             rec._compute_time_diff()
             rec._sync_to_work_lines()
             rec._sync_to_employee_status_log()
+
+            if rec.repair_id and rec.repair_id.state not in ('done', 'cancel'):
+                rec.repair_id.invalidate_recordset(['service_line_ids', 'fleet_work_line_ids'])
+                rec.repair_id._update_header_status_from_service_lines()
 
             log = rec.status_log_id
             if not log and rec.employee_id and rec.repair_id:
@@ -3009,6 +3090,9 @@ class FleetRepairServiceLine(models.Model):
                         notes=log.notes or False,
                     )
 
+        repairs = self.mapped('repair_id')
+        repairs.invalidate_recordset(['service_line_ids', 'fleet_work_line_ids'])
+        repairs._update_header_status_from_service_lines()
         return False
 
     def action_stop_timer(self):
@@ -3034,6 +3118,9 @@ class FleetRepairServiceLine(models.Model):
                 'pause_notes': False,
                 'is_group_selected': False,
             })
+            rec._compute_time_diff()
+            rec._compute_line_status()
+            rec._compute_pause_reason_display()
             rec._sync_to_work_lines()
             rec._sync_to_employee_status_log()
             log = rec.status_log_id
@@ -3070,13 +3157,43 @@ class FleetRepairServiceLine(models.Model):
                         'pause_timer_start': False,
                         'pause_accumulated_seconds': (log.pause_accumulated_seconds or 0.0) + p_delta,
                     })
+                if not other_running and not other_paused:
+                    log_vals.update({
+                        'is_timer_running': False,
+                        'is_timer_paused': False,
+                        'is_pause_running': False,
+                        'timer_last_start': False,
+                        'timer_end': False,
+                        'end_datetime': False,
+                        'job_status': 'assigned',
+                        'status': 'assigned',
+                    })
                 if log_vals:
                     log.write(log_vals)
                 log._compute_collective_timer_info()
                 log._compute_time_metrics()
                 log._compute_worked_hours()
-                log._compute_has_paused_services()
-        return False
+
+            result = {
+                'timer_start': False,
+                'timer_last_start': False,
+                'timer_end': False,
+                'is_timer_running': False,
+                'is_timer_paused': False,
+                'is_pause_running': False,
+                'accumulated_seconds': 0.0,
+                'time_diff': 0.0,
+                'fru_status': 'green',
+                'line_status': 'assigned',
+                'pause_reason_display': 'Assigned',
+                'pause_reason': False,
+                'pause_notes': False,
+                'is_group_selected': False,
+            }
+        repairs = self.mapped('repair_id')
+        repairs.invalidate_recordset(['service_line_ids', 'fleet_work_line_ids'])
+        repairs._update_header_status_from_service_lines()
+        return result
 
     def action_open_repair_order(self):
         self.ensure_one()
@@ -3326,6 +3443,8 @@ class FleetRepairServiceLine(models.Model):
     def _onchange_employee_id(self):
         if self.employee_id and self.employee_id.department_id and not self.department_id:
             self.department_id = self.employee_id.department_id
+        if self.repair_id:
+            self.repair_id._onchange_service_line_ids_status()
 
     @api.onchange('is_group_selected')
     def _onchange_is_group_selected(self):
@@ -3390,10 +3509,11 @@ class FleetRepairServiceLine(models.Model):
         for line in lines:
             if line.product_id and line.department_id and line.product_id.department_id != line.department_id:
                 line.product_id.sudo().write({'department_id': line.department_id.id})
-            if line.is_timer_running and line.repair_id and line.repair_id.state != 'workorder' and line.repair_id.state not in ('done', 'cancel'):
-                line.repair_id.sudo().write({'state': 'workorder'})
         lines._sync_to_work_lines()
         lines._sync_to_employee_status_log()
+        repairs = lines.mapped('repair_id')
+        repairs.invalidate_recordset(['service_line_ids', 'fleet_work_line_ids'])
+        repairs._update_header_status_from_service_lines()
         status_log_id = self.env.context.get('default_status_log_source_id')
         if status_log_id:
             log = self.env['hr.employee.status.log'].browse(status_log_id)
@@ -3431,16 +3551,24 @@ class FleetRepairServiceLine(models.Model):
             for line in self:
                 if line.product_id and line.department_id and line.product_id.department_id != line.department_id:
                     line.product_id.sudo().write({'department_id': line.department_id.id})
-        if vals.get('is_timer_running'):
-            for line in self:
-                if line.repair_id and line.repair_id.state != 'workorder' and line.repair_id.state not in ('done', 'cancel'):
-                    line.repair_id.sudo().write({'state': 'workorder'})
         sync_trigger_fields = {'timer_start', 'timer_end', 'timer_last_start', 'is_timer_running', 'is_timer_paused', 'accumulated_seconds', 'employee_id', 'department_id', 'product_id', 'line_status'}
         if any(k in vals for k in sync_trigger_fields):
             if not self.env.context.get('skip_work_line_sync'):
                 self._sync_to_work_lines()
             if not self.env.context.get('skip_status_log_sync'):
                 self._sync_to_employee_status_log()
+        status_sync_fields = {'timer_start', 'timer_end', 'timer_last_start', 'is_timer_running', 'is_timer_paused', 'is_pause_running', 'line_status', 'employee_id'}
+        if any(k in vals for k in status_sync_fields):
+            repairs = self.mapped('repair_id')
+            repairs.invalidate_recordset(['service_line_ids', 'fleet_work_line_ids'])
+            repairs._update_header_status_from_service_lines()
+        return res
+
+    def unlink(self):
+        repairs = self.mapped('repair_id')
+        res = super().unlink()
+        repairs.invalidate_recordset(['service_line_ids', 'fleet_work_line_ids'])
+        repairs._update_header_status_from_service_lines()
         return res
 
 
@@ -3513,15 +3641,20 @@ class FleetRepairAnalysis(models.Model):
     receipt_date = fields.Date(string='Date of Receipt', readonly=True)
     state = fields.Selection([
         ('draft', 'Received'),
-        ('diagnosis', 'In Diagnosis'),
-        ('diagnosis_complete', 'Diagnosis Complete'),
-        ('quote', 'Quotation Sent'),
-        ('saleorder', 'Quotation Approved'),
-        ('workorder', 'Work in Progress'),
-        ('work_completed', 'Work Completed'),
-        ('invoiced', 'Invoiced'),
+        ('assigned', 'Assigned'),
+        ('in_progress', 'In Progress'),
+        ('approval', 'Approval'),
+        ('parts', 'Parts'),
+        ('delivery', 'Delivery'),
         ('done', 'Done'),
         ('cancel', 'Cancelled'),
+        # ('diagnosis', 'In Diagnosis'),
+        # ('diagnosis_complete', 'Diagnosis Complete'),
+        # ('quote', 'Quotation Sent'),
+        # ('saleorder', 'Quotation Approved'),
+        # ('workorder', 'Work in Progress'),
+        # ('work_completed', 'Work Completed'),
+        # ('invoiced', 'Invoiced'),
     ], 'Status', readonly=True, copy=False, help="Gives the status of the fleet repairing.", index=True)
     client_id = fields.Many2one('res.partner', string='Client', readonly=True)
 
@@ -3575,8 +3708,8 @@ class AccountAnalyticLine(models.Model):
             rec.timer_end = False
             rec.is_timer_running = True
             rec.is_timer_paused = False
-            if rec.repair_id and rec.repair_id.state != 'workorder' and rec.repair_id.state not in ('done', 'cancel'):
-                rec.repair_id.sudo().write({'state': 'workorder'})
+            if rec.repair_id and rec.repair_id.state != 'in_progress' and rec.repair_id.state not in ('delivery', 'done', 'cancel'):
+                rec.repair_id.sudo().write({'state': 'in_progress'})
             result = {
                 'timer_start': fields.Datetime.to_string(rec.timer_start) if rec.timer_start else False,
                 'timer_last_start': fields.Datetime.to_string(rec.timer_last_start) if rec.timer_last_start else False,
@@ -3655,16 +3788,16 @@ class AccountAnalyticLine(models.Model):
     def create(self, vals_list):
         records = super().create(vals_list)
         for rec in records:
-            if rec.is_timer_running and rec.repair_id and rec.repair_id.state != 'workorder' and rec.repair_id.state not in ('done', 'cancel'):
-                rec.repair_id.sudo().write({'state': 'workorder'})
+            if rec.is_timer_running and rec.repair_id and rec.repair_id.state != 'in_progress' and rec.repair_id.state not in ('delivery', 'done', 'cancel'):
+                rec.repair_id.sudo().write({'state': 'in_progress'})
         return records
 
     def write(self, vals):
         res = super().write(vals)
         if vals.get('is_timer_running'):
             for rec in self:
-                if rec.repair_id and rec.repair_id.state != 'workorder' and rec.repair_id.state not in ('done', 'cancel'):
-                    rec.repair_id.sudo().write({'state': 'workorder'})
+                if rec.repair_id and rec.repair_id.state != 'in_progress' and rec.repair_id.state not in ('delivery', 'done', 'cancel'):
+                    rec.repair_id.sudo().write({'state': 'in_progress'})
         return res
 
     # @api.depends('service_type', 'unit_amount')
@@ -3835,8 +3968,8 @@ class FleetRepairWorkLine(models.Model):
             rec.timer_end = False
             rec.is_timer_running = True
             rec.is_timer_paused = False
-            if rec.repair_id and rec.repair_id.state != 'workorder' and rec.repair_id.state not in ('done', 'cancel'):
-                rec.repair_id.sudo().write({'state': 'workorder'})
+            if rec.repair_id and rec.repair_id.state != 'in_progress' and rec.repair_id.state not in ('delivery', 'done', 'cancel'):
+                rec.repair_id.sudo().write({'state': 'in_progress'})
             rec._compute_time_diff()
             rec._sync_to_service_line()
             result = {
@@ -3924,16 +4057,16 @@ class FleetRepairWorkLine(models.Model):
     def create(self, vals_list):
         records = super().create(vals_list)
         for rec in records:
-            if rec.is_timer_running and rec.repair_id and rec.repair_id.state != 'workorder' and rec.repair_id.state not in ('done', 'cancel'):
-                rec.repair_id.sudo().write({'state': 'workorder'})
+            if rec.is_timer_running and rec.repair_id and rec.repair_id.state != 'in_progress' and rec.repair_id.state not in ('delivery', 'done', 'cancel'):
+                rec.repair_id.sudo().write({'state': 'in_progress'})
         return records
 
     def write(self, vals):
         res = super().write(vals)
         if vals.get('is_timer_running'):
             for rec in self:
-                if rec.repair_id and rec.repair_id.state != 'workorder' and rec.repair_id.state not in ('done', 'cancel'):
-                    rec.repair_id.sudo().write({'state': 'workorder'})
+                if rec.repair_id and rec.repair_id.state != 'in_progress' and rec.repair_id.state not in ('delivery', 'done', 'cancel'):
+                    rec.repair_id.sudo().write({'state': 'in_progress'})
         if not self.env.context.get('skip_service_line_sync'):
             sync_fields = {'timer_start', 'timer_end', 'timer_last_start', 'is_timer_running', 'is_timer_paused', 'accumulated_seconds', 'time_diff'}
             if any(k in vals for k in sync_fields):

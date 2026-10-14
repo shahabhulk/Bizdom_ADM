@@ -192,13 +192,26 @@ export class FleetRepairDasboard extends Component {
         );
         var domain = [];
         if (isDoneCard) {
-            domain = [['state', '=', 'done']];
+            domain = [
+                ['state', 'in', ['delivery', 'delivered']],
+                ['invoice_payment_status', 'in', ['not_paid', 'in_payment', 'partial', 'paid']]
+            ];
         } else {
-            domain = [['state', 'not in', ['done', 'invoiced', 'cancel']]];
+            domain = [
+                  ['state', 'not in', ['delivered', 'done', 'cancel']],
+        '|',
+        ['invoice_order_id', '=', false],
+        ['invoice_order_id.state', '=', 'draft']
+            ];
         }
         if (this.state.currentDepartment) {
             domain.push(['department_id.name', 'ilike', this.state.currentDepartment]);
         }
+        var context = this.state.currentDepartment ? { [`search_default_filter_${this.state.currentDepartment}`]: 1 } : {};
+        if (isDoneCard) {
+            context['show_payment_status'] = 1;
+        }
+
         this.action.doAction({
             name: isDoneCard ? `${this.state.departmentName} - Done` : `${this.state.departmentName} - Requests`,
             res_model: 'fleet.repair',
@@ -206,7 +219,7 @@ export class FleetRepairDasboard extends Component {
             views: [[false, 'list'], [false, 'form']],
             type: 'ir.actions.act_window',
             domain: domain,
-            context: this.state.currentDepartment ? { [`search_default_filter_${this.state.currentDepartment}`]: 1 } : {},
+            context: context,
         }, {
             on_reverse_breadcrumb: this.on_reverse_breadcrumb
         });
