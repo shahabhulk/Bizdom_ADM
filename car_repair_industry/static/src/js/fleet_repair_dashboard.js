@@ -193,15 +193,15 @@ export class FleetRepairDasboard extends Component {
         var domain = [];
         if (isDoneCard) {
             domain = [
-                ['state', 'in', ['delivery', 'delivered']],
+                ['state', 'in', ['delivery', 'done']],
                 ['invoice_payment_status', 'in', ['not_paid', 'in_payment', 'partial', 'paid']]
             ];
         } else {
             domain = [
-                  ['state', 'not in', ['delivered', 'done', 'cancel']],
-        '|',
-        ['invoice_order_id', '=', false],
-        ['invoice_order_id.state', '=', 'draft']
+                ['state', 'not in', ['done', 'cancel']],
+                '|',
+                ['invoice_order_id', '=', false],
+                ['invoice_order_id.state', '=', 'draft']
             ];
         }
         if (this.state.currentDepartment) {
@@ -210,6 +210,10 @@ export class FleetRepairDasboard extends Component {
         var context = this.state.currentDepartment ? { [`search_default_filter_${this.state.currentDepartment}`]: 1 } : {};
         if (isDoneCard) {
             context['show_payment_status'] = 1;
+            context['hide_status'] = 1;
+            context['hide_employee'] = 1;
+            context['hide_active_timer'] = 1;
+            context['hide_promised_date'] = 1;
         }
 
         this.action.doAction({

@@ -27,22 +27,16 @@
                         <button name="action_print_label" string="Print Label" invisible="state != 'draft'"
                                 type="object" style="float:left;"/>
                         <field name="invoice_order_id" invisible="1"/>
-                        <!-- 1. Before invoice: 'delivered' is NOT visible -->
+                        <field name="is_invoice_posted" invisible="1"/>
                         <field name="state" widget="statusbar"
                                class="o_fleet_repair_statusbar"
                                statusbar_visible="draft,assigned,in_progress,approval,parts,delivery"
                                options="{'clickable': '1'}"
-                               invisible="inv_count > 0 or invoice_order_id or state == 'delivered'"/>
-                        <!-- 2. After invoice: 'delivered' is visible -->
-                        <field name="state" widget="statusbar"
-                               class="o_fleet_repair_statusbar"
-                               statusbar_visible="draft,assigned,in_progress,approval,parts,delivery,delivered"
-                               options="{'clickable': '1'}"
-                               invisible="inv_count == 0 and not invoice_order_id and state != 'delivered'"/>
+                               invisible="is_invoice_posted"/>
 
                     </header>
                     <sheet string="Car Repair">
-
+                        <widget name="web_ribbon" title="Delivered" bg_color="text-bg-success" invisible="not is_invoice_posted"/>
 
                         <div class="oe_button_box" name="button_box">
                             <button type="object"
@@ -107,16 +101,16 @@
                         <group>
                             <group>
                                 <!--                                <field name="name" readonly="state != 'draft'"/>-->
-                                <field name="user_id" readonly="state != 'draft'" required="1"
+                                <field name="user_id" readonly="state != 'draft'" required="1" force_save="1"
                                        options="{'no_create': True, 'no_create_edit': True}"/>
-                                <field name="team_lead_id" readonly="state != 'draft'"
+                                <field name="team_lead_id" readonly="state != 'draft'" force_save="1"
                                        options="{'no_create': True, 'no_create_edit': True}"/>
                                 <field name="department_id" invisible="True"/>
                                 <field name="confirm_sale_order" invisible="True"/>
 
                             </group>
                             <group>
-                                <field name="priority" widget="priority" readonly="state != 'draft'"/>
+                                <field name="priority" widget="priority" readonly="state != 'draft'" force_save="1"/>
                                 <field name="receipt_date" readonly="1"/>
                                 <field name="promised_date" required="1"/>
                                 <field name="images_ids" widget='many2many_binary'/>
@@ -143,17 +137,17 @@
                                 <group>
                                     <group>
                                         <field name="client_id" options='{"no_quick_create": True}'
-                                               readonly="state != 'draft'"
+                                               readonly="state != 'draft'" force_save="1"
                                                string="Client" required="1"/>
-                                        <field name="client_address" string="Address" readonly="state != 'draft'"/>
+                                        <field name="client_address" string="Address" readonly="state != 'draft'" force_save="1"/>
                                         <field name="contact_name" string="Driver"/>
                                     </group>
                                     <group>
-                                        <field string="Mobile 1" name="client_phone" readonly="state != 'draft'"
+                                        <field string="Mobile 1" name="client_phone" readonly="state != 'draft'" force_save="1"
                                                required="1"/>
-                                        <field string="Mobile 2" name="client_mobile" readonly="state != 'draft'"/>
+                                        <field string="Mobile 2" name="client_mobile" readonly="state != 'draft'" force_save="1"/>
                                         <field name="client_email" string="Email" widget="email"
-                                               readonly="state != 'draft'" required="1"/>
+                                               readonly="state != 'draft'" force_save="1" required="1"/>
                                     </group>
                                 </group>
 
@@ -396,10 +390,12 @@
                     <field name="client_id"/>
                     <field name="client_phone" optional="hide"/>
                     <field name="license_plate" optional="show"/>
+                    <field name="model_name" string="Model" optional="show"/>
                     <field name="receipt_date" options="{'show_time': false}" width="120px"/>
+                    <field name="service_employee_id" widget="many2one_avatar_employee" string="Employee"
+                           optional="show"
+                           column_invisible="context.get('hide_employee') or context.get('show_payment_status')"/>
                     <field name="user_id" optional="hide"/>
-                    <field name="team_lead_id" optional="show"/>
-                    <field name="department_id" optional="show"/>
                     <field name="currency_id" column_invisible="1"/>
                     <field name="amount_parts" string="Parts Total" widget="monetary" optional="show" readonly="1"/>
                     <field name="amount_service" string="Service Total" widget="monetary" optional="show" readonly="1"/>
@@ -418,12 +414,16 @@
                     <field name="state" widget="badge"
                            decoration-danger="state in ('draft', 'assigned', 'in_progress')"
                            decoration-warning="state == 'parts'"
-                           decoration-success="state in ('approval', 'delivery', 'delivered', 'done')"/>
-                    <field name="service_employee_id" widget="many2one_avatar_employee" string="Employee"
-                           optional="show"/>
+                           decoration-success="state in ('approval', 'delivery', 'done')"
+                           column_invisible="context.get('hide_status') or context.get('show_payment_status')"/>
                     <field name="active_service_time_diff" widget="active_service_timer" string="Active Timer"
+                           optional="show"
+                           column_invisible="context.get('hide_active_timer') or context.get('show_payment_status')"/>
+                    <field name="promised_date" widget="remaining_days"
+                           column_invisible="context.get('hide_promised_date') or context.get('show_payment_status')"/>
+                    <field name="aging_date" string="Aging" widget="remaining_days"
+                           column_invisible="not context.get('show_payment_status')"
                            optional="show"/>
-                    <field name="promised_date" widget="remaining_days" invisible="state == 'delivery'"/>
                     <field name="delivery_status_color" widget="delivery_status" string="Signal"/>
                     <!--                    <field name="csat_rating" widget="priority"/>-->
                 </list>
@@ -454,8 +454,8 @@
                     <separator/>
                     <filter string="Active Work" name="active_work" domain="[('has_active_service_timer', '=', True)]"/>
                     <filter string="Not Delivered" name="not_done"
-                            domain="[('state', 'not in', ['delivered', 'done', 'cancel'])]"/>
-                    <filter string="Delivered" name="done" domain="[('state', 'in', ['delivery', 'delivered'])]"/>
+                            domain="[('state', 'not in', ['done', 'cancel'])]"/>
+                    <filter string="Delivered" name="done" domain="[('state', 'in', ['delivery', 'done'])]"/>
                     <group expand="0" string="Group By">
                         <filter string="Employee" name="group_service_employee"
                                 context="{'group_by': 'service_employee_id'}"/>
@@ -468,7 +468,7 @@
         <record model="ir.actions.act_window" id="action_fleet_repair_tree_view">
             <field name="name">Car Repair</field>
             <field name="res_model">fleet.repair</field>
-            <field name="domain">[('state', '!=', 'delivery')]</field>
+            <field name="domain">[('state', 'not in', ['done', 'cancel'])]</field>
             <field name="view_mode">list,form</field>
             <field name="search_view_id" ref="view_repair_order_filter"/>
             <field name="view_id" ref="view_fleet_repair_tree"/>

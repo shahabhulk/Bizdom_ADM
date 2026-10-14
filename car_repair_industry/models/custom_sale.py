@@ -493,11 +493,19 @@ class AccountInvoice(models.Model):
                         
             elif vals.get('state') == 'draft':
                 for move in self:
+                    repair_obj = False
                     if move.fleet_repair_invoice_id:
-                        move.fleet_repair_invoice_id.with_context(
+                        repair_obj = move.fleet_repair_invoice_id
+                    elif move.invoice_origin:
+                        sale_obj = self.env['sale.order'].search([('name', '=', move.invoice_origin)], limit=1)
+                        if sale_obj and sale_obj.workorder_id and sale_obj.workorder_id.fleet_repair_id:
+                            repair_obj = sale_obj.workorder_id.fleet_repair_id
+                    if repair_obj:
+                        repair_obj.with_context(
                             skip_sync_draft_invoices=True,
                             skip_timer_check=True,
-                        ).write({'state': 'draft'})
+                            skip_status_update_from_service_lines=True,
+                        ).write({'state': 'delivery'})
         return super(AccountInvoice, self).write(vals)
 
 

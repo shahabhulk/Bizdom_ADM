@@ -140,7 +140,7 @@ class Appointment(http.Controller):
 
         fleet_repair = request.env['fleet.repair'].sudo().search(
             repair_domain + [
-                ('state', 'not in', ['delivered', 'done', 'cancel']),
+                ('state', 'not in', ['done', 'cancel']),
                 '|',
                 ('invoice_order_id', '=', False),
                 ('invoice_order_id.state', '=', 'draft'),
@@ -150,7 +150,7 @@ class Appointment(http.Controller):
         fleet_diagnos_d = request.env['fleet.diagnose'].sudo().search(diagnose_domain + [('state', '=', 'in_progress')])
         fleet_repair_d = request.env['fleet.repair'].sudo().search(
             repair_domain + [
-                ('state', 'in', ['delivery', 'delivered']),
+                ('state', 'in', ['delivery', 'done']),
                 ('invoice_payment_status', 'in', ['not_paid', 'in_payment', 'partial', 'paid']),
             ]
         )

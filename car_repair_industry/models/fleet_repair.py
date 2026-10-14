@@ -80,6 +80,15 @@ class FleetRepair(models.Model):
                 USING promised_date::date;
             """)
 
+        cr.execute("""
+            SELECT data_type 
+            FROM information_schema.columns 
+            WHERE table_name = 'fleet_repair' AND column_name = 'aging_date'
+        """)
+        res_aging = cr.fetchone()
+        if res_aging and res_aging[0] in ('integer', 'bigint', 'smallint', 'numeric'):
+            cr.execute("ALTER TABLE fleet_repair DROP COLUMN aging_date")
+
         super()._auto_init()
     vin_sn = fields.Char(
         string='Chassis Number',
@@ -187,7 +196,6 @@ class FleetRepair(models.Model):
         ('approval', 'Approval'),
         ('parts', 'Parts'),
         ('delivery', 'Delivery'),
-        ('delivered','Delivered'),
         ('done', 'Done'),
         ('cancel', 'Cancelled'),
         # ('diagnosis', 'In Diagnosis'),
@@ -254,6 +262,10 @@ class FleetRepair(models.Model):
         ('not_paid', 'Not Paid'),
         ('draft', 'Draft Invoice'),
     ], string='Payment Status', compute='_compute_invoice_payment_status', search='_search_invoice_payment_status')
+    is_invoice_posted = fields.Boolean(
+        string='Is Invoice Posted',
+        compute='_compute_is_invoice_posted',
+    )
     company_id = fields.Many2one('res.company', store=True, copy=False,
                                  string="Company",
                                  default=lambda self: self.env.user.company_id.id)
@@ -267,6 +279,8 @@ class FleetRepair(models.Model):
     )
 
     promised_date = fields.Date(string="Promised Date", required=True)
+    aging_date = fields.Date(string="Aging", compute='_compute_aging_date', store=True)
+
     # csat_rating = fields.Selection(
     #     [
     #         ("0", "No comments"),
@@ -295,19 +309,68 @@ class FleetRepair(models.Model):
         store=True,
     )
 
-    @api.depends('service_line_ids.employee_id', 'service_line_ids.is_timer_running')
+
+
+    def _get_active_invoice(self):
+        self.ensure_one()
+        invoice = self.invoice_order_id if self.invoice_order_id and self.invoice_order_id.state != 'cancel' else False
+        if not invoice and self.invoice_ids:
+            valid_invoices = self.invoice_ids.filtered(lambda m: m.state != 'cancel')
+            posted_invoices = valid_invoices.filtered(lambda m: m.state == 'posted')
+            invoice = posted_invoices[-1] if posted_invoices else (valid_invoices[-1] if valid_invoices else False)
+
+        if not invoice and self.sale_order_id and self.sale_order_id.invoice_ids:
+            valid_so_invoices = self.sale_order_id.invoice_ids.filtered(lambda m: m.state != 'cancel')
+            posted_so = valid_so_invoices.filtered(lambda m: m.state == 'posted')
+            invoice = posted_so[-1] if posted_so else (valid_so_invoices[-1] if valid_so_invoices else False)
+
+        if not invoice:
+            invoice = self.env['account.move'].search([
+                ('fleet_repair_invoice_id', '=', self.id),
+                ('state', '!=', 'cancel'),
+            ], order='id desc', limit=1)
+
+        if not invoice and hasattr(self, 'fleet_id') and self.fleet_id:
+            invoice = getattr(self.fleet_id, 'invoice_id', False)
+
+        return invoice
+
+    @api.depends(
+        'invoice_order_id.invoice_date',
+        'invoice_order_id.date',
+        'invoice_order_id.payment_state',
+        'invoice_order_id.state',
+        'invoice_ids.invoice_date',
+        'invoice_ids.date',
+        'invoice_ids.payment_state',
+        'invoice_ids.state',
+        'sale_order_id.invoice_ids.invoice_date',
+        'sale_order_id.invoice_ids.payment_state',
+        'sale_order_id.invoice_ids.state',
+    )
+    def _compute_aging_date(self):
+        for rec in self:
+            invoice = rec._get_active_invoice()
+            if invoice and invoice.payment_state not in ('paid', 'reversed') and invoice.state != 'cancel':
+                rec.aging_date = invoice.invoice_date or invoice.date or False
+            else:
+                rec.aging_date = False
+
+    @api.depends('service_line_ids.employee_id', 'service_line_ids.is_timer_running', 'service_line_ids.line_status')
     def _compute_service_employee_id(self):
         for rec in self:
-            active_line = rec.service_line_ids.filtered(lambda l: l.is_timer_running and l.employee_id)
+            service_lines = rec.service_line_ids
+            emp_lines = service_lines.filtered(lambda l: bool(l.employee_id))
+            if not emp_lines or all(l.line_status == 'completed' for l in emp_lines):
+                rec.service_employee_id = False
+                continue
+
+            active_line = emp_lines.filtered(lambda l: l.is_timer_running)
             if active_line:
                 rec.service_employee_id = active_line[0].employee_id
             else:
-                first_emp = False
-                for line in rec.service_line_ids:
-                    if line.employee_id:
-                        first_emp = line.employee_id
-                        break
-                rec.service_employee_id = first_emp
+                pending_lines = emp_lines.filtered(lambda l: l.line_status != 'completed')
+                rec.service_employee_id = pending_lines[0].employee_id if pending_lines else False
 
     active_service_employee_ids = fields.Many2many(
         'hr.employee',
@@ -679,12 +742,14 @@ class FleetRepair(models.Model):
             )
             if self.state in ('draft', 'assigned', 'in_progress', 'delivery'):
                 if all_assigned_or_stopped:
-                    self.state = 'assigned'
+                    if self._origin.id:
+                        self.state = 'assigned'
                 elif self.state == 'assigned':
                     self.state = 'draft'
         elif service_lines and all(l.line_status == 'completed' for l in service_lines):
             if self.state not in ('delivery', 'done', 'cancel'):
                 self.state = 'delivery'
+        self._compute_service_employee_id()
 
     @api.model_create_multi
     def create(self, vals_list):
@@ -701,32 +766,6 @@ class FleetRepair(models.Model):
         return True
 
     def write(self, vals):
-        if vals.get('state') == 'delivered':
-            for rec in self:
-                if rec.state != 'delivered':
-                    invoices = self.env['account.move'].sudo().search([
-                        '|',
-                        ('fleet_repair_invoice_id', '=', rec.id),
-                        ('id', '=', rec.invoice_order_id.id if rec.invoice_order_id else False),
-                        ('state', '!=', 'cancel'),
-                    ])
-                    if not invoices and rec.sale_order_id:
-                        invoices = rec.sale_order_id.invoice_ids.filtered(lambda m: m.state != 'cancel')
-
-                    if not invoices:
-                        raise UserError(_("No invoice found for this Job Card. Please create and post the invoice bill before proceeding to Delivered status."))
-
-                    unposted_invoices = invoices.filtered(lambda m: m.state != 'posted')
-                    if unposted_invoices:
-                        inv_names = [m.name for m in unposted_invoices if m.name and m.name != '/']
-                        if inv_names:
-                            raise UserError(_(
-                                "Please post the invoice bill (%s) before proceeding to Delivered status."
-                            ) % ", ".join(inv_names))
-                        else:
-                            raise UserError(_(
-                                "Please post the invoice bill before proceeding to Delivered status."
-                            ))
         res = super().write(vals)
         if 'state' in vals and vals.get('state') not in ('in_progress', 'quote'):
             if not self.env.context.get('skip_timer_check'):
@@ -747,6 +786,38 @@ class FleetRepair(models.Model):
             self.action_sync_work_lines_from_service_lines()
             if not self.env.context.get('skip_status_update_from_service_lines'):
                 self._update_header_status_from_service_lines()
+        return res
+
+    @api.model
+    def web_search_read(self, *args, **kwargs):
+        res = super().web_search_read(*args, **kwargs)
+        records = res.get('records', []) if isinstance(res, dict) else (res if isinstance(res, list) else [])
+        if records:
+            rec_ids_with_emp = [r['id'] for r in records if isinstance(r, dict) and r.get('service_employee_id')]
+            if rec_ids_with_emp:
+                repairs = self.browse(rec_ids_with_emp)
+                for repair in repairs:
+                    emp_lines = repair.service_line_ids.filtered(lambda l: bool(l.employee_id))
+                    if not emp_lines or all(l.line_status == 'completed' for l in emp_lines):
+                        for r_dict in records:
+                            if isinstance(r_dict, dict) and r_dict.get('id') == repair.id:
+                                r_dict['service_employee_id'] = False
+                                break
+                        self.env.cr.execute("UPDATE fleet_repair SET service_employee_id = NULL WHERE id = %s", [repair.id])
+                        repair.invalidate_recordset(['service_employee_id'])
+        return res
+
+    def read(self, fields=None, load='_classic_read'):
+        res = super().read(fields=fields, load=load)
+        if (not fields or 'service_employee_id' in fields) and isinstance(res, list):
+            for r_dict in res:
+                if isinstance(r_dict, dict) and r_dict.get('service_employee_id'):
+                    repair = self.browse(r_dict['id'])
+                    emp_lines = repair.service_line_ids.filtered(lambda l: bool(l.employee_id))
+                    if not emp_lines or all(l.line_status == 'completed' for l in emp_lines):
+                        r_dict['service_employee_id'] = False
+                        self.env.cr.execute("UPDATE fleet_repair SET service_employee_id = NULL WHERE id = %s", [repair.id])
+                        repair.invalidate_recordset(['service_employee_id'])
         return res
 
 
@@ -1076,11 +1147,12 @@ class FleetRepair(models.Model):
         return super().search_fetch(domain, field_names, offset=offset, limit=limit, order=order)
 
     def _cron_update_delivery_colors(self):
-        """Cron job to update delivery status colors for all repairs"""
+        """Cron job to update delivery status colors and aging for all repairs"""
         repairs = self.sudo().search([])
         if repairs:
             repairs._compute_delivery_status_color()
-            repairs.flush_recordset(['delivery_status_color'])
+            repairs._compute_aging_date()
+            repairs.flush_recordset(['delivery_status_color', 'aging_date'])
 
     @api.depends('product_line_ids.subtotal', 'service_line_ids.subtotal')
     def _compute_total(self):
@@ -1103,18 +1175,7 @@ class FleetRepair(models.Model):
     @api.depends('invoice_ids.payment_state', 'invoice_ids.state', 'invoice_order_id.payment_state', 'invoice_order_id.state')
     def _compute_invoice_payment_status(self):
         for rec in self:
-            invoice = rec.invoice_order_id if rec.invoice_order_id and rec.invoice_order_id.state != 'cancel' else False
-            if not invoice and rec.invoice_ids:
-                valid_invoices = rec.invoice_ids.filtered(lambda m: m.state != 'cancel')
-                posted_invoices = valid_invoices.filtered(lambda m: m.state == 'posted')
-                invoice = posted_invoices[-1] if posted_invoices else (valid_invoices[-1] if valid_invoices else False)
-
-            if not invoice:
-                invoice = self.env['account.move'].search([
-                    ('fleet_repair_invoice_id', '=', rec.id),
-                    ('state', '!=', 'cancel'),
-                ], order='id desc', limit=1)
-
+            invoice = rec._get_active_invoice()
             if not invoice:
                 rec.invoice_payment_status = False
             elif invoice.state == 'draft':
@@ -1154,6 +1215,24 @@ class FleetRepair(models.Model):
             return [('id', 'in', list(target_ids))]
         else:
             return [('id', 'not in', list(target_ids))]
+
+    @api.depends('invoice_ids.state', 'invoice_order_id.state', 'sale_order_id.invoice_ids.state')
+    def _compute_is_invoice_posted(self):
+        for rec in self:
+            is_posted = False
+            if rec.invoice_order_id and rec.invoice_order_id.state == 'posted':
+                is_posted = True
+            elif rec.invoice_ids and any(inv.state == 'posted' for inv in rec.invoice_ids):
+                is_posted = True
+            elif rec.sale_order_id and any(inv.state == 'posted' for inv in rec.sale_order_id.invoice_ids):
+                is_posted = True
+            else:
+                posted_count = self.env['account.move'].sudo().search_count([
+                    ('fleet_repair_invoice_id', '=', rec.id),
+                    ('state', '=', 'posted'),
+                ])
+                is_posted = posted_count > 0
+            rec.is_invoice_posted = is_posted
 
     def _compute_inv_count(self):
         for rec in self:
@@ -3191,8 +3270,9 @@ class FleetRepairServiceLine(models.Model):
                 'is_group_selected': False,
             }
         repairs = self.mapped('repair_id')
-        repairs.invalidate_recordset(['service_line_ids', 'fleet_work_line_ids'])
+        repairs.invalidate_recordset(['service_line_ids', 'fleet_work_line_ids', 'service_employee_id'])
         repairs._update_header_status_from_service_lines()
+        repairs._compute_service_employee_id()
         return result
 
     def action_open_repair_order(self):
@@ -3512,8 +3592,9 @@ class FleetRepairServiceLine(models.Model):
         lines._sync_to_work_lines()
         lines._sync_to_employee_status_log()
         repairs = lines.mapped('repair_id')
-        repairs.invalidate_recordset(['service_line_ids', 'fleet_work_line_ids'])
+        repairs.invalidate_recordset(['service_line_ids', 'fleet_work_line_ids', 'service_employee_id'])
         repairs._update_header_status_from_service_lines()
+        repairs._compute_service_employee_id()
         status_log_id = self.env.context.get('default_status_log_source_id')
         if status_log_id:
             log = self.env['hr.employee.status.log'].browse(status_log_id)
@@ -3560,15 +3641,17 @@ class FleetRepairServiceLine(models.Model):
         status_sync_fields = {'timer_start', 'timer_end', 'timer_last_start', 'is_timer_running', 'is_timer_paused', 'is_pause_running', 'line_status', 'employee_id'}
         if any(k in vals for k in status_sync_fields):
             repairs = self.mapped('repair_id')
-            repairs.invalidate_recordset(['service_line_ids', 'fleet_work_line_ids'])
+            repairs.invalidate_recordset(['service_line_ids', 'fleet_work_line_ids', 'service_employee_id'])
             repairs._update_header_status_from_service_lines()
+            repairs._compute_service_employee_id()
         return res
 
     def unlink(self):
         repairs = self.mapped('repair_id')
         res = super().unlink()
-        repairs.invalidate_recordset(['service_line_ids', 'fleet_work_line_ids'])
+        repairs.invalidate_recordset(['service_line_ids', 'fleet_work_line_ids', 'service_employee_id'])
         repairs._update_header_status_from_service_lines()
+        repairs._compute_service_employee_id()
         return res
 
 
