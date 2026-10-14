@@ -3165,6 +3165,7 @@ class FleetRepairServiceLine(models.Model):
                 line.quantity = float(line.alloted_fru)
                 line.subtotal = float(line.alloted_fru) * 200.0
             else:
+                line.unit_price = 0.0
                 line.quantity = 1.0
                 line.subtotal = line.unit_price or 0.0
             val = round((line.subtotal or 0.0) / 2400.0, 2)
