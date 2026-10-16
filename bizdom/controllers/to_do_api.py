@@ -5,8 +5,10 @@ import jwt
 
 from odoo import http, Command
 from odoo.http import request, Response
+from odoo.tools import html2plaintext
 
 SECRET_KEY = "Your-secret-key"
+VALID_TODO_PRIORITIES = {"low", "medium", "high"}
 
 
 def _json_response(data, status=200):
@@ -18,9 +20,18 @@ def _json_response(data, status=200):
 
 
 def _auth_or_error():
-    """Validate JWT and set request env user. Returns an error Response or None."""
+    """Validate auth and set request env user. Returns an error Response or None.
+
+    Supports both:
+    - Bearer JWT (external API clients)
+    - Odoo session user (internal dashboard calls)
+    """
     auth_header = request.httprequest.headers.get("Authorization")
     if not auth_header:
+        session_uid = request.session.uid
+        if session_uid:
+            request.update_env(user=int(session_uid))
+            return None
         return _json_response({"statusCode": 401, "message": "Token missing"}, 401)
 
     token = auth_header.split(" ", 1)[1] if auth_header.startswith("Bearer ") else auth_header
@@ -63,14 +74,16 @@ def _serialize_user(u):
 
 
 def _serialize_todo(t):
+    description = html2plaintext(t.description or "").strip()
     return {
         "id": t.id,
         "name": t.name,
-        "description": t.description or "",
+        "description": description,
         "pillar_id": t.pillar_id.id if t.pillar_id else None,
         "pillar_name": t.pillar_id.name if t.pillar_id else None,
         "date_deadline": t.date_deadline.isoformat() if t.date_deadline else None,
         "state": t.state,
+        "priority": t.bizdom_priority or "low",
         "user_ids": [_serialize_user(u) for u in t.user_ids],
         "create_date": t.create_date.isoformat() if t.create_date else None,
         "write_date": t.write_date.isoformat() if t.write_date else None,
@@ -224,6 +237,16 @@ class BizdomTodoAPI(http.Controller):
             "description": body.get("description") or False,
             "user_ids": [Command.set(assignee_ids)],
         }
+        if body.get("priority"):
+            if body["priority"] not in VALID_TODO_PRIORITIES:
+                return _json_response(
+                    {
+                        "statusCode": 400,
+                        "message": f"priority must be one of: {sorted(VALID_TODO_PRIORITIES)}",
+                    },
+                    400,
+                )
+            vals["bizdom_priority"] = body["priority"]
 
         if body.get("pillar_id"):
             try:
@@ -303,6 +326,18 @@ class BizdomTodoAPI(http.Controller):
             if err:
                 return err
             vals["date_deadline"] = deadline
+
+        if "priority" in body:
+            priority = body["priority"] or "low"
+            if priority not in VALID_TODO_PRIORITIES:
+                return _json_response(
+                    {
+                        "statusCode": 400,
+                        "message": f"priority must be one of: {sorted(VALID_TODO_PRIORITIES)}",
+                    },
+                    400,
+                )
+            vals["bizdom_priority"] = priority
 
         if "user_ids" in body:
             assignee_ids, err = _resolve_user_ids(body["user_ids"])
