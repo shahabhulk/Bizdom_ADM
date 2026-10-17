@@ -220,17 +220,16 @@ class AssignJobWizard(models.TransientModel):
                 if emp.current_service_line_id:
                     res['service_line_id'] = emp.current_service_line_id.id
         if 'repair_id_domain' in fields_list or not res.get('repair_id_domain'):
-            user = self.env.user
-            is_admin = (
+            is_admin_or_manager = (
                 self.env.is_admin() or
-                user.has_group('base.group_system') or
-                user.has_group('base.group_erp_manager') or
-                user.has_group('car_repair_industry.group_fleet_repair_directeur_commercial') or
-                user.has_group('car_repair_industry.group_fleet_repair_service_manager')
+                self.env.user.has_group('base.group_system') or
+                self.env.user.has_group('base.group_erp_manager') or
+                self.env.user.has_group('car_repair_industry.group_fleet_repair_directeur_commercial') or
+                self.env.user.has_group('car_repair_industry.group_fleet_repair_service_manager')
             )
+            base_domain = [('state', 'not in', ['delivery', 'delivered', 'done', 'invoiced', 'cancel'])]
             lead_id = res.get('team_lead_id')
-            base_domain = [('state', 'not in', ['done', 'invoiced', 'cancel'])]
-            if not is_admin and lead_id:
+            if not is_admin_or_manager and lead_id:
                 domain = ['&'] + base_domain + [('team_lead_id', '=', lead_id)]
             else:
                 domain = base_domain
@@ -251,10 +250,10 @@ class AssignJobWizard(models.TransientModel):
 
     @api.depends('team_lead_id', 'repair_id')
     def _compute_repair_id_domain(self):
-        is_admin = self._is_admin_or_manager()
+        is_admin_or_manager = self._is_admin_or_manager()
         for wizard in self:
-            base_domain = [('state', 'not in', ['done', 'invoiced', 'cancel'])]
-            if not is_admin and wizard.team_lead_id:
+            base_domain = [('state', 'not in', ['delivery', 'delivered', 'done', 'invoiced', 'cancel'])]
+            if not is_admin_or_manager and wizard.team_lead_id:
                 domain = ['&'] + base_domain + [('team_lead_id', '=', wizard.team_lead_id.id)]
             else:
                 domain = base_domain

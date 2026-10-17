@@ -375,8 +375,9 @@
                        decoration-danger="display_status in ('Stop', 'Paused')"/>
                 <field name="pause_reason_display" string="Pause Reason" widget="badge" 
                        decoration-warning="pause_reason_display not in ('—', False)"/>
+                <field name="job_id_domain" column_invisible="1"/>
                 <field name="job_id" string="Job Card" 
-                       domain="['|', ('id', '=', job_id), '&amp;', ('state', 'not in', ['done', 'invoiced', 'cancel']), ('team_lead_id', '=', team_lead_id)]"/>
+                       domain="job_id_domain"/>
                 <field name="service_name" string="Assigned Service(s)"/>
                 <field name="license_plate" string="License Plate"/>
                 <field name="fleet_id" string="Car"/>
@@ -594,8 +595,9 @@
                         </group>
                         <group string="Job Card">
                             <field name="team_lead_id" invisible="1"/>
+                            <field name="job_id_domain" invisible="1"/>
                             <field name="job_id" string="Job Card No"
-                                   domain="['|', ('id', '=', job_id), '&amp;', ('state', 'not in', ['done', 'invoiced', 'cancel']), ('team_lead_id', '=', team_lead_id)]"
+                                   domain="job_id_domain"
                                    options="{'no_create': True, 'no_open': True}"/>
                         </group>
                     </group>
@@ -668,7 +670,8 @@
                        decoration-danger="display_status in ('Stop', 'Paused')"/>
                 <field name="pause_reason_display" string="Pause Reason" widget="badge" 
                        decoration-warning="pause_reason_display not in ('—', False)"/>
-                <field name="job_id" string="Job Card"/>
+                <field name="job_id_domain" column_invisible="1"/>
+                <field name="job_id" string="Job Card" domain="job_id_domain"/>
                 <field name="service_name" string="Assigned Service(s)"/>
                 <field name="license_plate" string="License Plate"/>
                 <field name="fleet_id" string="Car"/>
@@ -825,7 +828,11 @@
                             <field name="end_datetime" readonly="1"/>
                         </group>
                         <group string="Job Card">
-                            <field name="job_id" string="Job Card No"/>
+                            <field name="team_lead_id" invisible="1"/>
+                            <field name="job_id_domain" invisible="1"/>
+                            <field name="job_id" string="Job Card No"
+                                   domain="job_id_domain"
+                                   options="{'no_create': True, 'no_open': True}"/>
                             <field name="duration" invisible="1"/>
                             <field name="service_line_id" invisible="1"/>
                             <field name="product_id" invisible="1"/>

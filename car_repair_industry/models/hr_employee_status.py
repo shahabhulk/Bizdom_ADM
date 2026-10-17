@@ -1515,11 +1515,59 @@ class HrEmployeeStatusLog(models.Model):
         store=True,
         readonly=False,
     )
+    job_id_domain = fields.Char(
+        string='Job Card Domain',
+        compute='_compute_job_id_domain',
+    )
     job_id = fields.Many2one(
         'fleet.repair',
         string='Job Card',
-        domain="['|', ('id', '=', job_id), '&', ('state', 'not in', ['done', 'invoiced', 'cancel']), ('team_lead_id', '=', team_lead_id)]",
+        domain="job_id_domain",
     )
+
+    @api.model
+    def default_get(self, fields_list):
+        res = super().default_get(fields_list)
+        if 'job_id_domain' in fields_list or not res.get('job_id_domain'):
+            user = self.env.user
+            is_admin_or_manager = (
+                self.env.is_admin() or
+                user.has_group('base.group_system') or
+                user.has_group('base.group_erp_manager') or
+                user.has_group('car_repair_industry.group_fleet_repair_directeur_commercial') or
+                user.has_group('car_repair_industry.group_fleet_repair_service_manager')
+            )
+            base_domain = [('state', 'not in', ['delivery', 'delivered', 'done', 'invoiced', 'cancel'])]
+            lead_id = res.get('team_lead_id') or self.env.context.get('default_team_lead_id')
+            if not is_admin_or_manager and lead_id:
+                domain = ['&'] + base_domain + [('team_lead_id', '=', lead_id)]
+            else:
+                domain = base_domain
+            if res.get('job_id'):
+                domain = ['|', ('id', '=', res.get('job_id'))] + domain
+            res['job_id_domain'] = str(domain)
+        return res
+
+    @api.depends('team_lead_id', 'job_id', 'employee_id')
+    def _compute_job_id_domain(self):
+        user = self.env.user
+        is_admin_or_manager = (
+            self.env.is_admin() or
+            user.has_group('base.group_system') or
+            user.has_group('base.group_erp_manager') or
+            user.has_group('car_repair_industry.group_fleet_repair_directeur_commercial') or
+            user.has_group('car_repair_industry.group_fleet_repair_service_manager')
+        )
+        for rec in self:
+            base_domain = [('state', 'not in', ['delivery', 'delivered', 'done', 'invoiced', 'cancel'])]
+            lead_id = rec.team_lead_id.id if rec.team_lead_id else False
+            if not is_admin_or_manager and lead_id:
+                domain = ['&'] + base_domain + [('team_lead_id', '=', lead_id)]
+            else:
+                domain = base_domain
+            if rec.job_id:
+                domain = ['|', ('id', '=', rec.job_id.id)] + domain
+            rec.job_id_domain = str(domain)
     license_plate = fields.Many2one(
         'fleet.vehicle',
         string='License Plate',
