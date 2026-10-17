@@ -161,18 +161,18 @@ class HrEmployee(models.Model):
             running_lines = self.env['fleet.repair.service.line'].search([
                 ('employee_id', '=', emp.id),
                 ('is_timer_running', '=', True),
-                ('repair_id.state', 'not in', ['done', 'invoiced', 'cancel'])
+                ('repair_id.state', 'not in', ['delivery', 'delivered', 'done', 'invoiced', 'cancel'])
             ], order='timer_last_start desc, id desc')
 
             paused_lines = self.env['fleet.repair.service.line'].search([
                 ('employee_id', '=', emp.id),
                 ('is_timer_paused', '=', True),
-                ('repair_id.state', 'not in', ['done', 'invoiced', 'cancel'])
+                ('repair_id.state', 'not in', ['delivery', 'delivered', 'done', 'invoiced', 'cancel'])
             ], order='timer_end desc, id desc')
 
             assigned_lines = self.env['fleet.repair.service.line'].search([
                 ('employee_id', '=', emp.id),
-                ('repair_id.state', 'not in', ['done', 'invoiced', 'cancel'])
+                ('repair_id.state', 'not in', ['delivery', 'delivered', 'done', 'invoiced', 'cancel'])
             ], order='write_date desc, id desc')
 
             completed_logs = self.env['hr.employee.status.log'].search([
@@ -1182,11 +1182,11 @@ class HrEmployeeStatusLog(models.Model):
 
 
 
-    @api.depends('job_id', 'status', 'job_status', 'pause_reason', 'is_timer_running', 'is_timer_paused', 'accumulated_seconds', 'end_datetime', 'service_line_ids.line_status')
+    @api.depends('job_id', 'job_id.state', 'status', 'job_status', 'pause_reason', 'is_timer_running', 'is_timer_paused', 'accumulated_seconds', 'end_datetime', 'service_line_ids.line_status')
     def _compute_display_status(self):
         for rec in self:
             all_lines_done = bool(rec.service_line_ids and all(l.line_status == 'completed' for l in rec.service_line_ids))
-            if rec.job_status == 'completed' or rec.status == 'completed' or all_lines_done:
+            if rec.job_status == 'completed' or rec.status == 'completed' or all_lines_done or (rec.job_id and rec.job_id.state in ('delivery', 'done')):
                 rec.display_status = 'Completed'
             elif rec.is_timer_running or rec.job_status == 'working' or rec.status in ('job', 'working'):
                 rec.display_status = 'Working'

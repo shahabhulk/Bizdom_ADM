@@ -689,9 +689,14 @@ class FleetRepair(models.Model):
         for rec in self:
             if rec.state in ('done', 'cancel'):
                 continue
+            if rec.state == 'delivery':
+                uncompleted_lines = rec.service_line_ids.filtered(lambda l: l.line_status != 'completed')
+                if uncompleted_lines:
+                    uncompleted_lines.action_complete_service()
+                continue
             service_lines = rec.service_line_ids
             if not service_lines:
-                if rec.state in ('assigned', 'in_progress', 'delivery'):
+                if rec.state in ('assigned', 'in_progress'):
                     rec.sudo().with_context(skip_timer_check=True).write({'state': 'draft'})
                 continue
 
@@ -709,7 +714,7 @@ class FleetRepair(models.Model):
                     bool(l.employee_id) and l.line_status in ('assigned', 'paused')
                     for l in pending_lines
                 )
-                if rec.state in ('draft', 'assigned', 'in_progress', 'delivery'):
+                if rec.state in ('draft', 'assigned', 'in_progress'):
                     if all_assigned_or_stopped:
                         if rec.state != 'assigned':
                             rec.sudo().with_context(skip_timer_check=True).write({'state': 'assigned'})
@@ -719,13 +724,13 @@ class FleetRepair(models.Model):
                 if rec.state not in ('delivery', 'done', 'cancel'):
                     rec.sudo().with_context(skip_timer_check=True).write({'state': 'delivery'})
 
-    @api.onchange('service_line_ids', 'service_line_ids.employee_id', 'service_line_ids.line_status', 'service_line_ids.is_timer_running')
+    @api.onchange('service_line_ids')
     def _onchange_service_line_ids_status(self):
-        if self.state in ('done', 'cancel'):
+        if self.state in ('delivery', 'done', 'cancel'):
             return
         service_lines = self.service_line_ids
         if not service_lines:
-            if self.state in ('assigned', 'in_progress', 'delivery'):
+            if self.state in ('assigned', 'in_progress'):
                 self.state = 'draft'
             return
 
@@ -740,7 +745,7 @@ class FleetRepair(models.Model):
                 bool(l.employee_id) and l.line_status in ('assigned', 'paused')
                 for l in pending_lines
             )
-            if self.state in ('draft', 'assigned', 'in_progress', 'delivery'):
+            if self.state in ('draft', 'assigned', 'in_progress'):
                 if all_assigned_or_stopped:
                     if self._origin.id:
                         self.state = 'assigned'
@@ -750,6 +755,22 @@ class FleetRepair(models.Model):
             if self.state not in ('delivery', 'done', 'cancel'):
                 self.state = 'delivery'
         self._compute_service_employee_id()
+
+    @api.onchange('state')
+    def _onchange_state(self):
+        if self.state == 'delivery':
+            now = fields.Datetime.now()
+            for line in self.service_line_ids:
+                if line.line_status != 'completed':
+                    line.line_status = 'completed'
+                    line.is_timer_running = False
+                    line.is_timer_paused = False
+                    line.is_pause_running = False
+                    if not line.timer_start:
+                        line.timer_start = now
+                    if not line.timer_end:
+                        line.timer_end = now
+                    line.pause_reason_display = 'Completed'
 
     @api.model_create_multi
     def create(self, vals_list):
@@ -766,8 +787,67 @@ class FleetRepair(models.Model):
         return True
 
     def write(self, vals):
+        if vals.get('state') == 'delivery':
+            now = fields.Datetime.now()
+            for rec in self:
+                uncompleted_lines = rec.service_line_ids.filtered(lambda l: l.line_status != 'completed')
+                if uncompleted_lines:
+                    uncompleted_lines.action_complete_service()
+                open_logs = self.env['hr.employee.status.log'].search([
+                    ('job_id', '=', rec.id),
+                    ('status', '!=', 'completed'),
+                ])
+                for o_log in open_logs:
+                    o_log.write({
+                        'job_status': 'completed',
+                        'status': 'completed',
+                        'is_timer_running': False,
+                        'is_timer_paused': False,
+                        'is_pause_running': False,
+                        'timer_last_start': False,
+                        'pause_timer_start': False,
+                        'timer_end': o_log.timer_end or now,
+                        'end_datetime': o_log.end_datetime or now,
+                    })
+                    o_log._compute_display_status()
+                    emp = o_log.employee_id
+                    if emp and emp.current_job_id == rec:
+                        other_pending = self.env['fleet.repair.service.line'].search([
+                            ('employee_id', '=', emp.id),
+                            ('repair_id', '!=', rec.id),
+                            ('repair_id.state', 'not in', ['delivery', 'done', 'invoiced', 'cancel']),
+                            ('line_status', '!=', 'completed'),
+                        ], limit=1)
+                        if other_pending:
+                            emp.sudo().write({
+                                'work_status': 'assigned',
+                                'current_job_id': other_pending.repair_id.id,
+                                'current_service_line_id': other_pending.id,
+                                'current_pause_reason': False,
+                                'is_idle_running': False,
+                            })
+                        else:
+                            emp.sudo().write({
+                                'work_status': 'idle',
+                                'idle_reason': 'no_job',
+                                'is_idle_running': True,
+                                'idle_timer_start': now,
+                                'idle_accumulated_seconds': 0.0,
+                                'current_status_start': now,
+                                'current_job_id': False,
+                                'current_service_line_id': False,
+                                'current_pause_reason': False,
+                            })
+
         res = super().write(vals)
-        if 'state' in vals and vals.get('state') not in ('in_progress', 'quote'):
+
+        if vals.get('state') == 'delivery':
+            for rec in self:
+                uncompleted_lines = rec.service_line_ids.filtered(lambda l: l.line_status != 'completed')
+                if uncompleted_lines:
+                    uncompleted_lines.action_complete_service()
+
+        if 'state' in vals and vals.get('state') not in ('in_progress', 'quote', 'delivery'):
             if not self.env.context.get('skip_timer_check'):
                 for rec in self:
                     has_active_timer = any(rec.service_line_ids.mapped('is_timer_running'))
@@ -2397,10 +2477,12 @@ class FleetRepairServiceLine(models.Model):
             else:
                 rec.pause_reason_display = 'Assigned'
 
-    @api.depends('is_timer_running', 'is_timer_paused', 'is_pause_running', 'timer_end', 'timer_start')
+    @api.depends('is_timer_running', 'is_timer_paused', 'is_pause_running', 'timer_end', 'timer_start', 'repair_id.state')
     def _compute_line_status(self):
         for line in self:
-            if line.timer_end and not line.is_timer_running and not line.is_timer_paused and not line.is_pause_running:
+            if line.repair_id and line.repair_id.state in ('delivery', 'done'):
+                line.line_status = 'completed'
+            elif line.timer_end and not line.is_timer_running and not line.is_timer_paused and not line.is_pause_running:
                 line.line_status = 'completed'
             elif line.is_timer_running:
                 line.line_status = 'working'
@@ -3178,6 +3260,34 @@ class FleetRepairServiceLine(models.Model):
                         status_log_id=log.id,
                         notes=log.notes or False,
                     )
+
+                    if rec.employee_id:
+                        other_pending_repair = self.env['fleet.repair.service.line'].search([
+                            ('employee_id', '=', rec.employee_id.id),
+                            ('repair_id', '!=', rec.repair_id.id),
+                            ('repair_id.state', 'not in', ['delivery', 'done', 'invoiced', 'cancel']),
+                            ('line_status', '!=', 'completed'),
+                        ], limit=1)
+                        if other_pending_repair:
+                            rec.employee_id.sudo().write({
+                                'work_status': 'assigned',
+                                'current_job_id': other_pending_repair.repair_id.id,
+                                'current_service_line_id': other_pending_repair.id,
+                                'current_pause_reason': False,
+                                'is_idle_running': False,
+                            })
+                        elif rec.employee_id.current_job_id == rec.repair_id:
+                            rec.employee_id.sudo().write({
+                                'work_status': 'idle',
+                                'idle_reason': 'no_job',
+                                'is_idle_running': True,
+                                'idle_timer_start': now,
+                                'idle_accumulated_seconds': 0.0,
+                                'current_status_start': now,
+                                'current_job_id': False,
+                                'current_service_line_id': False,
+                                'current_pause_reason': False,
+                            })
 
         repairs = self.mapped('repair_id')
         repairs.invalidate_recordset(['service_line_ids', 'fleet_work_line_ids'])
