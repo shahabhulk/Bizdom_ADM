@@ -2894,7 +2894,7 @@ class FleetRepairServiceLine(models.Model):
 
             now = fields.Datetime.now()
 
-            # Auto-pause any running tasks on a different job card for this employee
+            # Do not auto-pause running tasks on a different job card; notify user with a popup
             if rec.employee_id:
                 other_running = self.search([
                     ('employee_id', '=', rec.employee_id.id),
@@ -2903,8 +2903,18 @@ class FleetRepairServiceLine(models.Model):
                     ('repair_id.state', 'not in', ['done', 'invoiced', 'cancel'])
                 ])
                 diff_repair_running = other_running.filtered(lambda l: l.repair_id != rec.repair_id)
-                for dline in diff_repair_running:
-                    dline.action_pause_timer()
+                if diff_repair_running:
+                    running_line = diff_repair_running[0]
+                    job_name = running_line.repair_id.sequence or running_line.repair_id.name or f"JC #{running_line.repair_id.id}"
+                    service_str = f" ({running_line.product_id.name or running_line.name})" if (running_line.product_id or running_line.name) else ""
+                    emp_name = rec.employee_id.name
+                    raise UserError(_(
+                        "Job Card '%(job)s'%(service)s is currently running for %(emp)s! Please pause or stop the running job before starting another job."
+                    ) % {
+                        'job': job_name,
+                        'service': service_str,
+                        'emp': emp_name,
+                    })
 
             pause_delta = 0.0
             if rec.is_pause_running and rec.pause_timer_start:

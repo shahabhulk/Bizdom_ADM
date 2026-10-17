@@ -659,6 +659,15 @@ export class StopwatchTimerWidget extends Component {
             }
         } catch (error) {
             console.error("Error executing timer action:", error);
+            const root = this.props.record.model?.root;
+            if (root) {
+                try {
+                    await root.load();
+                } catch (e) {
+                    // ignore secondary load error
+                }
+            }
+            throw error;
         } finally {
             this.isProcessing = false;
             if (this.pendingAction) {

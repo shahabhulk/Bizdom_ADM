@@ -317,7 +317,28 @@ class AssignJobWizard(models.TransientModel):
 
     @api.onchange('repair_id')
     def _onchange_repair_id(self):
+        warning_msg = False
         if self.repair_id and self.employee_id:
+            running_lines = self.env['fleet.repair.service.line'].search([
+                ('employee_id', '=', self.employee_id.id),
+                ('is_timer_running', '=', True),
+                ('repair_id.state', 'not in', ['done', 'invoiced', 'cancel']),
+                ('repair_id', '!=', self.repair_id.id),
+            ])
+            if running_lines:
+                r_line = running_lines[0]
+                job_name = r_line.repair_id.sequence or r_line.repair_id.name or f"JC #{r_line.repair_id.id}"
+                service_str = f" ({r_line.product_id.name or r_line.name})" if (r_line.product_id or r_line.name) else ""
+                warning_msg = {
+                    'title': _("Active Job Running!"),
+                    'message': _(
+                        "Job Card '%(job)s'%(service)s is currently running for %(emp)s! Please pause or stop the running job before starting another job."
+                    ) % {
+                        'job': job_name,
+                        'service': service_str,
+                        'emp': self.employee_id.name,
+                    }
+                }
             emp_lines = self.env['fleet.repair.service.line'].search([
                 ('repair_id', '=', self.repair_id.id),
                 ('employee_id', '=', self.employee_id.id)
@@ -329,6 +350,8 @@ class AssignJobWizard(models.TransientModel):
         elif self.service_line_id and self.service_line_id.repair_id != self.repair_id:
             self.service_line_id = False
             self.product_id = False
+        if warning_msg:
+            return {'warning': warning_msg}
 
     def action_open_job_card(self):
         self.ensure_one()
@@ -369,7 +392,18 @@ class AssignJobWizard(models.TransientModel):
                 domain.append(('id', '!=', self.service_line_id.id))
             running_lines = self.env['fleet.repair.service.line'].search(domain)
             if running_lines:
-                raise ValidationError(_("Let the previous work be over since its live and timer is running! Please pause the current timer first before assigning a new job."))
+                diff_running = running_lines.filtered(lambda l: l.repair_id.id != self.repair_id.id) if self.repair_id else running_lines
+                if diff_running:
+                    r_line = diff_running[0]
+                    job_name = r_line.repair_id.sequence or r_line.repair_id.name or f"JC #{r_line.repair_id.id}"
+                    service_str = f" ({r_line.product_id.name or r_line.name})" if (r_line.product_id or r_line.name) else ""
+                    raise UserError(_(
+                        "Job Card '%(job)s'%(service)s is currently running for %(emp)s! Please pause or stop the running job before starting another job."
+                    ) % {
+                        'job': job_name,
+                        'service': service_str,
+                        'emp': self.employee_id.name,
+                    })
 
         target_repair_id = self.repair_id.id if self.repair_id else False
         target_sline_id = self.service_line_id.id if self.service_line_id else False

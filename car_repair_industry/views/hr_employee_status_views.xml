@@ -598,6 +598,7 @@
                             <field name="job_id_domain" invisible="1"/>
                             <field name="job_id" string="Job Card No"
                                    domain="job_id_domain"
+                                   readonly="is_collective_timer_running or is_timer_running"
                                    options="{'no_create': True, 'no_open': True}"/>
                         </group>
                     </group>
@@ -832,6 +833,7 @@
                             <field name="job_id_domain" invisible="1"/>
                             <field name="job_id" string="Job Card No"
                                    domain="job_id_domain"
+                                   readonly="is_collective_timer_running or is_timer_running"
                                    options="{'no_create': True, 'no_open': True}"/>
                             <field name="duration" invisible="1"/>
                             <field name="service_line_id" invisible="1"/>

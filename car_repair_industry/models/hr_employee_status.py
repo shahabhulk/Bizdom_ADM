@@ -617,7 +617,18 @@ class HrEmployee(models.Model):
                     domain.append(('id', '!=', service_line_id))
                 running_lines = self.env['fleet.repair.service.line'].search(domain)
                 if running_lines:
-                    raise ValidationError(_("Let the previous work be over since its live and timer is running! Please pause the current timer first before assigning a new job."))
+                    diff_running = running_lines.filtered(lambda l: l.repair_id.id != job_id) if job_id else running_lines
+                    if diff_running:
+                        r_line = diff_running[0]
+                        job_name = r_line.repair_id.sequence or r_line.repair_id.name or f"JC #{r_line.repair_id.id}"
+                        service_str = f" ({r_line.product_id.name or r_line.name})" if (r_line.product_id or r_line.name) else ""
+                        raise UserError(_(
+                            "Job Card '%(job)s'%(service)s is currently running for %(emp)s! Please pause or stop the running job before starting another job."
+                        ) % {
+                            'job': job_name,
+                            'service': service_str,
+                            'emp': emp.name,
+                        })
 
             # Determine Job Card ID, Product ID, and Service Line ID
             target_job_id = job_id
@@ -1736,6 +1747,39 @@ class HrEmployeeStatusLog(models.Model):
             ('id', 'not in', selected_lines.ids),
             ('repair_id.state', 'not in', ['done', 'invoiced', 'cancel'])
         ])
+        diff_repair_running = other_running.filtered(lambda l: l.repair_id != self.job_id)
+        if diff_repair_running:
+            running_line = diff_repair_running[0]
+            job_name = running_line.repair_id.sequence or running_line.repair_id.name or f"JC #{running_line.repair_id.id}"
+            service_str = f" ({running_line.product_id.name or running_line.name})" if (running_line.product_id or running_line.name) else ""
+            emp_name = self.employee_id.name
+            raise UserError(_(
+                "Job Card '%(job)s'%(service)s is currently running for %(emp)s! Please pause or stop the running job before starting another job."
+            ) % {
+                'job': job_name,
+                'service': service_str,
+                'emp': emp_name,
+            })
+
+        running_other_logs = self.env['hr.employee.status.log'].search([
+            ('employee_id', '=', self.employee_id.id),
+            ('id', '!=', self.id),
+            ('is_timer_running', '=', True),
+        ])
+        diff_running_logs = running_other_logs.filtered(lambda l: l.job_id and l.job_id != self.job_id)
+        if diff_running_logs:
+            rlog = diff_running_logs[0]
+            job_name = rlog.job_id.sequence or rlog.job_id.name or f"JC #{rlog.job_id.id}"
+            service_str = f" ({rlog.service_name or (rlog.product_id.name if rlog.product_id else '')})" if (rlog.service_name or rlog.product_id) else ""
+            emp_name = self.employee_id.name
+            raise UserError(_(
+                "Job Card '%(job)s'%(service)s is currently running for %(emp)s! Please pause or stop the running job before starting another job."
+            ) % {
+                'job': job_name,
+                'service': service_str,
+                'emp': emp_name,
+            })
+
         for orun in other_running:
             orun.action_pause_timer()
 
@@ -1805,6 +1849,45 @@ class HrEmployeeStatusLog(models.Model):
         selected_lines = self.service_line_ids.filtered(lambda l: l.is_group_selected and l.line_status != 'completed')
         if not selected_lines:
             raise UserError(_("Please select at least 1 service to resume the timer."))
+
+        other_running = self.env['fleet.repair.service.line'].search([
+            ('employee_id', '=', self.employee_id.id),
+            ('is_timer_running', '=', True),
+            ('repair_id.state', 'not in', ['done', 'invoiced', 'cancel'])
+        ])
+        diff_repair_running = other_running.filtered(lambda l: l.repair_id != self.job_id)
+        if diff_repair_running:
+            running_line = diff_repair_running[0]
+            job_name = running_line.repair_id.sequence or running_line.repair_id.name or f"JC #{running_line.repair_id.id}"
+            service_str = f" ({running_line.product_id.name or running_line.name})" if (running_line.product_id or running_line.name) else ""
+            emp_name = self.employee_id.name
+            raise UserError(_(
+                "Job Card '%(job)s'%(service)s is currently running for %(emp)s! Please pause or stop the running job before starting another job."
+            ) % {
+                'job': job_name,
+                'service': service_str,
+                'emp': emp_name,
+            })
+
+        running_other_logs = self.env['hr.employee.status.log'].search([
+            ('employee_id', '=', self.employee_id.id),
+            ('id', '!=', self.id),
+            ('is_timer_running', '=', True),
+        ])
+        diff_running_logs = running_other_logs.filtered(lambda l: l.job_id and l.job_id != self.job_id)
+        if diff_running_logs:
+            rlog = diff_running_logs[0]
+            job_name = rlog.job_id.sequence or rlog.job_id.name or f"JC #{rlog.job_id.id}"
+            service_str = f" ({rlog.service_name or (rlog.product_id.name if rlog.product_id else '')})" if (rlog.service_name or rlog.product_id) else ""
+            emp_name = self.employee_id.name
+            raise UserError(_(
+                "Job Card '%(job)s'%(service)s is currently running for %(emp)s! Please pause or stop the running job before starting another job."
+            ) % {
+                'job': job_name,
+                'service': service_str,
+                'emp': emp_name,
+            })
+
         now = fields.Datetime.now()
         for line in selected_lines:
             line.with_context(allow_collective_start=True, skip_timeline_sync=True).action_start_timer()
@@ -2320,6 +2403,28 @@ class HrEmployeeStatusLog(models.Model):
 
     @api.onchange('job_id')
     def _onchange_job_id(self):
+        warning_msg = False
+        if self.job_id and self.employee_id:
+            running_lines = self.env['fleet.repair.service.line'].search([
+                ('employee_id', '=', self.employee_id.id),
+                ('is_timer_running', '=', True),
+                ('repair_id.state', 'not in', ['done', 'invoiced', 'cancel']),
+                ('repair_id', '!=', self.job_id.id),
+            ])
+            if running_lines:
+                r_line = running_lines[0]
+                job_name = r_line.repair_id.sequence or r_line.repair_id.name or f"JC #{r_line.repair_id.id}"
+                service_str = f" ({r_line.product_id.name or r_line.name})" if (r_line.product_id or r_line.name) else ""
+                warning_msg = {
+                    'title': _("Active Job Running!"),
+                    'message': _(
+                        "Job Card '%(job)s'%(service)s is currently running for %(emp)s! Please pause or stop the running job before starting another job."
+                    ) % {
+                        'job': job_name,
+                        'service': service_str,
+                        'emp': self.employee_id.name,
+                    }
+                }
         if self.job_id and self.service_line_id and self.service_line_id.repair_id != self.job_id:
             self.service_line_id = False
             self.service_name = False
@@ -2332,6 +2437,8 @@ class HrEmployeeStatusLog(models.Model):
             self.service_line_ids = self.job_id.service_line_ids
         else:
             self.service_line_ids = False
+        if warning_msg:
+            return {'warning': warning_msg}
 
     @api.onchange('service_line_id')
     def _onchange_service_line_id(self):
@@ -2507,6 +2614,19 @@ class HrEmployeeStatusLog(models.Model):
         return records
 
     def write(self, vals):
+        if 'job_id' in vals:
+            for rec in self:
+                if (rec.is_timer_running or rec.job_status == 'working') and vals['job_id'] != (rec.job_id.id if rec.job_id else False):
+                    job_name = rec.job_id.sequence or rec.job_id.name or f"JC #{rec.job_id.id}" if rec.job_id else "Current Job"
+                    service_str = f" ({rec.service_name or (rec.product_id.name if rec.product_id else '')})" if (rec.service_name or rec.product_id) else ""
+                    raise UserError(_(
+                        "Job Card '%(job)s'%(service)s is currently running for %(emp)s! Please pause or stop the running job before switching to another job."
+                    ) % {
+                        'job': job_name,
+                        'service': service_str,
+                        'emp': rec.employee_id.name,
+                    })
+
         if 'service_line_ids' in vals and isinstance(vals['service_line_ids'], (list, tuple)):
             for rec in self:
                 j_id = vals.get('job_id') or (rec.job_id.id if rec.job_id else False)
@@ -2683,12 +2803,45 @@ class HrEmployeeStatusLog(models.Model):
     def action_start_timer(self):
         """Starts or resumes timer on this work line."""
         self.ensure_one()
-        # Rule check: Cannot start timer if another timer is already running for this employee
+        # Rule check: Cannot start timer if another timer is already running for this employee on another job card
         running_other = self.env['hr.employee.status.log'].search([
             ('employee_id', '=', self.employee_id.id),
             ('id', '!=', self.id),
             ('is_timer_running', '=', True),
         ])
+        diff_running_logs = running_other.filtered(lambda l: l.job_id and l.job_id != self.job_id)
+        if diff_running_logs:
+            rlog = diff_running_logs[0]
+            job_name = rlog.job_id.sequence or rlog.job_id.name or f"JC #{rlog.job_id.id}"
+            service_str = f" ({rlog.service_name or (rlog.product_id.name if rlog.product_id else '')})" if (rlog.service_name or rlog.product_id) else ""
+            emp_name = self.employee_id.name
+            raise UserError(_(
+                "Job Card '%(job)s'%(service)s is currently running for %(emp)s! Please pause or stop the running job before starting another job."
+            ) % {
+                'job': job_name,
+                'service': service_str,
+                'emp': emp_name,
+            })
+
+        other_running_slines = self.env['fleet.repair.service.line'].search([
+            ('employee_id', '=', self.employee_id.id),
+            ('is_timer_running', '=', True),
+            ('repair_id.state', 'not in', ['done', 'invoiced', 'cancel'])
+        ])
+        diff_repair_running = other_running_slines.filtered(lambda l: l.repair_id != self.job_id)
+        if diff_repair_running:
+            running_line = diff_repair_running[0]
+            job_name = running_line.repair_id.sequence or running_line.repair_id.name or f"JC #{running_line.repair_id.id}"
+            service_str = f" ({running_line.product_id.name or running_line.name})" if (running_line.product_id or running_line.name) else ""
+            emp_name = self.employee_id.name
+            raise UserError(_(
+                "Job Card '%(job)s'%(service)s is currently running for %(emp)s! Please pause or stop the running job before starting another job."
+            ) % {
+                'job': job_name,
+                'service': service_str,
+                'emp': emp_name,
+            })
+
         for ro in running_other:
             ro.action_pause_timer()
 
