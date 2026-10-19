@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 from datetime import timedelta
+# pyrefly: ignore[missing-import]
 from odoo import fields, models, api, _
 from odoo.exceptions import UserError, ValidationError
 
@@ -146,6 +147,9 @@ class HrEmployee(models.Model):
         'service_line_ids.is_timer_running',
         'service_line_ids.accumulated_seconds',
         'service_line_ids.timer_last_start',
+        'service_line_ids.assigned_date',
+        'service_line_ids.employee_id',
+        'service_line_ids.line_status',
         'status_log_ids.pause_reason',
         'status_log_ids.job_status',
         'status_log_ids.status',
@@ -168,12 +172,12 @@ class HrEmployee(models.Model):
                 ('employee_id', '=', emp.id),
                 ('is_timer_paused', '=', True),
                 ('repair_id.state', 'not in', ['delivery', 'delivered', 'done', 'invoiced', 'cancel'])
-            ], order='timer_end desc, id desc')
+            ], order='pause_timer_start desc, timer_end desc, id desc')
 
             assigned_lines = self.env['fleet.repair.service.line'].search([
                 ('employee_id', '=', emp.id),
                 ('repair_id.state', 'not in', ['delivery', 'delivered', 'done', 'invoiced', 'cancel'])
-            ], order='write_date desc, id desc')
+            ], order='assigned_date desc, write_date desc, id desc')
 
             completed_logs = self.env['hr.employee.status.log'].search([
                 ('employee_id', '=', emp.id),
@@ -188,15 +192,16 @@ class HrEmployee(models.Model):
             )
 
             # Auto-reconcile assigned work status if employee has assigned work on open job cards
-            if pending_assigned_lines and not running_lines and not paused_lines:
-                if not emp.is_idle_running or emp.idle_reason in ('no_job', 'learning', False):
-                    emp.work_status = 'assigned'
-                    emp.is_idle_running = False
-                    emp.idle_reason = False
-                    emp.idle_timer_start = False
-                    emp.idle_accumulated_seconds = 0.0
-                    emp.current_job_id = pending_assigned_lines[0].repair_id
-                    emp.current_service_line_id = pending_assigned_lines[0]
+            if pending_assigned_lines and not running_lines:
+                if emp.work_status != 'paused' or not paused_lines:
+                    if not emp.is_idle_running or emp.idle_reason in ('no_job', 'learning', False):
+                        emp.work_status = 'assigned'
+                        emp.is_idle_running = False
+                        emp.idle_reason = False
+                        emp.idle_timer_start = False
+                        emp.idle_accumulated_seconds = 0.0
+                        emp.current_job_id = pending_assigned_lines[0].repair_id
+                        emp.current_service_line_id = pending_assigned_lines[0]
             elif not running_lines and not paused_lines and not pending_assigned_lines:
                 # All assigned jobs are completed or no jobs assigned! Show Idle state with No Job
                 now = fields.Datetime.now()
@@ -324,14 +329,18 @@ class HrEmployee(models.Model):
                 emp.has_active_service_timer = False
                 emp.active_timer_last_start = False
                 emp.is_timer_running = False
-                # If assigned, paused or stopped on a job, retain the service line's accumulated duration & name
-                target_sline = emp.current_service_line_id
-                if not target_sline or not target_sline.exists() or target_sline.timer_end or target_sline.line_status == 'completed':
-                    if pending_assigned_lines:
-                        target_sline = pending_assigned_lines[0]
-                    else:
-                        target_sline = False
+                # If assigned, paused or stopped on a job, pick the latest relevant service line
+                target_sline = False
+                if emp.work_status == 'paused' and paused_lines:
+                    target_sline = paused_lines[0]
+                elif pending_assigned_lines:
+                    target_sline = pending_assigned_lines[0]
+                elif emp.current_service_line_id and emp.current_service_line_id.exists() and not emp.current_service_line_id.timer_end and emp.current_service_line_id.line_status != 'completed':
+                    target_sline = emp.current_service_line_id
+
                 if target_sline and target_sline.exists():
+                    emp.current_job_id = target_sline.repair_id
+                    emp.current_service_line_id = target_sline
                     emp.active_timer_accumulated_seconds = target_sline.accumulated_seconds or 0.0
                     emp.active_service_time_diff = target_sline.time_diff or 0.0
                     emp.active_service_name = target_sline.product_id.name if target_sline.product_id else (target_sline.name or '')
@@ -342,8 +351,6 @@ class HrEmployee(models.Model):
                     emp.is_timer_paused = target_sline.is_timer_paused
                     emp.accumulated_seconds = target_sline.accumulated_seconds or 0.0
                     emp.alloted_fru = target_sline.alloted_fru or 0
-                    if not emp.current_job_id and target_sline.repair_id:
-                        emp.current_job_id = target_sline.repair_id
                 else:
                     emp.active_timer_accumulated_seconds = 0.0
                     emp.active_service_time_diff = 0.0
@@ -373,6 +380,17 @@ class HrEmployee(models.Model):
                 else:
                     emp.current_pause_reason = False
 
+            # Persist to database so web client and search_read always see the latest assignment
+            if emp.id:
+                cur_job_id = emp.current_job_id.id if emp.current_job_id else None
+                cur_sline_id = emp.current_service_line_id.id if emp.current_service_line_id else None
+                cur_plate_id = emp.current_job_id.license_plate.id if (emp.current_job_id and emp.current_job_id.license_plate) else None
+                self.env.cr.execute("""
+                    UPDATE hr_employee
+                    SET current_job_id = %s, current_service_line_id = %s, current_license_plate = %s
+                    WHERE id = %s
+                """, (cur_job_id, cur_sline_id, cur_plate_id, emp.id))
+
             # Model, Job Name & Pause Time metrics for Kanban
             if emp.current_job_id:
                 jc_num = emp.current_job_id.sequence or emp.current_job_id.name or str(emp.current_job_id.id)
@@ -393,11 +411,14 @@ class HrEmployee(models.Model):
                     emp.current_car_display = ''
 
                 if not emp.active_service_name:
-                    emp_slines = emp.current_job_id.service_line_ids.filtered(lambda l: l.employee_id.id == emp.id)
-                    if emp_slines:
-                        emp.active_service_name = emp_slines[0].product_id.name if emp_slines[0].product_id else (emp_slines[0].name or '')
-                    elif emp.current_job_id.service_line_ids:
-                        emp.active_service_name = emp.current_job_id.service_line_ids[0].product_id.name if emp.current_job_id.service_line_ids[0].product_id else (emp.current_job_id.service_line_ids[0].name or '')
+                    if target_sline:
+                        emp.active_service_name = target_sline.product_id.name if target_sline.product_id else (target_sline.name or '')
+                    else:
+                        emp_slines = emp.current_job_id.service_line_ids.filtered(lambda l: l.employee_id.id == emp.id)
+                        if emp_slines:
+                            emp.active_service_name = emp_slines[-1].product_id.name if emp_slines[-1].product_id else (emp_slines[-1].name or '')
+                        elif emp.current_job_id.service_line_ids:
+                            emp.active_service_name = emp.current_job_id.service_line_ids[-1].product_id.name if emp.current_job_id.service_line_ids[-1].product_id else (emp.current_job_id.service_line_ids[-1].name or '')
             else:
                 emp.current_job_name = ''
                 emp.current_job_card_label = ''
@@ -1186,7 +1207,7 @@ class HrEmployeeStatusLog(models.Model):
     def _compute_display_status(self):
         for rec in self:
             all_lines_done = bool(rec.service_line_ids and all(l.line_status == 'completed' for l in rec.service_line_ids))
-            if rec.job_status == 'completed' or rec.status == 'completed' or all_lines_done or (rec.job_id and rec.job_id.state in ('delivery', 'done')):
+            if rec.job_status == 'completed' or rec.status == 'completed' or all_lines_done:
                 rec.display_status = 'Completed'
             elif rec.is_timer_running or rec.job_status == 'working' or rec.status in ('job', 'working'):
                 rec.display_status = 'Working'
@@ -1705,6 +1726,8 @@ class HrEmployeeStatusLog(models.Model):
     def _compute_collective_timer_info(self):
         now = fields.Datetime.now()
         for rec in self:
+            if rec.timer_mode != 'stopwatch':
+                rec.timer_mode = 'stopwatch'
             all_services = rec.service_line_ids
             # The collective stopwatch runs if and only if any of the services are running
             if all_services:

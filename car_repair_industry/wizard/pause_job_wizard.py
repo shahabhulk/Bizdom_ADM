@@ -106,7 +106,14 @@ class PauseJobWizard(models.TransientModel):
             if prev_working:
                 prev_working.write({'end_datetime': False})
 
-            log.action_start_collective_timer()
+            # Cancel unconfirmed pause state so no bogus pause time is accumulated
+            log.write({
+                'is_pause_running': False,
+                'pause_timer_start': False,
+                'pause_reason': False,
+                'timer_mode': 'stopwatch',
+            })
+            log.action_start_common_timer()
 
         return {
             'type': 'ir.actions.act_window',

@@ -1414,7 +1414,7 @@ export class CollectiveLiveTimerWidget extends Component {
     }
 
     get isStopwatchMode() {
-        return this.props.record.data?.timer_mode === "stopwatch" || !this.props.record.data?.timer_mode;
+        return true;
     }
 
     getTrackedLines() {

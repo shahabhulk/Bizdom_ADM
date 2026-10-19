@@ -500,11 +500,8 @@
                                     SERVICE TASKS
                                 </span>
                                 <i class="fa fa-arrow-right text-muted small" style="font-size: 11px;"/>
-                                <span class="badge rounded-pill px-3 py-1" style="background-color: #10B981; color: white;" invisible="not is_collective_timer_running or timer_mode != 'stopwatch'">
+                                <span class="badge rounded-pill px-3 py-1" style="background-color: #10B981; color: white;" invisible="not is_collective_timer_running">
                                     <i class="fa fa-clock-o fa-spin me-1"/>Stopwatch
-                                </span>
-                                <span class="badge rounded-pill px-3 py-1" style="background-color: #10B981; color: white;" invisible="not is_collective_timer_running or timer_mode == 'stopwatch'">
-                                    <i class="fa fa-refresh fa-spin me-1"/>Collective Timer
                                 </span>
                                 <span class="badge rounded-pill px-3 py-1" style="background-color: #EF4444; color: white;" invisible="is_collective_timer_running or job_status != 'paused' or pause_reason">
                                     <i class="fa fa-pause me-1"/>Stop
@@ -735,11 +732,8 @@
                                     SERVICE TASKS
                                 </span>
                                 <i class="fa fa-arrow-right text-muted small" style="font-size: 11px;"/>
-                                <span class="badge rounded-pill px-3 py-1" style="background-color: #10B981; color: white;" invisible="not is_collective_timer_running or timer_mode != 'stopwatch'">
+                                <span class="badge rounded-pill px-3 py-1" style="background-color: #10B981; color: white;" invisible="not is_collective_timer_running">
                                     <i class="fa fa-clock-o fa-spin me-1"/>Stopwatch
-                                </span>
-                                <span class="badge rounded-pill px-3 py-1" style="background-color: #10B981; color: white;" invisible="not is_collective_timer_running or timer_mode == 'stopwatch'">
-                                    <i class="fa fa-refresh fa-spin me-1"/>Collective Timer
                                 </span>
                                 <span class="badge rounded-pill px-3 py-1" style="background-color: #EF4444; color: white;" invisible="is_collective_timer_running or job_status != 'paused' or pause_reason">
                                     <i class="fa fa-pause me-1"/>Stop
