@@ -387,11 +387,14 @@ class AccountInvoice(models.Model):
     #     return res
 
     def action_post(self):
-        res = super(AccountInvoice, self).action_post()
-        self.filtered(
+        draft_moves = self.filtered(lambda m: m.state == 'draft')
+        if not draft_moves:
+            return True
+        res = super(AccountInvoice, draft_moves).action_post()
+        draft_moves.filtered(
             lambda m: m.fleet_repair_invoice_id and m.create_form_fleet and m.move_type == 'out_invoice'
         )._fleet_repair_process_stock_delivery()
-        for invoice in self:
+        for invoice in draft_moves:
             if invoice.fleet_repair_invoice_id.id:
                 # Check if feedback already exists to prevent duplicates
                 existing_feedback = self.env['fleet.repair.feedback'].search([
@@ -405,10 +408,21 @@ class AccountInvoice(models.Model):
                         'customer_id': invoice.partner_id.id,
                         'feedback_date': invoice.invoice_date
                     })
-            # for line in invoice.invoice_line_ids:
-            #     if line.display_type == 'product' and line.product_id and not line.department_id:
-            #         raise ValidationError('Please select a department before proceeding.')
-
+        repairs = self.env['fleet.repair']
+        for invoice in draft_moves:
+            if invoice.fleet_repair_invoice_id:
+                repairs |= invoice.fleet_repair_invoice_id
+            if invoice.invoice_origin:
+                sale_obj = self.env['sale.order'].search([('name', '=', invoice.invoice_origin)], limit=1)
+                if sale_obj and sale_obj.workorder_id and sale_obj.workorder_id.fleet_repair_id:
+                    repairs |= sale_obj.workorder_id.fleet_repair_id
+        more_repairs = self.env['fleet.repair'].search([
+            '|', ('invoice_order_id', 'in', draft_moves.ids),
+            ('invoice_ids', 'in', draft_moves.ids)
+        ])
+        repairs |= more_repairs
+        if repairs:
+            repairs._clean_assigned_service_lines_if_delivered()
 
         return res
 
@@ -487,9 +501,10 @@ class AccountInvoice(models.Model):
                         template = self.env.ref('car_repair_industry.car_repair_service_done', raise_if_not_found=False)
                         if template and repair_obj.client_id and repair_obj.client_id.email:
                             try:
-                                template.send_mail(repair_obj.id, force_send=True)
+                                template.send_mail(repair_obj.id, force_send=False)
                             except Exception:
                                 pass
+                        repair_obj._clean_assigned_service_lines_if_delivered()
                         
             elif vals.get('state') == 'draft':
                 for move in self:
