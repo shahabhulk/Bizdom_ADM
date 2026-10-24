@@ -339,6 +339,22 @@ class AssignJobWizard(models.TransientModel):
                         'emp': self.employee_id.name,
                     }
                 }
+            other_active = self.repair_id.service_line_ids.filtered(
+                lambda l: l.employee_id and l.employee_id != self.employee_id and l.line_status in ('assigned', 'working')
+            )
+            if other_active and not warning_msg:
+                other_emp = other_active[0].employee_id
+                warning_msg = {
+                    'title': _("Active Technician Assigned!"),
+                    'message': _(
+                        "Technician '%(other)s' is currently assigned/working on Job Card '%(job)s'!\n"
+                        "You cannot assign work to '%(emp)s' until '%(other)s' completes or stops their work."
+                    ) % {
+                        'other': other_emp.name,
+                        'job': self.repair_id.sequence or self.repair_id.name or f"JC #{self.repair_id.id}",
+                        'emp': self.employee_id.name,
+                    }
+                }
             emp_lines = self.env['fleet.repair.service.line'].search([
                 ('repair_id', '=', self.repair_id.id),
                 ('employee_id', '=', self.employee_id.id)
@@ -404,6 +420,20 @@ class AssignJobWizard(models.TransientModel):
                         'service': service_str,
                         'emp': self.employee_id.name,
                     })
+
+            other_active = self.repair_id.service_line_ids.filtered(
+                lambda l: l.employee_id and l.employee_id != self.employee_id and l.line_status in ('assigned', 'working')
+            )
+            if other_active:
+                other_emp = other_active[0].employee_id
+                raise UserError(_(
+                    "Technician '%(other)s' is currently assigned/working on Job Card '%(job)s'!\n"
+                    "You cannot assign work to '%(emp)s' until '%(other)s' completes or stops their work."
+                ) % {
+                    'other': other_emp.name,
+                    'job': self.repair_id.sequence or self.repair_id.name or f"JC #{self.repair_id.id}",
+                    'emp': self.employee_id.name,
+                })
 
         target_repair_id = self.repair_id.id if self.repair_id else False
         target_sline_id = self.service_line_id.id if self.service_line_id else False

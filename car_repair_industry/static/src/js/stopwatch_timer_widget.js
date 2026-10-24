@@ -37,31 +37,6 @@ patch(BooleanField.prototype, {
             const recData = this.props.record?.data || {};
             const parent = this.props.record?.model?.root;
 
-            // When employee re-selects a paused service, resume it
-            const isPaused = Boolean(
-                recData.is_pause_running ||
-                recData.line_status === "paused" ||
-                recData.is_timer_paused
-            );
-            if (newValue && isPaused) {
-                const lineId = this.props.record.resId;
-                if (lineId && this.env?.services?.orm) {
-                    try {
-                        await this.env.services.orm.call(
-                            "fleet.repair.service.line",
-                            "action_resume_service_timer",
-                            [[lineId]]
-                        );
-                        if (parent) {
-                            await parent.load();
-                        }
-                        timerBus.trigger("COLLECTIVE_SERVICE_SELECTION_CHANGED");
-                    } catch (e) {
-                        console.error("Failed to resume service timer:", e);
-                    }
-                }
-                return;
-            }
 
             super.onChange(newValue);
             if (this.props.record && this.props.record.data) {
@@ -111,11 +86,6 @@ patch(BooleanField.prototype, {
 
 if (typeof window !== "undefined") {
     document.addEventListener("click", (ev) => {
-        const btn = ev.target && ev.target.closest && ev.target.closest("button[name='action_open_pause_wizard']");
-        if (btn) {
-            timerBus.trigger("PAUSE_ALL_TIMERS");
-        }
-
         const selectAllBtn = ev.target && ev.target.closest && (
             ev.target.closest("button[name='action_select_all_group']") ||
             ev.target.closest("button[name='action_unselect_all_group']")
@@ -371,8 +341,8 @@ export class StopwatchTimerWidget extends Component {
     static template = xml`
         <span class="d-inline-flex align-items-center gap-2 o_stopwatch_wrapper me-4" t-on-click.stop="">
             <t t-if="isCollectiveRunning">
-                <span class="badge text-bg-light border text-primary small py-1 px-2 d-inline-flex align-items-center" title="Running in Collective Timer (see top timer)">
-                    <i class="fa fa-users me-1"/>In Collective Timer
+                <span class="badge text-bg-light border text-primary small py-1 px-2 d-inline-flex align-items-center" title="Running in Working Timer (see top timer)">
+                    <i class="fa fa-play me-1"/>In Working Timer
                 </span>
             </t>
             <t t-else="">
@@ -1465,24 +1435,36 @@ export class CollectiveLiveTimerWidget extends Component {
 
     get elapsedSeconds() {
         const data = this.props.record?.data || {};
-        // Job-level stopwatch base accumulated seconds (independent of service lines' worked hours)
-        let total = Number(data.accumulated_seconds ?? data.collective_accumulated_seconds) || 0;
+        // Job-level stopwatch base accumulated seconds from previous stopped sessions
+        const baseAccumulated = Number(data.accumulated_seconds ?? data.collective_accumulated_seconds) || 0;
 
         if (!this.isRunning) {
-            return total;
+            // When stopped, return the total accumulated seconds
+            if (baseAccumulated === 0 && data.collective_duration) {
+                return Math.round(Number(data.collective_duration) * 3600);
+            }
+            return baseAccumulated;
         }
 
-        // Job-level stopwatch start time
-        const startDtStr = data.timer_last_start || data.collective_timer_last_start || data.timer_start;
+        // When running, the continuous stream is: base accumulated + elapsed seconds since stream started
+        let startDtStr = data.timer_last_start || data.collective_timer_last_start || data.timer_start;
+        if (!startDtStr && data.service_line_ids?.records) {
+            const runningLines = data.service_line_ids.records.filter(r => Boolean(r.data.is_timer_running) && r.data.timer_last_start);
+            if (runningLines.length > 0) {
+                const starts = runningLines.map(r => r.data.timer_last_start).sort();
+                startDtStr = starts[0];
+            }
+        }
+
         if (startDtStr) {
             const startDt = parseToLuxon(startDtStr);
             if (startDt && startDt.isValid) {
                 const now = this.state.now || DateTime.now();
                 const delta = Math.max(0, Math.floor(now.diff(startDt, "seconds").seconds));
-                total += delta;
+                return baseAccumulated + delta;
             }
         }
-        return total;
+        return baseAccumulated;
     }
 
     get remainingSeconds() {
@@ -1641,7 +1623,7 @@ export class CollectiveLiveTimerWidget extends Component {
     }
 }
 
-export const collectiveLiveTimerWidget = {
+export const workingLiveTimerWidget = {
     component: CollectiveLiveTimerWidget,
     supportedTypes: ["float"],
     fieldDependencies: [
@@ -1661,8 +1643,10 @@ export const collectiveLiveTimerWidget = {
         { name: "collective_remaining_seconds", type: "float" },
     ],
 };
+export const collectiveLiveTimerWidget = workingLiveTimerWidget;
 
-registry.category("fields").add("collective_live_timer", collectiveLiveTimerWidget);
+registry.category("fields").add("working_live_timer", workingLiveTimerWidget);
+registry.category("fields").add("collective_live_timer", workingLiveTimerWidget);
 
 export class CollectiveServiceSelectorWidget extends BooleanField {
     static template = "web.BooleanField";
@@ -2046,9 +2030,9 @@ export class ServiceStatusBadgeWidget extends Component {
              t-on-click.stop.prevent="onStatusClick"
              style="cursor: pointer; user-select: none;">
             <span t-att-class="badgeClass">
-                <i t-if="isWorking" class="fa fa-spinner fa-spin me-1 small"/>
-                <i t-if="isPaused" class="fa fa-pause-circle me-1 small"/>
                 <i t-if="isCompleted" class="fa fa-check-circle me-1 small"/>
+                <i t-elif="isWorking" class="fa fa-spinner fa-spin me-1 small"/>
+                <i t-elif="isPaused" class="fa fa-pause-circle me-1 small"/>
                 <t t-out="displayValue"/>
                 <i class="fa fa-pencil ms-1 opacity-75" style="font-size: 0.7em;"/>
             </span>
@@ -2072,16 +2056,20 @@ export class ServiceStatusBadgeWidget extends Component {
         return (val === "paused" || val === "Paused") ? "Stop" : val;
     }
 
+    get isCompleted() {
+        return this.props.record.data.line_status === "completed";
+    }
+
     get isWorking() {
-        return this.props.record.data.line_status === "working" || this.props.record.data.is_timer_running;
+        if (this.isCompleted) return false;
+        const d = this.props.record.data;
+        return (d.line_status === "working" || Boolean(d.is_timer_running)) && d.line_status !== "paused";
     }
 
     get isPaused() {
-        return this.props.record.data.line_status === "paused" || this.props.record.data.is_pause_running || this.props.record.data.is_timer_paused;
-    }
-
-    get isCompleted() {
-        return this.props.record.data.line_status === "completed";
+        if (this.isCompleted || this.isWorking) return false;
+        const d = this.props.record.data;
+        return d.line_status === "paused" || Boolean(d.is_pause_running);
     }
 
     get badgeClass() {

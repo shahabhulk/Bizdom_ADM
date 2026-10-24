@@ -47,6 +47,10 @@ class HrEmployee(models.Model):
     )
 
     # Active Service Timer Fields for Employee Kanban
+    has_assigned_work = fields.Boolean(
+        string='Has Assigned Work',
+        compute='_compute_active_service_timer_info'
+    )
     has_active_service_timer = fields.Boolean(
         string='Has Active Service Timer',
         compute='_compute_active_service_timer_info'
@@ -129,17 +133,18 @@ class HrEmployee(models.Model):
             else:
                 emp.idle_duration = 0.0
 
-    @api.depends('idle_reason')
+    @api.depends('idle_reason', 'work_status')
     def _compute_idle_reason_display(self):
         reason_map = {
-            'no_job': '📋 No Job',
             'training': '🎓 Training',
-            'learning': '📋 No Job',
             'meeting': '👥 Meeting',
             'break_lunch': '☕ Break / Lunch',
         }
         for emp in self:
-            emp.idle_reason_display = reason_map.get(emp.idle_reason, '📋 No Job')
+            if emp.idle_reason in ('training', 'meeting', 'break_lunch'):
+                emp.idle_reason_display = reason_map.get(emp.idle_reason)
+            else:
+                emp.idle_reason_display = 'Idle'
 
     @api.depends(
         'work_status',
@@ -191,55 +196,87 @@ class HrEmployee(models.Model):
                 lambda l: not l.timer_end and l.line_status != 'completed' and l.id not in completed_sline_ids and (not l.status_log_id or l.status_log_id.job_status != 'completed')
             )
 
-            # Auto-reconcile assigned work status if employee has assigned work on open job cards
-            if pending_assigned_lines and not running_lines:
-                if emp.work_status != 'paused' or not paused_lines:
-                    if not emp.is_idle_running or emp.idle_reason in ('no_job', 'learning', False):
-                        emp.work_status = 'assigned'
-                        emp.is_idle_running = False
-                        emp.idle_reason = False
-                        emp.idle_timer_start = False
-                        emp.idle_accumulated_seconds = 0.0
-                        emp.current_job_id = pending_assigned_lines[0].repair_id
-                        emp.current_service_line_id = pending_assigned_lines[0]
-            elif not running_lines and not paused_lines and not pending_assigned_lines:
-                # All assigned jobs are completed or no jobs assigned! Show Idle state with No Job
-                now = fields.Datetime.now()
-                if not emp.is_idle_running or not emp.idle_timer_start:
-                    emp.is_idle_running = True
-                    emp.idle_timer_start = emp.idle_timer_start or emp.current_status_start or now
-                    emp.idle_accumulated_seconds = emp.idle_accumulated_seconds or 0.0
-                if emp.work_status != 'idle':
+            other_assigned_lines = pending_assigned_lines.filtered(
+                lambda l: l.id not in paused_lines.ids and not l.is_timer_paused and l.line_status != 'paused'
+            )
+            emp.has_assigned_work = bool(pending_assigned_lines or other_assigned_lines)
+
+            # Rule: When a job card work against an employee is completed or is in stop,
+            # and suppose there are other job card work assigned under him,
+            # then in the kanban view card of that employee the status should be idle and not assigned or stop.
+            if not running_lines:
+                if other_assigned_lines and (paused_lines or completed_logs or emp.work_status in ('idle', 'paused', 'assigned', 'completed')):
+                    now = fields.Datetime.now()
+                    if not emp.is_idle_running or not emp.idle_timer_start:
+                        emp.is_idle_running = True
+                        emp.idle_timer_start = emp.idle_timer_start or emp.current_status_start or now
+                        emp.idle_accumulated_seconds = emp.idle_accumulated_seconds or 0.0
                     emp.work_status = 'idle'
-                if not emp.idle_reason:
-                    emp.idle_reason = 'no_job'
-                emp.current_job_id = False
-                emp.current_service_line_id = False
-                emp.current_job_name = False
-                emp.current_job_card_label = False
-                emp.current_car_model = False
-                emp.current_car_display = False
-                emp.current_pause_reason = False
-                emp.current_pause_icon = False
-                emp.has_active_service_timer = False
-                emp.active_timer_last_start = False
-                emp.is_timer_running = False
-                emp.is_timer_paused = False
-                emp.is_pause_running = False
-                emp.active_timer_accumulated_seconds = 0.0
-                emp.active_service_time_diff = 0.0
-                emp.active_service_name = False
-                emp.active_timer_fru_status = 'green'
-                emp.timer_start = False
-                emp.timer_last_start = False
-                emp.timer_end = False
-                emp.accumulated_seconds = 0.0
-                emp.alloted_fru = 0
-                emp.pause_timer_start = False
-                emp.pause_accumulated_seconds = 0.0
-                emp.current_pause_duration = 0.0
-                emp.current_pause_time_display = '00:00:00'
-                continue
+                    emp.current_job_id = False
+                    emp.current_service_line_id = False
+                    emp.current_job_name = False
+                    emp.current_job_card_label = False
+                    emp.current_car_model = False
+                    emp.current_car_display = False
+                    emp.current_pause_reason = False
+                    emp.current_pause_icon = False
+                    emp.has_active_service_timer = False
+                    emp.active_timer_last_start = False
+                    emp.is_timer_running = False
+                    emp.is_timer_paused = False
+                    emp.is_pause_running = False
+                    emp.active_timer_accumulated_seconds = 0.0
+                    emp.active_service_time_diff = 0.0
+                    emp.active_service_name = False
+                    emp.active_timer_fru_status = 'green'
+                    emp.timer_start = False
+                    emp.timer_last_start = False
+                    emp.timer_end = False
+                    emp.accumulated_seconds = 0.0
+                    emp.alloted_fru = 0
+                    emp.pause_timer_start = False
+                    emp.pause_accumulated_seconds = 0.0
+                    emp.current_pause_duration = 0.0
+                    emp.current_pause_time_display = '00:00:00'
+                    continue
+                elif not paused_lines and not pending_assigned_lines:
+                    # All assigned jobs are completed or no jobs assigned! Show Idle state with No Job
+                    now = fields.Datetime.now()
+                    if not emp.is_idle_running or not emp.idle_timer_start:
+                        emp.is_idle_running = True
+                        emp.idle_timer_start = emp.idle_timer_start or emp.current_status_start or now
+                        emp.idle_accumulated_seconds = emp.idle_accumulated_seconds or 0.0
+                    if emp.work_status != 'idle':
+                        emp.work_status = 'idle'
+                    if not emp.idle_reason or emp.idle_reason in ('no_job', 'learning'):
+                        emp.idle_reason = False
+                    emp.current_job_id = False
+                    emp.current_service_line_id = False
+                    emp.current_job_name = False
+                    emp.current_job_card_label = False
+                    emp.current_car_model = False
+                    emp.current_car_display = False
+                    emp.current_pause_reason = False
+                    emp.current_pause_icon = False
+                    emp.has_active_service_timer = False
+                    emp.active_timer_last_start = False
+                    emp.is_timer_running = False
+                    emp.is_timer_paused = False
+                    emp.is_pause_running = False
+                    emp.active_timer_accumulated_seconds = 0.0
+                    emp.active_service_time_diff = 0.0
+                    emp.active_service_name = False
+                    emp.active_timer_fru_status = 'green'
+                    emp.timer_start = False
+                    emp.timer_last_start = False
+                    emp.timer_end = False
+                    emp.accumulated_seconds = 0.0
+                    emp.alloted_fru = 0
+                    emp.pause_timer_start = False
+                    emp.pause_accumulated_seconds = 0.0
+                    emp.current_pause_duration = 0.0
+                    emp.current_pause_time_display = '00:00:00'
+                    continue
 
             if running_lines:
                 rline = running_lines[0]
@@ -295,7 +332,7 @@ class HrEmployee(models.Model):
                 else:
                     emp.active_timer_accumulated_seconds = 0.0
                     emp.active_service_time_diff = 0.0
-            elif (emp.work_status == 'idle' or emp.is_idle_running) and (not pending_assigned_lines or emp.idle_reason in ('break_lunch', 'training', 'meeting')):
+            elif (emp.work_status == 'idle' or emp.is_idle_running):
                 emp.has_active_service_timer = False
                 emp.active_timer_last_start = False
                 emp.is_timer_running = False
@@ -322,8 +359,8 @@ class HrEmployee(models.Model):
                 emp.is_pause_running = False
                 emp.current_pause_duration = 0.0
                 emp.current_pause_time_display = '00:00:00'
-                if not emp.idle_reason:
-                    emp.idle_reason = 'no_job'
+                if not emp.idle_reason or emp.idle_reason in ('no_job', 'learning'):
+                    emp.idle_reason = False
                 continue
             else:
                 emp.has_active_service_timer = False
@@ -665,6 +702,23 @@ class HrEmployee(models.Model):
                 if not target_job_id and emp.current_job_id:
                     target_job_id = emp.current_job_id.id
 
+            if new_status == 'job' and target_job_id:
+                repair_check = self.env['fleet.repair'].browse(target_job_id)
+                if repair_check.exists():
+                    other_active = repair_check.service_line_ids.filtered(
+                        lambda l: l.employee_id and l.employee_id.id != emp.id and l.line_status in ('assigned', 'working')
+                    )
+                    if other_active:
+                        other_emp = other_active[0].employee_id
+                        raise UserError(_(
+                            "Technician '%(other)s' is currently assigned/working on Job Card '%(job)s'!\n"
+                            "You cannot assign work to '%(emp)s' until '%(other)s' completes or stops their work."
+                        ) % {
+                            'other': other_emp.name,
+                            'job': repair_check.sequence or repair_check.name or f"JC #{repair_check.id}",
+                            'emp': emp.name,
+                        })
+
             # If product_id is provided and target_job_id exists, find or create the service line on the job card
             if target_job_id and target_product_id and not target_service_line_id:
                 repair = self.env['fleet.repair'].browse(target_job_id)
@@ -791,7 +845,7 @@ class HrEmployee(models.Model):
         self.ensure_one()
         active_slines = self.env['fleet.repair.service.line'].search([
             ('employee_id', '=', self.id),
-            ('repair_id.state', 'not in', ['done', 'invoiced', 'cancel'])
+            ('repair_id.state', 'not in', ['delivery', 'delivered', 'done', 'invoiced', 'cancel'])
         ])
         if active_slines:
             active_slines._sync_to_employee_status_log()
@@ -1127,14 +1181,18 @@ class HrEmployeeStatusLog(models.Model):
     _order = 'start_datetime desc, id desc'
     _rec_name = 'display_name'
 
-    @api.depends('employee_id.name', 'status', 'job_id.sequence', 'job_id.name', 'product_id.name', 'service_name')
+    @api.depends('employee_id.name', 'status', 'job_status', 'job_id.sequence', 'job_id.name', 'product_id.name', 'service_name', 'service_line_ids.line_status', 'service_line_ids.is_timer_running')
     def _compute_display_name(self):
         status_dict = dict(self._fields['status'].selection)
         for rec in self:
             parts = []
             if rec.employee_id:
                 parts.append(rec.employee_id.name)
-            if rec.status:
+            any_working = any(l.is_timer_running or l.line_status == 'working' for l in rec.service_line_ids)
+            is_working = any_working if rec.service_line_ids else (rec.job_status == 'working' or rec.status in ('job', 'working'))
+            if is_working:
+                parts.append('Working')
+            elif rec.status:
                 parts.append(status_dict.get(rec.status, rec.status))
             if rec.job_id:
                 parts.append(rec.job_id.sequence or rec.job_id.name or f"JC #{rec.job_id.id}")
@@ -1147,7 +1205,7 @@ class HrEmployeeStatusLog(models.Model):
     display_name = fields.Char(string='Name', compute='_compute_display_name', store=True)
     employee_id = fields.Many2one('hr.employee', string='Employee', required=True, ondelete='cascade')
     status = fields.Selection([
-        ('job', 'Active Job'),
+        ('job', 'Working'),
         ('assigned', 'Assigned'),
         ('paused', 'Stop'),
         ('completed', 'Completed'),
@@ -1156,7 +1214,7 @@ class HrEmployeeStatusLog(models.Model):
         ('tools_issue', 'Tools Issue'),
         ('approval_pending', 'Customer Approval Pending'),
         ('idle', 'Idle')
-    ], string='Status', required=True)
+    ], string='Status', required=True, default='assigned')
     display_status = fields.Char(
         string='Status',
         compute='_compute_display_status',
@@ -1201,29 +1259,60 @@ class HrEmployeeStatusLog(models.Model):
             WHERE status = 'idle' OR job_status = 'idle';
         """)
 
-
-
-    @api.depends('job_id', 'job_id.state', 'status', 'job_status', 'pause_reason', 'is_timer_running', 'is_timer_paused', 'accumulated_seconds', 'end_datetime', 'service_line_ids.line_status')
+    @api.depends('job_id', 'job_id.state', 'status', 'job_status', 'pause_reason', 'is_timer_running', 'is_timer_paused', 'accumulated_seconds', 'end_datetime', 'service_line_ids.line_status', 'service_line_ids.is_timer_running')
     def _compute_display_status(self):
         for rec in self:
             all_lines_done = bool(rec.service_line_ids and all(l.line_status == 'completed' for l in rec.service_line_ids))
-            if rec.job_status == 'completed' or rec.status == 'completed' or all_lines_done:
-                rec.display_status = 'Completed'
-            elif rec.is_timer_running or rec.job_status == 'working' or rec.status in ('job', 'working'):
+            any_working = any(l.is_timer_running or l.line_status == 'working' for l in rec.service_line_ids)
+            has_paused = bool(rec.pause_reason or rec.is_timer_paused or any(l.is_timer_paused or l.is_pause_running or l.line_status == 'paused' for l in rec.service_line_ids))
+            if any_working or (not rec.service_line_ids and (rec.is_timer_running or rec.job_status == 'working' or rec.status in ('job', 'working'))):
                 rec.display_status = 'Working'
-            elif rec.pause_reason or rec.job_status == 'paused' or rec.status == 'paused' or rec.is_timer_paused:
+            elif rec.job_status == 'completed' or rec.status == 'completed' or all_lines_done:
+                rec.display_status = 'Completed'
+            elif has_paused or rec.job_status == 'paused' or rec.status == 'paused':
                 rec.display_status = 'Stop'
+            elif rec.job_status == 'idle' or rec.status == 'idle':
+                rec.display_status = 'Idle'
             elif rec.job_status == 'assigned' or rec.status == 'assigned':
                 rec.display_status = 'Assigned'
             else:
                 rec.display_status = 'Assigned'
+
+    @api.depends(
+        'service_line_ids.line_status',
+        'service_line_ids.is_timer_running',
+        'service_line_ids.is_timer_paused',
+        'service_line_ids.is_pause_running',
+        'pause_reason'
+    )
+    def _compute_job_status(self):
+        for rec in self:
+            running_services = rec.service_line_ids.filtered(lambda l: l.is_timer_running or l.line_status == 'working')
+            if running_services:
+                rec.job_status = 'working'
+                if rec.status != 'job':
+                    rec.status = 'job'
+            elif rec.service_line_ids and all(l.line_status == 'completed' for l in rec.service_line_ids):
+                rec.job_status = 'completed'
+                if rec.status != 'completed':
+                    rec.status = 'completed'
+            elif rec.pause_reason or any(l.is_timer_paused or l.is_pause_running or l.line_status == 'paused' for l in rec.service_line_ids):
+                rec.job_status = 'paused'
+                if rec.status not in ('paused', 'waiting_car', 'parts_unavailable', 'tools_issue', 'approval_pending'):
+                    rec.status = 'paused'
+            else:
+                if not rec.job_status:
+                    rec.job_status = 'assigned'
+                if not rec.status:
+                    rec.status = 'assigned'
+
     job_status = fields.Selection([
         ('assigned', 'Assigned'),
         ('working', 'Working'),
         ('paused', 'Stop'),
         ('completed', 'Completed'),
         ('idle', 'Idle'),
-    ], string='Job Status', default='assigned')
+    ], string='Job Status', compute='_compute_job_status', store=True, readonly=False, default='assigned')
     pause_reason = fields.Selection([
         ('waiting_parts', '📦 Waiting for Parts'),
         ('waiting_approval', '👤 Waiting for Customer Approval'),
@@ -1385,9 +1474,7 @@ class HrEmployeeStatusLog(models.Model):
             'other': '⚪ Other',
         }
         idle_map = {
-            'no_job': '📋 No Job',
             'training': '🎓 Training',
-            'learning': '📋 No Job',
             'meeting': '👥 Meeting',
             'break_lunch': '☕ Break / Lunch',
         }
@@ -1662,18 +1749,18 @@ class HrEmployeeStatusLog(models.Model):
     )
     is_collective = fields.Boolean(
         related='service_line_id.is_collective',
-        string='In Collective Timer',
+        string='In Working Timer',
         readonly=True,
     )
     collective_member_count = fields.Integer(
         related='service_line_id.collective_member_count',
-        string='Collective Member Count',
+        string='Working Member Count',
         readonly=True,
     )
     service_name = fields.Char(string='Service Name', compute='_compute_service_name', store=True, readonly=False)
     notes = fields.Text(string='Notes')
     is_collective_timer_running = fields.Boolean(
-        string='Collective Timer Running',
+        string='Working Timer Running',
         compute='_compute_collective_timer_info',
     )
     collective_selected_count = fields.Integer(
@@ -1681,28 +1768,32 @@ class HrEmployeeStatusLog(models.Model):
         compute='_compute_collective_timer_info',
     )
     collective_timer_last_start = fields.Datetime(
-        string='Collective Timer Last Start',
+        string='Working Timer Last Start',
         compute='_compute_collective_timer_info',
     )
     collective_accumulated_seconds = fields.Float(
-        string='Collective Accumulated Seconds',
+        string='Working Accumulated Seconds',
         compute='_compute_collective_timer_info',
     )
     collective_duration = fields.Float(
-        string='Collective Duration',
+        string='Working Duration',
+        compute='_compute_collective_timer_info',
+    )
+    working_duration = fields.Float(
+        string='Working Duration',
         compute='_compute_collective_timer_info',
     )
     collective_target_hours = fields.Float(
-        string='Collective Target Hours',
+        string='Target Hours',
         compute='_compute_collective_timer_info',
         digits=(16, 2),
     )
     collective_target_seconds = fields.Float(
-        string='Collective Target Seconds',
+        string='Target Seconds',
         compute='_compute_collective_timer_info',
     )
     collective_remaining_seconds = fields.Float(
-        string='Collective Remaining Seconds',
+        string='Remaining Seconds',
         compute='_compute_collective_timer_info',
     )
     timer_mode = fields.Selection([
@@ -1729,7 +1820,7 @@ class HrEmployeeStatusLog(models.Model):
             if rec.timer_mode != 'stopwatch':
                 rec.timer_mode = 'stopwatch'
             all_services = rec.service_line_ids
-            # The collective stopwatch runs if and only if any of the services are running
+            # The working stopwatch runs if and only if any of the services are running
             if all_services:
                 is_running = any(l.is_timer_running for l in all_services)
             else:
@@ -1739,7 +1830,7 @@ class HrEmployeeStatusLog(models.Model):
                 )
             rec.is_collective_timer_running = is_running
 
-            # Collective stopwatch is independent of individual service lines' worked hours
+            # Working stopwatch is independent of individual service lines' worked hours
             rec.collective_accumulated_seconds = rec.accumulated_seconds or 0.0
             rec.collective_timer_last_start = rec.timer_last_start or rec.timer_start or False
 
@@ -1761,6 +1852,7 @@ class HrEmployeeStatusLog(models.Model):
                 delta = (now - rec.collective_timer_last_start).total_seconds()
                 total_sec += max(0.0, delta)
             rec.collective_duration = total_sec / 3600.0
+            rec.working_duration = total_sec / 3600.0
             rec.collective_remaining_seconds = rec.collective_target_seconds - total_sec
 
     def _start_services_timer(self, selected_lines):
@@ -1803,22 +1895,27 @@ class HrEmployeeStatusLog(models.Model):
                 'emp': emp_name,
             })
 
-        for orun in other_running:
-            orun.action_pause_timer()
-
         now = fields.Datetime.now()
-        n_members = len(selected_lines)
         for line in selected_lines:
+            if not line.is_timer_running:
+                line.with_context(allow_collective_start=True, skip_timeline_sync=True).action_start_timer()
+                line._compute_time_diff()
+
+        all_running = self.service_line_ids.filtered(lambda l: l.is_timer_running)
+        n_members = len(all_running)
+        for line in all_running:
             line.write({
-                'is_collective': True,
+                'is_collective': n_members > 1,
                 'collective_member_count': n_members,
             })
-            line.with_context(allow_collective_start=True, skip_timeline_sync=True).action_start_timer()
-            line._compute_time_diff()
 
         pause_delta = 0.0
         if self.is_pause_running and self.pause_timer_start:
             pause_delta = max(0, (now - self.pause_timer_start).total_seconds())
+
+        running_starts = [l.timer_last_start for l in all_running if l.timer_last_start]
+        earliest_start = min(running_starts) if running_starts else now
+        t_start = self.timer_last_start if (self.is_timer_running and self.timer_last_start) else earliest_start
 
         vals = {
             'status': 'job',
@@ -1826,15 +1923,14 @@ class HrEmployeeStatusLog(models.Model):
             'pause_reason': False,
             'is_current_activity': True,
             'is_timer_running': True,
-            'timer_start': self.timer_start or now,
-            'timer_last_start': self.timer_last_start if (self.is_timer_running and self.timer_last_start) else now,
+            'timer_start': self.timer_start or earliest_start,
+            'timer_last_start': t_start,
+            'accumulated_seconds': self.accumulated_seconds or 0.0,
             'end_datetime': False,
             'is_pause_running': False,
             'pause_timer_start': False,
             'pause_accumulated_seconds': (self.pause_accumulated_seconds or 0.0) + pause_delta,
         }
-        if not self.accumulated_seconds:
-            vals['accumulated_seconds'] = 0.0
         self.write(vals)
 
         if self.employee_id:
@@ -1849,96 +1945,29 @@ class HrEmployeeStatusLog(models.Model):
 
     def action_start_collective_timer(self):
         self.ensure_one()
-        # Collective timer like before: requires user to tick service checkboxes
+        # Working timer: requires user to tick service checkboxes
         selected_lines = self.service_line_ids.filtered(lambda l: l.is_group_selected and l.line_status != 'completed')
         if not selected_lines:
-            raise UserError(_("Please select at least 1 service line using the checkboxes to start a collective timer."))
+            raise UserError(_("Please select at least 1 service line using the checkboxes to start the working timer."))
 
         self.write({'timer_mode': 'countdown'})
         return self._start_services_timer(selected_lines)
+
+    def action_start_working_timer(self):
+        return self.action_start_collective_timer()
 
     def action_start_common_timer(self):
         self.ensure_one()
         # Header button named Timer: only runs when at least one service is selected
         selected_lines = self.service_line_ids.filtered(lambda l: l.is_group_selected and l.line_status != 'completed')
         if not selected_lines:
-            raise UserError(_("Please select at least 1 service to start the timer."))
+            raise UserError(_("Please select at least 1 service using the checkbox to start the timer."))
 
         self.write({'timer_mode': 'stopwatch'})
         return self._start_services_timer(selected_lines)
 
     def action_resume_timer(self):
-        self.ensure_one()
-        selected_lines = self.service_line_ids.filtered(lambda l: l.is_group_selected and l.line_status != 'completed')
-        if not selected_lines:
-            raise UserError(_("Please select at least 1 service to resume the timer."))
-
-        other_running = self.env['fleet.repair.service.line'].search([
-            ('employee_id', '=', self.employee_id.id),
-            ('is_timer_running', '=', True),
-            ('repair_id.state', 'not in', ['done', 'invoiced', 'cancel'])
-        ])
-        diff_repair_running = other_running.filtered(lambda l: l.repair_id != self.job_id)
-        if diff_repair_running:
-            running_line = diff_repair_running[0]
-            job_name = running_line.repair_id.sequence or running_line.repair_id.name or f"JC #{running_line.repair_id.id}"
-            service_str = f" ({running_line.product_id.name or running_line.name})" if (running_line.product_id or running_line.name) else ""
-            emp_name = self.employee_id.name
-            raise UserError(_(
-                "Job Card '%(job)s'%(service)s is currently running for %(emp)s! Please pause or stop the running job before starting another job."
-            ) % {
-                'job': job_name,
-                'service': service_str,
-                'emp': emp_name,
-            })
-
-        running_other_logs = self.env['hr.employee.status.log'].search([
-            ('employee_id', '=', self.employee_id.id),
-            ('id', '!=', self.id),
-            ('is_timer_running', '=', True),
-        ])
-        diff_running_logs = running_other_logs.filtered(lambda l: l.job_id and l.job_id != self.job_id)
-        if diff_running_logs:
-            rlog = diff_running_logs[0]
-            job_name = rlog.job_id.sequence or rlog.job_id.name or f"JC #{rlog.job_id.id}"
-            service_str = f" ({rlog.service_name or (rlog.product_id.name if rlog.product_id else '')})" if (rlog.service_name or rlog.product_id) else ""
-            emp_name = self.employee_id.name
-            raise UserError(_(
-                "Job Card '%(job)s'%(service)s is currently running for %(emp)s! Please pause or stop the running job before starting another job."
-            ) % {
-                'job': job_name,
-                'service': service_str,
-                'emp': emp_name,
-            })
-
-        now = fields.Datetime.now()
-        for line in selected_lines:
-            line.with_context(allow_collective_start=True, skip_timeline_sync=True).action_start_timer()
-            line._compute_time_diff()
-
-        pause_delta = 0.0
-        if self.is_pause_running and self.pause_timer_start:
-            pause_delta = max(0, (now - self.pause_timer_start).total_seconds())
-
-        self.write({
-            'status': 'job',
-            'job_status': 'working',
-            'is_timer_running': True,
-            'timer_last_start': now,
-            'timer_end': False,
-            'is_pause_running': False,
-            'pause_timer_start': False,
-            'pause_accumulated_seconds': (self.pause_accumulated_seconds or 0.0) + pause_delta,
-            'pause_reason': False,
-        })
-        if self.employee_id:
-            self.employee_id.sudo().write({
-                'work_status': 'job',
-                'current_pause_reason': False,
-                'current_job_id': self.job_id.id if self.job_id else False,
-            })
-        self._compute_collective_timer_info()
-        return False
+        return self.action_start_common_timer()
 
     def action_pause_collective_timer(self):
         self.ensure_one()
@@ -1966,65 +1995,57 @@ class HrEmployeeStatusLog(models.Model):
                 'is_current_activity': True,
             })
             if self.employee_id:
-                self.employee_id.sudo().write({
-                    'work_status': 'paused',
-                    'current_pause_reason': self.pause_reason or False,
-                })
+                other_pending = self.env['fleet.repair.service.line'].search([
+                    ('employee_id', '=', self.employee_id.id),
+                    ('id', 'not in', self.service_line_ids.ids),
+                    ('repair_id.state', 'not in', ['delivery', 'delivered', 'done', 'invoiced', 'cancel']),
+                    ('line_status', 'not in', ['completed', 'paused']),
+                    ('is_timer_paused', '=', False),
+                ], limit=1)
+                if other_pending:
+                    self.employee_id.sudo().write({
+                        'work_status': 'idle',
+                        'is_idle_running': True,
+                        'idle_timer_start': now,
+                        'idle_accumulated_seconds': 0.0,
+                        'current_status_start': now,
+                        'current_job_id': False,
+                        'current_service_line_id': False,
+                        'current_pause_reason': False,
+                    })
+                else:
+                    self.employee_id.sudo().write({
+                        'work_status': 'paused',
+                        'current_pause_reason': self.pause_reason or False,
+                    })
         else:
             self.write({
-                'is_pause_running': True,
-                'pause_timer_start': now if not self.is_pause_running else (self.pause_timer_start or now),
-            })
-        self._compute_collective_timer_info()
-        return False
-
-    def action_open_pause_wizard(self):
-        self.ensure_one()
-        now = fields.Datetime.now()
-        # Immediately pause only selected running service line timers
-        selected_running_lines = self.service_line_ids.filtered(lambda l: l.is_group_selected and l.is_timer_running)
-        if not selected_running_lines:
-            raise UserError(_("Please select at least 1 running service using the checkbox to pause."))
-
-        for line in selected_running_lines:
-            line.with_context(skip_timeline_sync=True).action_pause_timer()
-
-        remaining_running = self.service_line_ids.filtered(lambda l: l.id not in selected_running_lines.ids and l.is_timer_running)
-        default_reason = self.pause_reason or 'waiting_parts'
-
-        if not remaining_running:
-            # All running services are now paused, update status log to paused state
-            accum = self.accumulated_seconds or 0.0
-            if self.is_timer_running and self.timer_last_start:
-                accum += max(0.0, (now - self.timer_last_start).total_seconds())
-
-            self.write({
-                'status': 'paused',
-                'job_status': 'paused',
-                'is_timer_running': False,
-                'timer_last_start': False,
-                'timer_end': now,
-                'accumulated_seconds': accum,
-                'is_pause_running': True,
-                'pause_timer_start': now,
-                'pause_reason': default_reason,
-                'is_current_activity': True,
+                'status': 'job',
+                'job_status': 'working',
+                'is_timer_running': True,
+                'is_pause_running': False,
             })
             if self.employee_id:
                 self.employee_id.sudo().write({
-                    'work_status': 'paused',
-                    'current_pause_reason': default_reason,
+                    'work_status': 'job',
+                    'current_pause_reason': False,
                 })
-        else:
-            # Some services are still running; start pause duration tracking for paused services
-            self.write({
-                'is_pause_running': True,
-                'pause_timer_start': now if not self.is_pause_running else (self.pause_timer_start or now),
-                'pause_reason': default_reason,
-            })
+        self._compute_collective_timer_info()
+        self._compute_job_status()
+        self._compute_display_status()
+        return False
+
+    def action_pause_working_timer(self):
+        return self.action_pause_collective_timer()
+
+    def action_open_pause_wizard(self):
+        self.ensure_one()
+        selected_lines = self.service_line_ids.filtered(lambda l: l.is_group_selected and l.line_status != 'completed')
+        if not selected_lines:
+            raise UserError(_("Please select at least 1 service using the checkbox to stop."))
 
         return {
-            'name': _('Pause Job'),
+            'name': _('Stop Job'),
             'type': 'ir.actions.act_window',
             'res_model': 'pause.job.wizard',
             'view_mode': 'form',
@@ -2032,7 +2053,7 @@ class HrEmployeeStatusLog(models.Model):
             'target': 'new',
             'context': {
                 'default_status_log_id': self.id,
-                'default_pause_reason': default_reason,
+                'default_pause_reason': self.pause_reason or 'waiting_parts',
                 'default_notes': self.pause_notes or '',
             }
         }
@@ -2044,8 +2065,9 @@ class HrEmployeeStatusLog(models.Model):
         repair = self.job_id
 
         selected_lines = self.service_line_ids.filtered(lambda l: l.is_group_selected and l.line_status != 'completed')
-        uncompleted_lines = self.service_line_ids.filtered(lambda l: l.line_status != 'completed')
-        lines_to_complete = selected_lines if selected_lines else uncompleted_lines
+        if not selected_lines:
+            raise UserError(_("Please select at least 1 service using the checkbox to mark as Done."))
+        lines_to_complete = selected_lines
 
         for line in lines_to_complete:
             line_vals = {
@@ -2056,7 +2078,6 @@ class HrEmployeeStatusLog(models.Model):
                 'pause_reason': False,
                 'pause_notes': False,
                 'line_status': 'completed',
-                'is_group_selected': False,
             }
             if not line.timer_end:
                 line_vals['timer_end'] = now
@@ -2067,11 +2088,11 @@ class HrEmployeeStatusLog(models.Model):
                 run_sec = max(0.0, delta)
                 if line.is_collective and (line.collective_member_count or 1) > 1:
                     run_sec = run_sec / float(line.collective_member_count)
-                line.accumulated_seconds = (line.accumulated_seconds or 0.0) + run_sec
+                line_vals['accumulated_seconds'] = (line.accumulated_seconds or 0.0) + run_sec
                 line_vals['timer_last_start'] = False
             if line.is_pause_running and line.pause_timer_start:
                 p_delta = max(0.0, (now - line.pause_timer_start).total_seconds())
-                line.pause_accumulated_seconds = (line.pause_accumulated_seconds or 0.0) + p_delta
+                line_vals['pause_accumulated_seconds'] = (line.pause_accumulated_seconds or 0.0) + p_delta
             line.with_context(skip_status_log_sync=True).write(line_vals)
             line._compute_time_diff()
             line._compute_line_status()
@@ -2137,21 +2158,11 @@ class HrEmployeeStatusLog(models.Model):
                     notes=self.notes or False,
                 )
 
-                # Update the employee record: if no more pending jobs, set to idle / no_job
-                if other_pending:
-                    emp.sudo().write({
-                        'work_status': 'assigned',
-                        'current_job_id': False,
-                        'current_service_line_id': False,
-                        'current_pause_reason': False,
-                        'is_idle_running': False,
-                        'idle_reason': False,
-                        'idle_timer_start': False,
-                    })
-                else:
+                # Update the employee record: when completed, if other jobs are assigned, status is idle and not assigned
+                if emp:
                     emp.sudo().write({
                         'work_status': 'idle',
-                        'idle_reason': 'no_job',
+                        'idle_reason': 'no_job' if not other_pending else False,
                         'is_idle_running': True,
                         'idle_timer_start': now,
                         'idle_accumulated_seconds': 0.0,
@@ -2225,9 +2236,12 @@ class HrEmployeeStatusLog(models.Model):
                     })
                 if emp:
                     emp.sudo().write({
-                        'work_status': 'paused' if other_paused else 'assigned',
-                        'current_job_id': repair.id if repair else False,
-                        'current_service_line_id': remaining_lines[0].id if remaining_lines else False,
+                        'work_status': 'idle' if not other_running else 'job',
+                        'is_idle_running': not bool(other_running),
+                        'idle_timer_start': now if not other_running else False,
+                        'current_job_id': repair.id if other_running else False,
+                        'current_service_line_id': other_running[0].id if other_running else False,
+                        'current_pause_reason': False,
                     })
 
             self.write(log_vals)
@@ -2274,10 +2288,6 @@ class HrEmployeeStatusLog(models.Model):
             else:
                 rec.service_line_ids = self.env['fleet.repair.service.line']
 
-            for sline in rec.service_line_ids:
-                if (sline.is_timer_running or sline.line_status == 'working') and not sline.is_group_selected:
-                    sline.is_group_selected = True
-
     def _inverse_service_line_ids(self):
         for rec in self:
             for line in rec.service_line_ids:
@@ -2304,6 +2314,9 @@ class HrEmployeeStatusLog(models.Model):
     def _onchange_service_line_ids(self):
         self._compute_worked_hours()
         self._compute_collective_timer_info()
+        self._compute_job_status()
+        self._compute_display_status()
+        self._compute_display_name()
         if self.employee_id:
             for line in self.service_line_ids:
                 if not line.employee_id or line.employee_id != self.employee_id:
@@ -2637,6 +2650,7 @@ class HrEmployeeStatusLog(models.Model):
         return records
 
     def write(self, vals):
+
         if 'job_id' in vals:
             for rec in self:
                 if (rec.is_timer_running or rec.job_status == 'working') and vals['job_id'] != (rec.job_id.id if rec.job_id else False):
@@ -2790,20 +2804,6 @@ class HrEmployeeStatusLog(models.Model):
 
     @api.model
     def web_search_read(self, *args, **kwargs):
-        domain = kwargs.get('domain') or (args[0] if args else None)
-        emp_id = self.env.context.get('default_employee_id')
-        if not emp_id and domain:
-            for leaf in domain:
-                if isinstance(leaf, (list, tuple)) and len(leaf) == 3 and leaf[0] == 'employee_id' and leaf[1] == '=':
-                    emp_id = leaf[2]
-                    break
-        if emp_id:
-            active_slines = self.env['fleet.repair.service.line'].search([
-                ('employee_id', '=', emp_id),
-                ('repair_id.state', 'not in', ['done', 'invoiced', 'cancel'])
-            ])
-            if active_slines:
-                active_slines._sync_to_employee_status_log()
         return super().web_search_read(*args, **kwargs)
 
     @api.depends('accumulated_seconds', 'timer_last_start', 'is_timer_running', 'start_datetime', 'end_datetime', 'service_line_id')
@@ -3119,10 +3119,29 @@ class HrEmployeeStatusLog(models.Model):
             self.service_line_id.with_context(skip_status_wizard=True).action_pause_timer()
 
         if self.employee_id:
-            self.employee_id.sudo().write({
-                'work_status': 'paused',
-                'current_pause_reason': self.pause_reason or False,
-            })
+            other_pending = self.env['fleet.repair.service.line'].search([
+                ('employee_id', '=', self.employee_id.id),
+                ('id', '!=', self.service_line_id.id if self.service_line_id else False),
+                ('repair_id.state', 'not in', ['delivery', 'delivered', 'done', 'invoiced', 'cancel']),
+                ('line_status', 'not in', ['completed', 'paused']),
+                ('is_timer_paused', '=', False),
+            ], limit=1)
+            if other_pending:
+                self.employee_id.sudo().write({
+                    'work_status': 'idle',
+                    'is_idle_running': True,
+                    'idle_timer_start': now,
+                    'idle_accumulated_seconds': 0.0,
+                    'current_status_start': now,
+                    'current_job_id': False,
+                    'current_service_line_id': False,
+                    'current_pause_reason': False,
+                })
+            else:
+                self.employee_id.sudo().write({
+                    'work_status': 'paused',
+                    'current_pause_reason': self.pause_reason or False,
+                })
 
         self._compute_time_diff()
         self._compute_duration()

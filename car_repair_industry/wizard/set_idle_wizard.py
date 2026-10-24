@@ -32,15 +32,13 @@ class SetIdleWizard(models.TransientModel):
     def _compute_idle_state(self):
         reason_map = {
             'training': '🎓 Training',
-            'no_job': '📋 No Job',
-            'learning': '📋 No Job',
             'meeting': '👥 Meeting',
             'break_lunch': '☕ Break / Lunch',
         }
         for rec in self:
             rec.is_already_idle = bool(rec.employee_id and rec.employee_id.is_idle_running and rec.employee_id.work_status == 'idle')
             rec.current_idle_reason = rec.employee_id.idle_reason if rec.is_already_idle else False
-            rec.current_idle_display = reason_map.get(rec.employee_id.idle_reason, '') if rec.is_already_idle else ''
+            rec.current_idle_display = reason_map.get(rec.employee_id.idle_reason, 'Idle') if rec.is_already_idle else ''
 
     def action_start_idle(self):
         self.ensure_one()

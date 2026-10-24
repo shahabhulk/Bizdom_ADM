@@ -102,11 +102,20 @@ class UpdateServiceWizard(models.TransientModel):
 
         # Check remaining active services for the Collective Timer
         if log:
-            active_lines = log.service_line_ids.filtered(lambda l: l.is_timer_running)
+            active_lines = log.service_line_ids.filtered(lambda l: l.is_timer_running or l.line_status == 'working')
             if active_lines:
                 # Update split member count for remaining active services
                 active_lines.write({'collective_member_count': len(active_lines), 'is_collective': True})
+                log.write({
+                    'status': 'job',
+                    'job_status': 'working',
+                    'is_timer_running': True,
+                })
+                log._compute_job_status()
                 log._compute_collective_timer_info()
+                log._compute_time_metrics()
+                log._compute_display_status()
+                log._compute_display_name()
             else:
                 # No other active service to work on: pause the Collective Timer
                 pause_delta = 0.0
@@ -124,10 +133,29 @@ class UpdateServiceWizard(models.TransientModel):
                     'accumulated_seconds': (log.accumulated_seconds or 0.0) + pause_delta,
                 })
                 if log.employee_id:
-                    log.employee_id.sudo().write({
-                        'work_status': 'paused',
-                        'current_pause_reason': self.pause_reason if self.action_type == 'pause' else False,
-                    })
+                    other_pending = self.env['fleet.repair.service.line'].search([
+                        ('employee_id', '=', log.employee_id.id),
+                        ('id', 'not in', log.service_line_ids.ids),
+                        ('repair_id.state', 'not in', ['delivery', 'delivered', 'done', 'invoiced', 'cancel']),
+                        ('line_status', 'not in', ['completed', 'paused']),
+                        ('is_timer_paused', '=', False),
+                    ], limit=1)
+                    if other_pending:
+                        log.employee_id.sudo().write({
+                            'work_status': 'idle',
+                            'is_idle_running': True,
+                            'idle_timer_start': now,
+                            'idle_accumulated_seconds': 0.0,
+                            'current_status_start': now,
+                            'current_job_id': False,
+                            'current_service_line_id': False,
+                            'current_pause_reason': False,
+                        })
+                    else:
+                        log.employee_id.sudo().write({
+                            'work_status': 'paused',
+                            'current_pause_reason': self.pause_reason if self.action_type == 'pause' else False,
+                        })
                 log._compute_collective_timer_info()
 
         return {'type': 'ir.actions.act_window_close'}
