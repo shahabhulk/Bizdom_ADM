@@ -157,3 +157,123 @@ label.o_required_modifier::after {
 .o_statusbar_status:has(> .o_arrow_button[data-value="parts"]) > .o_arrow_button.o_arrow_button_current[data-value="done"]::before {
     background-color: #146c43 !important;
 }
+
+/* ==========================================================================
+   Head Technician Employee Dashboard - Defined Kanban Card Border
+   - Slight dark border around active cards for crisp definition
+   - Ghost spacer cards explicitly stripped of border and shadow
+   - Subtle hover enhancement
+   ========================================================================== */
+
+.o_head_tech_kanban .o_kanban_record:not(.o_kanban_ghost) {
+    border: 1px solid #64748b !important;
+    border-radius: 8px !important;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05) !important;
+    transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+}
+
+.o_head_tech_kanban .o_kanban_record:not(.o_kanban_ghost):hover {
+    border-color: #334155 !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1) !important;
+}
+
+/* Eliminate bottom ghost spacer lines */
+.o_head_tech_kanban .o_kanban_record.o_kanban_ghost {
+    border: none !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    height: 0 !important;
+    min-height: 0 !important;
+    max-height: 0 !important;
+    background: transparent !important;
+    visibility: hidden !important;
+}
+
+/* Status badge pill positioned under employee photo */
+.o_head_tech_kanban .o_employee_status_pill {
+    font-size: 11px !important;
+    font-weight: 700 !important;
+    padding: 3px 8px !important;
+    max-width: 85px !important;
+    display: inline-block !important;
+    text-overflow: ellipsis !important;
+    overflow: hidden !important;
+    white-space: nowrap !important;
+    vertical-align: middle !important;
+    line-height: 1.25 !important;
+    letter-spacing: 0.2px !important;
+}
+
+/* Idle without specified reason badge: Red */
+.o_head_tech_kanban .o_employee_status_pill.status-badge-idle,
+.status-badge-idle {
+    background-color: #EF4444 !important;
+    color: #ffffff !important;
+}
+
+/* ==========================================================================
+   Service Tasks - Visible Select Checkbox Highlight Border
+   ========================================================================== */
+
+/* Prominent highlight border for the Select checkbox in both checked and unchecked states */
+input[name="is_group_selected"],
+.o_field_widget[name="service_line_ids"] td[name="is_group_selected"] .form-check-input,
+.o_field_widget[name="service_line_ids"] td[name="is_group_selected"] input[type="checkbox"],
+.o_field_widget[name="service_line_ids"] td[data-name="is_group_selected"] .form-check-input,
+.o_field_widget[name="service_line_ids"] td[data-name="is_group_selected"] input[type="checkbox"],
+.o_field_boolean[name="is_group_selected"] .form-check-input,
+.o_list_table td[name="is_group_selected"] input[type="checkbox"],
+.o_list_table td[data-name="is_group_selected"] input[type="checkbox"],
+td[name="is_group_selected"] .form-check-input,
+td[data-name="is_group_selected"] .form-check-input {
+    border: 2.5px solid #714B67 !important;
+    border-radius: 4px !important;
+    width: 18px !important;
+    height: 18px !important;
+    cursor: pointer !important;
+    opacity: 1 !important;
+    background-color: #ffffff !important;
+    box-shadow: 0 0 0 1.5px rgba(113, 75, 103, 0.25) !important;
+    transition: all 0.15s ease-in-out !important;
+}
+
+/* Ensure disabled/inactive rows maintain full opacity and clear border */
+input[name="is_group_selected"]:disabled,
+.o_field_widget[name="service_line_ids"] td[name="is_group_selected"] .form-check-input:disabled,
+.o_list_table td[name="is_group_selected"] input[type="checkbox"]:disabled,
+td[name="is_group_selected"] .form-check-input:disabled {
+    opacity: 1 !important;
+    filter: none !important;
+    cursor: pointer !important;
+}
+
+/* Checked state with solid fill and highlighted glow border */
+input[name="is_group_selected"]:checked,
+.o_field_widget[name="service_line_ids"] td[name="is_group_selected"] .form-check-input:checked,
+.o_field_widget[name="service_line_ids"] td[name="is_group_selected"] input[type="checkbox"]:checked,
+.o_field_widget[name="service_line_ids"] td[data-name="is_group_selected"] .form-check-input:checked,
+.o_field_boolean[name="is_group_selected"] .form-check-input:checked,
+.o_list_table td[name="is_group_selected"] input[type="checkbox"]:checked,
+.o_list_table td[data-name="is_group_selected"] input[type="checkbox"]:checked,
+td[name="is_group_selected"] .form-check-input:checked,
+td[data-name="is_group_selected"] .form-check-input:checked {
+    background-color: #714B67 !important;
+    border: 2.5px solid #714B67 !important;
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3e%3cpath fill='none' stroke='%23fff' stroke-linecap='round' stroke-linejoin='round' stroke-width='3' d='m6 10 3 3 6-6'/%3e%3c/svg%3e") !important;
+    background-position: center !important;
+    background-size: contain !important;
+    box-shadow: 0 0 0 3px rgba(113, 75, 103, 0.35) !important;
+    opacity: 1 !important;
+}
+
+/* Hover and focus states */
+input[name="is_group_selected"]:hover,
+input[name="is_group_selected"]:focus,
+.o_field_widget[name="service_line_ids"] td[name="is_group_selected"] .form-check-input:hover,
+.o_field_widget[name="service_line_ids"] td[name="is_group_selected"] .form-check-input:focus,
+.o_field_boolean[name="is_group_selected"] .form-check-input:hover,
+.o_field_boolean[name="is_group_selected"] .form-check-input:focus {
+    border-color: #4a2c42 !important;
+    box-shadow: 0 0 0 3.5px rgba(113, 75, 103, 0.4) !important;
+}

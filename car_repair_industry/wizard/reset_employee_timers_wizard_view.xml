@@ -15,7 +15,7 @@
                             <ul class="mb-0 mt-1">
                                 <li><strong>Service Task Timers</strong> (Worked hours &amp; elapsed duration back to 0)</li>
                                 <li><strong>Pause Timer</strong> (All accumulated pause time back to 00:00:00)</li>
-                                <li><strong>Idle Timer &amp; Collective Timer</strong></li>
+                                <li><strong>Idle Timer &amp; Working Timer</strong></li>
                             </ul>
                         </div>
                     </div>
