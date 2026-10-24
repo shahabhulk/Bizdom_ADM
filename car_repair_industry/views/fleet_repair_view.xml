@@ -237,10 +237,12 @@
                                                context="{'default_type': 'service', 'default_categ_id': False, 'default_alloted_fru': 0}"
                                                options="{'no_quick_create': True}"
                                                readonly="parent.state in ('done', 'delivery', 'cancel', 'invoiced')"/>
-                                        <field name="department_id" required="1" optional="hide"
+                                        <field name="department_id" required="1" optional="show"
                                                options="{'no_create': True, 'no_create_edit': True}"
                                                readonly="parent.state in ('done', 'delivery', 'cancel', 'invoiced')"/>
+                                        <field name="allowed_employee_ids" column_invisible="1"/>
                                         <field name="employee_id" optional="show"
+                                               domain="[('id', 'in', allowed_employee_ids)]"
                                                options="{'no_create': True, 'no_create_edit': True}"
                                                context="{'open_employee_status_log': True, 'job_card_id': parent.id, 'service_line_id': id, 'status_log_id': status_log_id}"
                                                readonly="parent.state in ('done', 'delivery', 'cancel', 'invoiced')"/>

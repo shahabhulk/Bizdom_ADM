@@ -91,15 +91,13 @@ class EmployeeTimelineHistory(models.Model):
             'other': '⚪ Other',
         }
         idle_map = {
-            'no_job': '📋 No Job',
             'training': '🎓 Training',
-            'learning': '📋 No Job',
             'meeting': '👥 Meeting',
             'break_lunch': '☕ Break / Lunch',
         }
         for rec in self:
             if rec.status == 'idle' or rec.job_status == 'idle' or rec.idle_reason:
-                rec.idle_reason_display = idle_map.get(rec.idle_reason, rec.notes or 'Idle')
+                rec.idle_reason_display = idle_map.get(rec.idle_reason, 'Idle')
                 rec.pause_reason_display = '—'
             elif rec.status == 'completed' or rec.job_status == 'completed':
                 if rec.pause_reason and rec.pause_reason in reason_map:
@@ -179,17 +177,17 @@ class EmployeeTimelineHistory(models.Model):
         compute='_compute_has_paused_services',
     )
     collective_duration = fields.Float(
-        string='Collective Duration',
+        string='Working Duration',
         compute='_compute_collective_duration',
     )
-    is_collective_timer_running = fields.Boolean(string='Collective Timer Running', default=False)
+    is_collective_timer_running = fields.Boolean(string='Working Timer Running', default=False)
     is_pause_running = fields.Boolean(string='Pause Running', default=False)
     is_timer_running = fields.Boolean(string='Timer Running', default=False)
     collective_selected_count = fields.Integer(string='Selected Count', default=0)
-    collective_timer_last_start = fields.Datetime(string='Collective Last Start')
-    collective_accumulated_seconds = fields.Float(string='Collective Accumulated Seconds', default=0.0)
-    collective_target_hours = fields.Float(string='Collective Target Hours', default=0.0)
-    collective_target_seconds = fields.Float(string='Collective Target Seconds', default=0.0)
+    collective_timer_last_start = fields.Datetime(string='Working Last Start')
+    collective_accumulated_seconds = fields.Float(string='Working Accumulated Seconds', default=0.0)
+    collective_target_hours = fields.Float(string='Target Hours', default=0.0)
+    collective_target_seconds = fields.Float(string='Target Seconds', default=0.0)
     collective_remaining_seconds = fields.Float(string='Collective Remaining Seconds', default=0.0)
     timer_mode = fields.Selection([
         ('countdown', 'Countdown'),
@@ -234,7 +232,7 @@ class EmployeeTimelineHistory(models.Model):
                 lines = rec.service_line_id
             rec.service_line_ids = lines
 
-    @api.depends('accumulated_seconds', 'duration', 'service_line_ids.hours', 'service_line_ids.accumulated_seconds')
+    @api.depends('accumulated_seconds', 'duration')
     def _compute_worked_hours(self):
         for rec in self:
             if rec.accumulated_seconds:
@@ -245,7 +243,7 @@ class EmployeeTimelineHistory(models.Model):
             else:
                 rec.worked_hours = round(rec.duration or 0.0, 2)
 
-    @api.depends('pause_accumulated_seconds', 'service_line_ids.pause_accumulated_seconds')
+    @api.depends('pause_accumulated_seconds')
     def _compute_pause_duration(self):
         for rec in self:
             if rec.pause_accumulated_seconds:
@@ -256,7 +254,7 @@ class EmployeeTimelineHistory(models.Model):
             else:
                 rec.pause_duration = 0.0
 
-    @api.depends('pause_reason', 'pause_duration', 'service_line_ids.line_status')
+    @api.depends('pause_reason', 'pause_duration')
     def _compute_has_paused_services(self):
         for rec in self:
             rec.has_paused_services = bool(
