@@ -15,7 +15,7 @@
                             <ul class="mb-0 mt-1">
                                 <li>Move the workflow stage back to <strong>Assigned</strong></li>
                                 <li>Stop active service timers and clear the pause duration and reason</li>
-                                <li>Allow technicians to resume or start collective timing fresh</li>
+                                <li>Allow technicians to resume or start working timer fresh</li>
                             </ul>
                         </div>
                     </div>

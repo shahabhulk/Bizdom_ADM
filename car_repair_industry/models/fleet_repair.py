@@ -2393,15 +2393,6 @@ class FleetRepairServiceLine(models.Model):
             ALTER TABLE fleet_repair_service_line ADD COLUMN IF NOT EXISTS assigned_date timestamp without time zone;
             DO $$
             BEGIN
-                IF EXISTS (
-                    SELECT 1 FROM information_schema.columns 
-                    WHERE table_name = 'fleet_repair_service_line' 
-                    AND column_name = 'is_group_selected'
-                ) THEN
-                    UPDATE fleet_repair_service_line
-                    SET is_group_selected = TRUE
-                    WHERE is_timer_running = TRUE OR line_status = 'working';
-                END IF;
                 UPDATE fleet_repair_service_line
                 SET assigned_date = write_date
                 WHERE employee_id IS NOT NULL AND assigned_date IS NULL;
@@ -2491,6 +2482,118 @@ class FleetRepairServiceLine(models.Model):
         domain="[('department_id', '=', department_id)] if department_id else []",
         # required=True
     )
+    allowed_employee_ids = fields.Many2many(
+        'hr.employee',
+        compute='_compute_allowed_employee_ids',
+        string='Allowed Technicians',
+    )
+
+    @api.depends('department_id')
+    def _compute_allowed_employee_ids(self):
+        for line in self:
+            dept = line.department_id or line.employee_id.department_id
+            target_dept_name = (dept.name or '').strip().lower() if dept and dept.name else ''
+
+            if target_dept_name:
+                depts = self.env['hr.department'].search([])
+                matching_depts = depts.filtered(lambda d: d.name and d.name.strip().lower() == target_dept_name)
+                base_employees = self.env['hr.employee'].search([('department_id', 'in', matching_depts.ids)])
+            else:
+                base_employees = self.env['hr.employee'].search([])
+
+            if line.employee_id:
+                base_employees |= line.employee_id
+            line.allowed_employee_ids = base_employees
+
+    @api.onchange('employee_id')
+    def _onchange_employee_id_active_check(self):
+        if not self.employee_id:
+            return
+        if self.employee_id.department_id and not self.department_id:
+            self.department_id = self.employee_id.department_id
+
+        if self.department_id and self.employee_id.department_id:
+            dept_name = (self.department_id.name or '').strip().lower()
+            emp_dept_name = (self.employee_id.department_id.name or '').strip().lower()
+            if dept_name and emp_dept_name and dept_name != emp_dept_name:
+                d_name = self.department_id.name
+                e_name = self.employee_id.name
+                ed_name = self.employee_id.department_id.name
+                self.employee_id = False
+                return {
+                    'warning': {
+                        'title': _("Department Mismatch"),
+                        'message': _(
+                            "Technician '%(emp)s' belongs to '%(emp_dept)s', but this service requires '%(dept)s'."
+                        ) % {
+                            'emp': e_name,
+                            'emp_dept': ed_name,
+                            'dept': d_name,
+                        }
+                    }
+                }
+
+        repair = self.repair_id
+        if not repair and (self._context.get('default_repair_id') or self._context.get('job_card_id')):
+            repair_id_val = self._context.get('default_repair_id') or self._context.get('job_card_id')
+            repair = self.env['fleet.repair'].browse(repair_id_val)
+        if repair:
+            other_active = repair.service_line_ids.filtered(
+                lambda l: l != self and l.employee_id and l.employee_id != self.employee_id and l.line_status in ('assigned', 'working')
+            )
+            if other_active:
+                active_emp = other_active[0].employee_id
+                chosen_name = self.employee_id.name
+                self.employee_id = False
+                return {
+                    'warning': {
+                        'title': _("Assignment Restricted"),
+                        'message': _(
+                            "Technician '%(active)s' is currently assigned/working on this Job Card.\n\n"
+                            "You cannot assign '%(chosen)s' because '%(active)s' is already assigned. "
+                            "Please wait until '%(active)s' completes or stops their work."
+                        ) % {
+                            'active': active_emp.name,
+                            'chosen': chosen_name,
+                        }
+                    }
+                }
+        if self.repair_id:
+            self.repair_id._onchange_service_line_ids_status()
+
+    @api.constrains('employee_id', 'line_status', 'repair_id', 'department_id')
+    def _check_single_active_technician(self):
+        for line in self:
+            if not line.repair_id or not line.employee_id:
+                continue
+            dept = line.department_id or line.employee_id.department_id
+            dept_name = (dept.name or '').strip().lower() if dept and dept.name else ''
+            emp_dept_name = (line.employee_id.department_id.name or '').strip().lower() if line.employee_id.department_id else ''
+
+            if dept_name and emp_dept_name and dept_name != emp_dept_name:
+                raise ValidationError(_(
+                    "Technician '%(emp)s' belongs to department '%(emp_dept)s', but service '%(service)s' belongs to '%(dept)s'."
+                ) % {
+                    'emp': line.employee_id.name,
+                    'emp_dept': line.employee_id.department_id.name,
+                    'service': line.product_id.name if line.product_id else (line.name or ''),
+                    'dept': dept.name if dept else '',
+                })
+            if line.line_status in ('assigned', 'working'):
+                other_active = line.repair_id.service_line_ids.filtered(
+                    lambda l: l.id != line.id and l.employee_id and l.employee_id != line.employee_id and l.line_status in ('assigned', 'working')
+                )
+                if other_active:
+                    active_emp = other_active[0].employee_id
+                    raise ValidationError(_(
+                        "Technician '%(active)s' is currently assigned/working on this Job Card.\n\n"
+                        "You cannot assign '%(current)s' because '%(active)s' is already assigned to this Job Card. "
+                        "Please wait until '%(active)s' completes or stops their work."
+                    ) % {
+                        'active': active_emp.name,
+                        'current': line.employee_id.name,
+                    })
+
     uom_id = fields.Many2one('uom.uom', string='Unit of Measure')
     unit_price = fields.Float(string='Price')
     subtotal = fields.Monetary(string='Subtotal', compute='_compute_subtotal', store=True)
@@ -2514,8 +2617,8 @@ class FleetRepairServiceLine(models.Model):
     is_timer_running = fields.Boolean('Timer Running', default=False)
     is_timer_paused = fields.Boolean('Timer Paused', default=False)
     is_group_selected = fields.Boolean('Select', default=False)
-    is_collective = fields.Boolean('In Collective Timer', default=False)
-    collective_member_count = fields.Integer('Collective Member Count', default=1)
+    is_collective = fields.Boolean('In Working Timer', default=False)
+    collective_member_count = fields.Integer('Working Member Count', default=1)
     accumulated_seconds = fields.Float('Accumulated Seconds', default=0.0)
     time_diff = fields.Float(
         compute='_compute_time_diff',
@@ -2600,6 +2703,19 @@ class FleetRepairServiceLine(models.Model):
 
     def action_resume_service_timer(self):
         self.ensure_one()
+        if self.repair_id and self.employee_id:
+            other_active = self.repair_id.service_line_ids.filtered(
+                lambda l: l.id != self.id and l.employee_id and l.employee_id != self.employee_id and l.line_status in ('assigned', 'working')
+            )
+            if other_active:
+                other_emp = other_active[0].employee_id
+                raise UserError(_(
+                    "Technician '%(other)s' is currently assigned/working on this Job Card.\n\n"
+                    "You cannot resume work for '%(current)s' until '%(other)s' completes or stops their work."
+                ) % {
+                    'other': other_emp.name,
+                    'current': self.employee_id.name,
+                })
         now = fields.Datetime.now()
         pause_delta = 0.0
         if self.is_pause_running and self.pause_timer_start:
@@ -2607,16 +2723,16 @@ class FleetRepairServiceLine(models.Model):
         self.pause_accumulated_seconds = (self.pause_accumulated_seconds or 0.0) + pause_delta
         self.is_pause_running = False
         self.pause_timer_start = False
-        self.pause_reason = False
-        self.pause_notes = False
-
-        self.is_timer_running = True
-        self.is_timer_paused = False
-        self.timer_last_start = now
-        if not self.timer_start:
-            self.timer_start = now
-        self.timer_end = False
-        self.is_group_selected = True
+        self.write({
+            'pause_reason': False,
+            'pause_notes': False,
+            'is_timer_running': True,
+            'is_timer_paused': False,
+            'timer_last_start': now,
+            'timer_start': self.timer_start or now,
+            'timer_end': False,
+            'line_status': 'working',
+        })
 
         log = self.status_log_id
         if not log and self.employee_id:
@@ -2656,10 +2772,13 @@ class FleetRepairServiceLine(models.Model):
                     'current_pause_reason': False,
                     'current_job_id': log.job_id.id if log.job_id else False,
                 })
+            log._compute_job_status()
             log._compute_collective_timer_info()
             log._compute_time_metrics()
             log._compute_worked_hours()
             log._compute_has_paused_services()
+            log._compute_display_status()
+            log._compute_display_name()
         else:
             self.write({
                 'is_collective': False,
@@ -2670,9 +2789,15 @@ class FleetRepairServiceLine(models.Model):
         self._compute_line_status()
         self._compute_pause_reason_display()
         self._sync_to_work_lines()
+        self._sync_to_employee_status_log()
         repairs = self.mapped('repair_id')
         repairs.invalidate_recordset(['service_line_ids', 'fleet_work_line_ids'])
         repairs._update_header_status_from_service_lines()
+        if self.env.context.get('from_service_line_button'):
+            return {
+                'type': 'ir.actions.client',
+                'tag': 'reload',
+            }
         return False
 
     def action_open_update_service_wizard(self):
@@ -2805,12 +2930,9 @@ class FleetRepairServiceLine(models.Model):
                 continue
 
             running_lines = all_emp_slines.filtered(lambda l: l.is_timer_running or l.line_status == 'working')
-            paused_lines = all_emp_slines.filtered(lambda l: l.is_timer_paused)
+            paused_lines = all_emp_slines.filtered(lambda l: not l.is_timer_running and l.line_status != 'working' and (l.is_timer_paused or l.is_pause_running or l.line_status == 'paused'))
             completed_lines = all_emp_slines.filtered(lambda l: l.line_status == 'completed')
             all_done = bool(all_emp_slines and all(l.line_status == 'completed' for l in all_emp_slines))
-
-            if running_lines:
-                running_lines.filtered(lambda l: not l.is_group_selected).with_context(skip_status_log_sync=True, skip_work_line_sync=True).write({'is_group_selected': True})
 
             active_line = running_lines[0] if running_lines else (paused_lines[0] if paused_lines else all_emp_slines[0])
 
@@ -2827,11 +2949,12 @@ class FleetRepairServiceLine(models.Model):
             main_log = StatusLog.search([
                 ('employee_id', '=', emp_id),
                 ('job_id', '=', repair_id)
-            ], order='id asc', limit=1)
+            ], order='id desc', limit=1)
 
             total_alloted_fru = sum(all_emp_slines.mapped('alloted_fru') or [0])
 
             now = fields.Datetime.now()
+            is_job_actively_running = bool(running_lines)
             if main_log:
                 # Keep the job stopwatch completely independent of service lines' worked hours
                 vals = {
@@ -2861,7 +2984,10 @@ class FleetRepairServiceLine(models.Model):
                         'pause_timer_start': False,
                         'pause_accumulated_seconds': (main_log.pause_accumulated_seconds or 0.0) + p_delta,
                     })
-                elif running_lines:
+                elif is_job_actively_running:
+                    running_starts = [l.timer_last_start for l in running_lines if l.timer_last_start]
+                    earliest_start = min(running_starts) if running_starts else now
+                    t_start = main_log.timer_last_start if (main_log.is_timer_running and main_log.timer_last_start) else earliest_start
                     if paused_lines and not main_log.is_pause_running:
                         p_starts = [l.pause_timer_start for l in paused_lines if l.pause_timer_start]
                         p_start = min(p_starts) if p_starts else now
@@ -2878,25 +3004,25 @@ class FleetRepairServiceLine(models.Model):
                             'pause_timer_start': False,
                             'pause_accumulated_seconds': (main_log.pause_accumulated_seconds or 0.0) + p_delta,
                         })
-                    if not main_log.is_timer_running or main_log.job_status in ('assigned', 'paused'):
-                        vals.update({
-                            'job_status': 'working',
-                            'status': 'job',
-                            'is_timer_running': True,
-                            'timer_start': main_log.timer_start or now,
-                            'timer_last_start': now if not main_log.is_timer_running else (main_log.timer_last_start or now),
-                            'accumulated_seconds': main_log.accumulated_seconds or 0.0,
-                        })
+                    vals.update({
+                        'job_status': 'working',
+                        'status': 'job',
+                        'is_timer_running': True,
+                        'timer_start': main_log.timer_start or earliest_start,
+                        'timer_last_start': t_start,
+                        'accumulated_seconds': main_log.accumulated_seconds or 0.0,
+                    })
                 else:
                     w_delta = 0.0
                     if main_log.is_timer_running and main_log.timer_last_start:
                         w_delta = max(0.0, (now - main_log.timer_last_start).total_seconds())
+                    new_acc = (main_log.accumulated_seconds or 0.0) + w_delta
                     vals.update({
                         'is_timer_running': False,
                         'timer_last_start': False,
-                        'accumulated_seconds': (main_log.accumulated_seconds or 0.0) + w_delta,
-                        'job_status': 'paused' if paused_lines else 'assigned',
-                        'status': 'paused' if paused_lines else 'assigned',
+                        'accumulated_seconds': new_acc,
+                        'job_status': 'paused' if paused_lines else (main_log.job_status if main_log.job_status in ('assigned', 'paused') else 'assigned'),
+                        'status': 'paused' if paused_lines else (main_log.status if main_log.status in ('assigned', 'paused') else 'assigned'),
                     })
                     if paused_lines and not main_log.is_pause_running:
                         p_starts = [l.pause_timer_start for l in paused_lines if l.pause_timer_start]
@@ -2915,6 +3041,13 @@ class FleetRepairServiceLine(models.Model):
                             'pause_accumulated_seconds': (main_log.pause_accumulated_seconds or 0.0) + p_delta,
                         })
                 main_log.with_context(skip_service_timer_sync=True, skip_status_log_sync=True, skip_service_line_sync=True).write(vals)
+                main_log._compute_job_status()
+                main_log._compute_collective_timer_info()
+                main_log._compute_time_metrics()
+                main_log._compute_worked_hours()
+                main_log._compute_has_paused_services()
+                main_log._compute_display_status()
+                main_log._compute_display_name()
             else:
                 job_status = 'completed' if all_done else ('working' if running_lines else 'assigned')
                 vals = {
@@ -2973,7 +3106,18 @@ class FleetRepairServiceLine(models.Model):
 
             emp = self.env['hr.employee'].sudo().browse(emp_id)
             if emp.exists() and not self.env.context.get('skip_emp_status_sync'):
-                if running_lines:
+                emp_has_any_running = bool(is_job_actively_running)
+                if not emp_has_any_running:
+                    emp_has_any_running = bool(self.search_count([
+                        ('employee_id', '=', emp.id),
+                        ('is_timer_running', '=', True),
+                        ('repair_id.state', 'not in', ['done', 'cancel'])
+                    ]) or StatusLog.search_count([
+                        ('employee_id', '=', emp.id),
+                        ('is_timer_running', '=', True),
+                    ]))
+
+                if is_job_actively_running:
                     emp.write({
                         'work_status': 'job',
                         'is_idle_running': False,
@@ -2983,6 +3127,9 @@ class FleetRepairServiceLine(models.Model):
                         'current_job_id': repair_id,
                         'current_service_line_id': active_line.id,
                     })
+                elif emp_has_any_running:
+                    # Employee is actively working on another job; do NOT overwrite with idle/paused/assigned!
+                    pass
                 elif paused_lines:
                     if emp.work_status != 'idle' and not emp.is_idle_running:
                         emp.write({
@@ -3082,6 +3229,20 @@ class FleetRepairServiceLine(models.Model):
             if rec.is_timer_running:
                 continue
 
+            if rec.repair_id and rec.employee_id:
+                other_active = rec.repair_id.service_line_ids.filtered(
+                    lambda l: l.id != rec.id and l.employee_id and l.employee_id != rec.employee_id and l.line_status in ('assigned', 'working')
+                )
+                if other_active:
+                    other_emp = other_active[0].employee_id
+                    raise UserError(_(
+                        "Technician '%(other)s' is currently assigned/working on this Job Card.\n\n"
+                        "You cannot start work for '%(current)s' until '%(other)s' completes or stops their work."
+                    ) % {
+                        'other': other_emp.name,
+                        'current': rec.employee_id.name,
+                    })
+
             now = fields.Datetime.now()
 
             # Do not auto-pause running tasks on a different job card; notify user with a popup
@@ -3122,7 +3283,6 @@ class FleetRepairServiceLine(models.Model):
                 'is_timer_running': True,
                 'is_timer_paused': False,
                 'line_status': 'working',
-                'is_group_selected': True,
             })
 
             if rec.repair_id and rec.repair_id.state not in ('done', 'cancel'):
@@ -3162,17 +3322,20 @@ class FleetRepairServiceLine(models.Model):
                 log = self.env['hr.employee.status.log'].search([
                     ('employee_id', '=', rec.employee_id.id),
                     ('job_id', '=', rec.repair_id.id),
-                ], limit=1)
+                ], order='id desc', limit=1)
             if log:
                 other_paused = log.service_line_ids.filtered(
                     lambda l: l.id != rec.id and (l.is_timer_paused or l.is_pause_running or l.line_status == 'paused')
                 )
+                running_starts = [l.timer_last_start for l in log.service_line_ids if l.is_timer_running and l.timer_last_start]
+                earliest_start = min(running_starts) if running_starts else now
+                t_start = log.timer_last_start if (log.is_timer_running and log.timer_last_start) else earliest_start
                 log_vals = {
                     'status': 'job',
                     'job_status': 'working',
                     'is_timer_running': True,
-                    'timer_start': log.timer_start or now,
-                    'timer_last_start': now if not log.is_timer_running else (log.timer_last_start or now),
+                    'timer_start': log.timer_start or earliest_start,
+                    'timer_last_start': t_start,
                 }
                 if not other_paused:
                     p_delta = 0.0
@@ -3185,10 +3348,18 @@ class FleetRepairServiceLine(models.Model):
                         'pause_reason': False,
                     })
                 log.write(log_vals)
+                log._compute_job_status()
                 log._compute_collective_timer_info()
                 log._compute_time_metrics()
                 log._compute_worked_hours()
                 log._compute_has_paused_services()
+                log._compute_display_status()
+                log._compute_display_name()
+        if self.env.context.get('from_service_line_button'):
+            return {
+                'type': 'ir.actions.client',
+                'tag': 'reload',
+            }
         return False
 
     def action_pause_timer(self):
@@ -3228,9 +3399,9 @@ class FleetRepairServiceLine(models.Model):
                 log = self.env['hr.employee.status.log'].search([
                     ('employee_id', '=', rec.employee_id.id),
                     ('job_id', '=', rec.repair_id.id),
-                ], limit=1)
+                ], order='id desc', limit=1)
             if log:
-                other_running = log.service_line_ids.filtered(lambda l: l.id != rec.id and l.is_timer_running)
+                other_running = log.service_line_ids.filtered(lambda l: l.id != rec.id and (l.is_timer_running or l.line_status == 'working'))
                 log_vals = {}
                 if not log.is_pause_running:
                     log_vals.update({
@@ -3241,10 +3412,11 @@ class FleetRepairServiceLine(models.Model):
                     w_delta = 0.0
                     if log.is_timer_running and log.timer_last_start:
                         w_delta = max(0.0, (now - log.timer_last_start).total_seconds())
+                    new_acc = (log.accumulated_seconds or 0.0) + w_delta
                     log_vals.update({
                         'is_timer_running': False,
                         'timer_last_start': False,
-                        'accumulated_seconds': (log.accumulated_seconds or 0.0) + w_delta,
+                        'accumulated_seconds': new_acc,
                         'job_status': 'paused',
                         'status': 'paused',
                     })
@@ -3255,11 +3427,45 @@ class FleetRepairServiceLine(models.Model):
                         'status': 'job',
                     })
                 log.write(log_vals)
+                log._compute_job_status()
                 log._compute_collective_timer_info()
                 log._compute_time_metrics()
                 log._compute_worked_hours()
                 log._compute_has_paused_services()
+                log._compute_display_status()
+                log._compute_display_name()
 
+            if rec.employee_id:
+                other_pending = self.env['fleet.repair.service.line'].search([
+                    ('employee_id', '=', rec.employee_id.id),
+                    ('id', '!=', rec.id),
+                    ('repair_id.state', 'not in', ['delivery', 'delivered', 'done', 'invoiced', 'cancel']),
+                    ('line_status', 'not in', ['completed', 'paused']),
+                    ('is_timer_paused', '=', False),
+                ], limit=1)
+                other_running_any = self.env['fleet.repair.service.line'].search([
+                    ('employee_id', '=', rec.employee_id.id),
+                    ('id', '!=', rec.id),
+                    ('is_timer_running', '=', True),
+                    ('repair_id.state', 'not in', ['delivery', 'delivered', 'done', 'invoiced', 'cancel']),
+                ], limit=1)
+                if not other_running_any and other_pending:
+                    rec.employee_id.sudo().write({
+                        'work_status': 'idle',
+                        'is_idle_running': True,
+                        'idle_timer_start': now,
+                        'idle_accumulated_seconds': 0.0,
+                        'current_status_start': now,
+                        'current_job_id': False,
+                        'current_service_line_id': False,
+                        'current_pause_reason': False,
+                    })
+
+        if self.env.context.get('from_service_line_button'):
+            return {
+                'type': 'ir.actions.client',
+                'tag': 'reload',
+            }
         return False
 
     def action_complete_service(self):
@@ -3292,7 +3498,6 @@ class FleetRepairServiceLine(models.Model):
             rec.is_timer_running = False
             rec.is_timer_paused = False
             rec.line_status = 'completed'
-            rec.is_group_selected = False
 
             rec._compute_time_diff()
             rec._compute_line_status()
@@ -3376,30 +3581,26 @@ class FleetRepairServiceLine(models.Model):
                             ('repair_id.state', 'not in', ['delivery', 'done', 'invoiced', 'cancel']),
                             ('line_status', '!=', 'completed'),
                         ], limit=1)
-                        if other_pending_repair:
-                            rec.employee_id.sudo().write({
-                                'work_status': 'assigned',
-                                'current_job_id': other_pending_repair.repair_id.id,
-                                'current_service_line_id': other_pending_repair.id,
-                                'current_pause_reason': False,
-                                'is_idle_running': False,
-                            })
-                        elif rec.employee_id.current_job_id == rec.repair_id:
-                            rec.employee_id.sudo().write({
-                                'work_status': 'idle',
-                                'idle_reason': 'no_job',
-                                'is_idle_running': True,
-                                'idle_timer_start': now,
-                                'idle_accumulated_seconds': 0.0,
-                                'current_status_start': now,
-                                'current_job_id': False,
-                                'current_service_line_id': False,
-                                'current_pause_reason': False,
-                            })
+                        rec.employee_id.sudo().write({
+                            'work_status': 'idle',
+                            'idle_reason': 'no_job' if not other_pending_repair else False,
+                            'is_idle_running': True,
+                            'idle_timer_start': now,
+                            'idle_accumulated_seconds': 0.0,
+                            'current_status_start': now,
+                            'current_job_id': False,
+                            'current_service_line_id': False,
+                            'current_pause_reason': False,
+                        })
 
         repairs = self.mapped('repair_id')
         repairs.invalidate_recordset(['service_line_ids', 'fleet_work_line_ids'])
         repairs._update_header_status_from_service_lines()
+        if self.env.context.get('from_service_line_button'):
+            return {
+                'type': 'ir.actions.client',
+                'tag': 'reload',
+            }
         return False
 
     def action_stop_timer(self):
@@ -3773,13 +3974,6 @@ class FleetRepairServiceLine(models.Model):
         for line in self:
             if line.product_id and line.product_id.type != 'service':
                 raise ValidationError(_('Only service products can be added to service lines.'))
-
-    @api.onchange('employee_id')
-    def _onchange_employee_id(self):
-        if self.employee_id and self.employee_id.department_id and not self.department_id:
-            self.department_id = self.employee_id.department_id
-        if self.repair_id:
-            self.repair_id._onchange_service_line_ids_status()
 
     @api.onchange('is_group_selected')
     def _onchange_is_group_selected(self):

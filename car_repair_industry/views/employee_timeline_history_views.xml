@@ -10,12 +10,16 @@
                 <field name="status" column_invisible="1"/>
                 <field name="job_status" column_invisible="1"/>
                 <field name="display_status" string="Status" widget="badge" 
-                       decoration-success="display_status == 'Completed'"
-                       decoration-muted="display_status == 'Idle'"/>
+                       decoration-success="display_status in ('Working', 'Completed')"
+                       decoration-info="display_status == 'Assigned'"
+                       decoration-danger="display_status == 'Idle' and idle_reason_display in ('—', False, '', 'Idle')"
+                       decoration-muted="display_status == 'Idle' and idle_reason_display not in ('—', False, '', 'Idle')"/>
                 <field name="pause_reason_display" string="Pause Reason" widget="badge" 
-                       decoration-warning="pause_reason_display not in ('—', False)"/>
+                       decoration-success="pause_reason_display in ('🔧 Working', '✅ Completed')"
+                       decoration-warning="pause_reason_display not in ('—', False, '🔧 Working', '✅ Completed')"/>
                 <field name="idle_reason_display" string="Idle Reason" optional="show" widget="badge"
-                       decoration-info="idle_reason_display not in ('—', False)"/>
+                       decoration-danger="idle_reason_display == 'Idle'"
+                       decoration-info="idle_reason_display not in ('—', False, 'Idle')"/>
                 <field name="job_id" string="Job Card"/>
                 <field name="license_plate" string="License Plate"/>
                 <field name="fleet_id" string="Car"/>
@@ -102,8 +106,7 @@
                                 <field name="alloted_fru" string="FRU" optional="hide"/>
                                 <field name="time_diff" string="Duration" widget="stopwatch_timer" readonly="1" optional="hide"/>
                                 <field name="line_status" string="Status" widget="badge" optional="show"
-                                       decoration-success="line_status == 'completed'"
-                                       decoration-info="line_status == 'working'"
+                                       decoration-success="line_status in ('completed', 'working')"
                                        decoration-danger="line_status == 'paused'"
                                        decoration-muted="line_status == 'assigned'"/>
                             </list>
