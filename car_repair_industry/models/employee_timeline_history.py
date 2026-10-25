@@ -60,14 +60,8 @@ class EmployeeTimelineHistory(models.Model):
 
     display_name = fields.Char(string='Name', compute='_compute_display_name', store=True)
 
-    pause_reason = fields.Selection([
-        ('waiting_parts', '📦 Waiting for Parts'),
-        ('waiting_approval', '👤 Waiting for Customer Approval'),
-        ('waiting_qc', '🟣 Waiting for QC'),
-        ('assistance_required', '🟠 Assistance Required'),
-        ('tools_issue', '🛠 Tool / Equipment Unavailable'),
-        ('other', '⚪ Other'),
-    ], string='Pause Reason')
+    pause_reason = fields.Char(string='Pause Reason')
+    pause_reason_id = fields.Many2one('job.card.idle.reason', string='Pause Reason')
     pause_notes = fields.Text(string='Pause Notes')
     pause_reason_display = fields.Char(string='Pause Reason', compute='_compute_pause_reason_display')
 
@@ -80,15 +74,31 @@ class EmployeeTimelineHistory(models.Model):
     ], string='Idle Reason')
     idle_reason_display = fields.Char(string='Idle Reason', compute='_compute_pause_reason_display')
 
-    @api.depends('pause_reason', 'status', 'job_status', 'idle_reason', 'pause_notes', 'notes')
+    @api.depends(
+        'pause_reason',
+        'pause_reason_id',
+        'pause_reason_id.name',
+        'status',
+        'job_status',
+        'idle_reason',
+        'pause_notes',
+        'notes',
+        'status_log_id',
+        'status_log_id.pause_reason_display',
+        'service_line_ids.line_status',
+        'service_line_ids.stop_reason',
+        'service_line_ids.service_idle_reason_id',
+        'service_line_ids.service_idle_reason_id.name',
+        'service_line_ids.pause_reason'
+    )
     def _compute_pause_reason_display(self):
         reason_map = {
-            'waiting_parts': '🟡 Waiting for Parts',
-            'waiting_approval': '🔵 Waiting for Customer Approval',
-            'waiting_qc': '🟣 Waiting for QC',
-            'assistance_required': '🟠 Assistance Required',
-            'tools_issue': '🔷 Tool / Equipment Unavailable',
-            'other': '⚪ Other',
+            'waiting_parts': 'Waiting for Parts',
+            'waiting_approval': 'Waiting for Customer Approval',
+            'waiting_qc': 'Waiting for QC',
+            'assistance_required': 'Assistance Required',
+            'tools_issue': 'Tool / Equipment Unavailable',
+            'other': 'Other',
         }
         idle_map = {
             'training': '🎓 Training',
@@ -100,16 +110,63 @@ class EmployeeTimelineHistory(models.Model):
                 rec.idle_reason_display = idle_map.get(rec.idle_reason, 'Idle')
                 rec.pause_reason_display = '—'
             elif rec.status == 'completed' or rec.job_status == 'completed':
-                if rec.pause_reason and rec.pause_reason in reason_map:
+                if rec.pause_reason_id:
+                    rec.pause_reason_display = rec.pause_reason_id.name
+                elif rec.pause_reason and rec.pause_reason in reason_map:
                     rec.pause_reason_display = reason_map[rec.pause_reason]
-                elif rec.pause_reason:
-                    pause_dict = dict(self._fields['pause_reason'].selection) if 'pause_reason' in self._fields else {}
-                    rec.pause_reason_display = pause_dict.get(rec.pause_reason, rec.pause_reason)
+                elif rec.pause_reason and rec.pause_reason not in ('—', False, 'Stop', 'Paused', '✅ Completed'):
+                    rec.pause_reason_display = rec.pause_reason
+                elif rec.status_log_id and rec.status_log_id.pause_reason_display:
+                    rec.pause_reason_display = rec.status_log_id.pause_reason_display
                 else:
-                    rec.pause_reason_display = '✅ Completed'
+                    rec.pause_reason_display = False
+                rec.idle_reason_display = '—'
+            elif rec.status == 'paused' or rec.job_status == 'paused':
+                if rec.pause_reason_id:
+                    rec.pause_reason_display = rec.pause_reason_id.name
+                elif rec.pause_reason and rec.pause_reason in reason_map:
+                    rec.pause_reason_display = reason_map[rec.pause_reason]
+                elif rec.pause_reason and rec.pause_reason not in ('Stop', 'Paused', '—'):
+                    rec.pause_reason_display = rec.pause_reason
+                elif rec.status_log_id and rec.status_log_id.pause_reason_display:
+                    rec.pause_reason_display = rec.status_log_id.pause_reason_display
+                else:
+                    slines = rec.service_line_ids
+                    if not slines and rec.status_log_id:
+                        slines = rec.status_log_id.service_line_ids
+                    if not slines and rec.job_id:
+                        slines = rec.job_id.service_line_ids.filtered(lambda l: not rec.employee_id or l.employee_id == rec.employee_id)
+                    active_services = slines.filtered(lambda l: l.line_status != 'completed')
+                    service_reasons = []
+                    for sline in active_services:
+                        s_r = (
+                            (sline.service_idle_reason_id.name if sline.service_idle_reason_id else False)
+                            or (sline.pause_reason_id.name if hasattr(sline, 'pause_reason_id') and sline.pause_reason_id else False)
+                            or (reason_map.get(sline.pause_reason, sline.pause_reason) if sline.pause_reason else False)
+                            or (sline.stop_reason if sline.stop_reason and sline.stop_reason not in ('Stop', 'Paused', '—') else False)
+                        )
+                        if s_r:
+                            service_reasons.append(s_r.strip())
+                    if active_services and len(service_reasons) == len(active_services):
+                        unique_reasons = {r.lower(): r for r in service_reasons}
+                        if len(unique_reasons) > 1:
+                            rec.pause_reason_display = 'Other'
+                        elif len(unique_reasons) == 1:
+                            rec.pause_reason_display = list(unique_reasons.values())[0]
+                        else:
+                            rec.pause_reason_display = False
+                    else:
+                        rec.pause_reason_display = False
                 rec.idle_reason_display = '—'
             else:
-                rec.pause_reason_display = '—'
+                if rec.pause_reason_id:
+                    rec.pause_reason_display = rec.pause_reason_id.name
+                elif rec.pause_reason and rec.pause_reason in reason_map:
+                    rec.pause_reason_display = reason_map[rec.pause_reason]
+                elif rec.status_log_id and rec.status_log_id.pause_reason_display:
+                    rec.pause_reason_display = rec.status_log_id.pause_reason_display
+                else:
+                    rec.pause_reason_display = False
                 rec.idle_reason_display = '—'
 
     job_id = fields.Many2one('fleet.repair', string='Job Card', index=True)
@@ -413,6 +470,7 @@ class EmployeeTimelineHistory(models.Model):
             'service_line_id': vals.get('service_line_id') or False,
             'service_name': vals.get('service_name') or False,
             'pause_reason': vals.get('pause_reason') or False,
+            'pause_reason_id': vals.get('pause_reason_id') or False,
             'pause_notes': vals.get('pause_notes') or False,
             'idle_reason': vals.get('idle_reason') or False,
             'notes': vals.get('notes') or False,

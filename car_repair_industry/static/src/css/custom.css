@@ -212,6 +212,15 @@ label.o_required_modifier::after {
     color: #ffffff !important;
 }
 
+/* Idle with stopped job having a pause reason: Yellow */
+.o_head_tech_kanban .o_employee_status_pill.status-badge-idle.status-badge-idle-paused,
+.o_head_tech_kanban .o_employee_status_pill.status-badge-idle-paused,
+.status-badge-idle.status-badge-idle-paused,
+.status-badge-idle-paused {
+    background-color: #F59E0B !important;
+    color: #000000 !important;
+}
+
 /* ==========================================================================
    Service Tasks - Visible Select Checkbox Highlight Border
    ========================================================================== */

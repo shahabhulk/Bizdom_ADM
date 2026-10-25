@@ -60,8 +60,20 @@ class SelectServiceProductWizard(models.TransientModel):
         for line in selected_lines:
             prod = line.product_id
             line_dept = dept.id if dept else (prod.department_id.id if prod.department_id else False)
+            sale_price = prod.lst_price or 0.0
             fru = prod.alloted_fru or 0
-            price = 200.0 if (fru and fru > 0) else (prod.list_price or 200.0)
+            if sale_price > 0:
+                line_fru = 0
+                price = sale_price
+                qty = 1.0
+            elif fru > 0:
+                line_fru = fru
+                price = 200.0
+                qty = float(fru)
+            else:
+                line_fru = 0
+                price = 0.0
+                qty = 0.0
             
             sline = self.env['fleet.repair.service.line'].sudo().create({
                 'repair_id': repair.id,
@@ -71,9 +83,9 @@ class SelectServiceProductWizard(models.TransientModel):
                 'name': prod.name,
                 'employee_id': emp.id if emp else False,
                 'department_id': line_dept,
-                'alloted_fru': fru,
+                'alloted_fru': line_fru,
                 'unit_price': price,
-                'quantity': float(fru) if fru > 0 else 1.0,
+                'quantity': qty,
             })
             created_lines |= sline
 

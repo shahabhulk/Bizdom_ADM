@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_pause_service_wizard_form" model="ir.ui.view">
+        <field name="name">pause.service.wizard.form</field>
+        <field name="model">pause.service.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Pause Service">
+                <sheet>
+                    <field name="status_log_id" invisible="1"/>
+                    <div class="alert alert-warning d-flex align-items-center mb-3 p-3 rounded">
+                        <i class="fa fa-pause-circle fa-2x me-3 text-warning"/>
+                        <div>
+                            <strong>Pause Selected Service(s)</strong>
+                            <div class="text-muted small">Please select the service idle reason for pausing the selected service(s). Other active services will continue running.</div>
+                            <field name="selected_service_display" readonly="1" class="fw-bold mt-1 text-dark d-block"/>
+                        </div>
+                    </div>
+                    <group>
+                        <field name="pause_reason_id" widget="radio" string="Service Idle Reason" options="{'horizontal': false}"/>
+                    </group>
+                    <group>
+                        <field name="notes" string="Notes / Reason Details" placeholder="Optional: specify missing parts, tools, or reason for pausing this service..."/>
+                    </group>
+                </sheet>
+                <footer>
+                    <button name="action_confirm_pause" string="Confirm Pause" type="object" class="btn-warning text-dark fw-bold" icon="fa-pause"/>
+                    <button name="action_cancel" string="Cancel (Resume Work)" type="object" class="btn-secondary"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+</odoo>

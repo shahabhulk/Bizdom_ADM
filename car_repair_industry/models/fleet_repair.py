@@ -2463,13 +2463,15 @@ class FleetRepairServiceLine(models.Model):
         default=1.0,
     )
 
-    @api.depends('alloted_fru')
+    @api.depends('alloted_fru', 'unit_price')
     def _compute_quantity(self):
         for line in self:
             if line.alloted_fru and line.alloted_fru > 0:
                 line.quantity = float(line.alloted_fru)
-            else:
+            elif (line.unit_price or 0.0) > 0.0:
                 line.quantity = 1.0
+            else:
+                line.quantity = 0.0
     department_id = fields.Many2one(
         'hr.department',
         string='Department',
@@ -2633,14 +2635,10 @@ class FleetRepairServiceLine(models.Model):
     )
     receipt_date = fields.Datetime(related='repair_id.receipt_date', string='JC date', store=True, readonly=True)
     assigned_date = fields.Datetime('Assigned Date')
-    pause_reason = fields.Selection([
-        ('waiting_parts', 'Waiting for Parts'),
-        ('waiting_approval', 'Waiting for Customer Approval'),
-        ('waiting_qc', 'Waiting for QC'),
-        ('assistance_required', 'Assistance Required'),
-        ('tools_issue', 'Tool / Equipment Unavailable'),
-        ('other', 'Other'),
-    ], string='Pause Reason')
+    pause_reason = fields.Char('Pause Reason')
+    pause_reason_id = fields.Many2one('job.card.idle.reason', string='Pause Reason')
+    service_idle_reason_id = fields.Many2one('service.idle.reason', string='Service Idle Reason')
+    stop_reason = fields.Char('Stop Reason', compute='_compute_stop_reason', store=True)
     pause_notes = fields.Text('Pause Details')
     is_pause_running = fields.Boolean('Pause Timer Running', default=False)
     pause_timer_start = fields.Datetime('Pause Timer Start')
@@ -2663,7 +2661,7 @@ class FleetRepairServiceLine(models.Model):
                 total += max(0, (now - rec.pause_timer_start).total_seconds())
             rec.pause_duration = total / 3600.0
 
-    @api.depends('line_status', 'pause_reason', 'employee_id')
+    @api.depends('line_status', 'pause_reason', 'pause_reason_id', 'service_idle_reason_id', 'employee_id')
     def _compute_pause_reason_display(self):
         reason_map = {
             'waiting_parts': 'Waiting for Parts',
@@ -2676,16 +2674,44 @@ class FleetRepairServiceLine(models.Model):
         for rec in self:
             if not rec.employee_id:
                 rec.pause_reason_display = False
-            elif rec.line_status == 'paused' and rec.pause_reason:
-                rec.pause_reason_display = reason_map.get(rec.pause_reason, 'Stop')
             elif rec.line_status == 'paused':
-                rec.pause_reason_display = 'Stop'
+                if rec.service_idle_reason_id:
+                    rec.pause_reason_display = rec.service_idle_reason_id.name
+                elif rec.pause_reason_id:
+                    rec.pause_reason_display = rec.pause_reason_id.name
+                elif rec.pause_reason:
+                    rec.pause_reason_display = reason_map.get(rec.pause_reason, rec.pause_reason)
+                else:
+                    rec.pause_reason_display = 'Stop'
             elif rec.line_status == 'working':
                 rec.pause_reason_display = 'Working'
             elif rec.line_status == 'completed':
                 rec.pause_reason_display = 'Completed'
             else:
                 rec.pause_reason_display = 'Assigned'
+
+    @api.depends('line_status', 'service_idle_reason_id', 'service_idle_reason_id.name', 'pause_reason_id', 'pause_reason_id.name', 'pause_reason')
+    def _compute_stop_reason(self):
+        reason_map = {
+            'waiting_parts': 'Waiting for Parts',
+            'waiting_approval': 'Waiting for Customer Approval',
+            'waiting_qc': 'Waiting for QC',
+            'assistance_required': 'Assistance Required',
+            'tools_issue': 'Tool / Equipment Unavailable',
+            'other': 'Other',
+        }
+        for rec in self:
+            if rec.line_status == 'paused':
+                if rec.service_idle_reason_id:
+                    rec.stop_reason = rec.service_idle_reason_id.name
+                elif rec.pause_reason_id:
+                    rec.stop_reason = rec.pause_reason_id.name
+                elif rec.pause_reason:
+                    rec.stop_reason = reason_map.get(rec.pause_reason, rec.pause_reason)
+                else:
+                    rec.stop_reason = 'Stop'
+            else:
+                rec.stop_reason = False
 
     @api.depends('is_timer_running', 'is_timer_paused', 'is_pause_running', 'timer_end', 'timer_start')
     def _compute_line_status(self):
@@ -2810,7 +2836,7 @@ class FleetRepairServiceLine(models.Model):
                 ('job_status', 'in', ['working', 'paused']),
             ], order='id desc', limit=1)
         return {
-            'name': _('Update Service'),
+            'name': _('Stop Service'),
             'type': 'ir.actions.act_window',
             'res_model': 'update.service.wizard',
             'view_mode': 'form',
@@ -3275,6 +3301,8 @@ class FleetRepairServiceLine(models.Model):
             rec.pause_timer_start = False
             rec.pause_reason = False
             rec.pause_notes = False
+            rec.service_idle_reason_id = False
+            rec.pause_reason_id = False
 
             rec.write({
                 'timer_start': rec.timer_start or now,
@@ -3363,6 +3391,8 @@ class FleetRepairServiceLine(models.Model):
         return False
 
     def action_pause_timer(self):
+        if not self.env.context.get('skip_status_wizard') and not self.env.context.get('skip_update_wizard') and len(self) == 1:
+            return self.action_open_update_service_wizard()
         result = {}
         for rec in self:
             if self.env.context.get('from_service_line_button') and not rec.is_group_selected:
@@ -3624,6 +3654,8 @@ class FleetRepairServiceLine(models.Model):
                 'pause_accumulated_seconds': 0.0,
                 'pause_reason': False,
                 'pause_notes': False,
+                'service_idle_reason_id': False,
+                'pause_reason_id': False,
                 'is_group_selected': False,
             })
             rec._compute_time_diff()
@@ -3795,7 +3827,7 @@ class FleetRepairServiceLine(models.Model):
             if line.alloted_fru and line.alloted_fru > 0:
                 line.subtotal = float(line.alloted_fru) * (line.unit_price or 200.0)
             else:
-                line.subtotal = line.unit_price or 0.0
+                line.subtotal = (line.quantity or 0.0) * (line.unit_price or 0.0)
 
     @api.depends('subtotal', 'unit_price', 'alloted_fru')
     def _compute_hours(self):
@@ -3805,7 +3837,7 @@ class FleetRepairServiceLine(models.Model):
                 if line.alloted_fru and line.alloted_fru > 0:
                     subtotal = float(line.alloted_fru) * (line.unit_price or 200.0)
                 else:
-                    subtotal = line.unit_price or 0.0
+                    subtotal = (line.quantity or 0.0) * (line.unit_price or 0.0)
             val = round((subtotal or 0.0) / 2400.0, 2)
             line.hours = val
             line.hrs = val
@@ -3818,9 +3850,15 @@ class FleetRepairServiceLine(models.Model):
                 line.quantity = float(line.alloted_fru)
                 line.subtotal = float(line.alloted_fru) * 200.0
             else:
-                line.unit_price = 0.0
-                line.quantity = 1.0
-                line.subtotal = 0.0
+                line.alloted_fru = 0
+                if line.product_id and (line.product_id.lst_price or 0.0) > 0.0:
+                    line.unit_price = line.product_id.lst_price
+                    line.quantity = 1.0
+                    line.subtotal = line.unit_price
+                else:
+                    line.unit_price = 0.0
+                    line.quantity = 0.0
+                    line.subtotal = 0.0
             val = round((line.subtotal or 0.0) / 2400.0, 2)
             line.hours = val
             line.hrs = val
@@ -3829,8 +3867,8 @@ class FleetRepairServiceLine(models.Model):
     def _onchange_unit_price(self):
         for line in self:
             if not line.alloted_fru or line.alloted_fru <= 0:
-                line.quantity = 1.0
-                line.subtotal = line.unit_price or 0.0
+                line.quantity = 1.0 if (line.unit_price or 0.0) > 0.0 else 0.0
+                line.subtotal = (line.quantity or 0.0) * (line.unit_price or 0.0)
             else:
                 line.subtotal = float(line.alloted_fru) * (line.unit_price or 200.0)
             val = round((line.subtotal or 0.0) / 2400.0, 2)
@@ -3846,16 +3884,23 @@ class FleetRepairServiceLine(models.Model):
                 line.item_code = product.item_code
                 line.name = product.name
                 line.uom_id = product.uom_id
+                sale_price = product.lst_price or 0.0
                 fru = product.alloted_fru or 0
-                line.alloted_fru = fru
-                if fru and fru > 0:
+                if sale_price > 0:
+                    line.alloted_fru = 0
+                    line.unit_price = sale_price
+                    line.quantity = 1.0
+                    line.subtotal = sale_price
+                elif fru > 0:
+                    line.alloted_fru = fru
                     line.unit_price = 200.0
                     line.quantity = float(fru)
                     line.subtotal = float(fru) * 200.0
                 else:
-                    line.unit_price = product.list_price
-                    line.quantity = 1.0
-                    line.subtotal = product.list_price or 0.0
+                    line.alloted_fru = 0
+                    line.unit_price = 0.0
+                    line.quantity = 0.0
+                    line.subtotal = 0.0
                 val = round((line.subtotal or 0.0) / 2400.0, 2)
                 line.hours = val
                 line.hrs = val
@@ -3895,16 +3940,23 @@ class FleetRepairServiceLine(models.Model):
                     line.product_id = product
                     line.name = product.name
                     line.uom_id = product.uom_id
+                    sale_price = product.lst_price or 0.0
                     fru = product.alloted_fru or 0
-                    line.alloted_fru = fru
-                    if fru and fru > 0:
+                    if sale_price > 0:
+                        line.alloted_fru = 0
+                        line.unit_price = sale_price
+                        line.quantity = 1.0
+                        line.subtotal = sale_price
+                    elif fru > 0:
+                        line.alloted_fru = fru
                         line.unit_price = 200.0
                         line.quantity = float(fru)
                         line.subtotal = float(fru) * 200.0
                     else:
-                        line.unit_price = product.list_price
-                        line.quantity = 1.0
-                        line.subtotal = product.list_price or 0.0
+                        line.alloted_fru = 0
+                        line.unit_price = 0.0
+                        line.quantity = 0.0
+                        line.subtotal = 0.0
                     val = round((line.subtotal or 0.0) / 2400.0, 2)
                     line.hours = val
                     line.hrs = val
@@ -3928,16 +3980,23 @@ class FleetRepairServiceLine(models.Model):
                 line.item_code_id = product
                 line.name = product.name
                 line.uom_id = product.uom_id
+                sale_price = product.lst_price or 0.0
                 fru = product.alloted_fru or 0
-                line.alloted_fru = fru
-                if fru and fru > 0:
+                if sale_price > 0:
+                    line.alloted_fru = 0
+                    line.unit_price = sale_price
+                    line.quantity = 1.0
+                    line.subtotal = sale_price
+                elif fru > 0:
+                    line.alloted_fru = fru
                     line.unit_price = 200.0
                     line.quantity = float(fru)
                     line.subtotal = float(fru) * 200.0
                 else:
-                    line.unit_price = product.list_price
-                    line.quantity = 1.0
-                    line.subtotal = product.list_price or 0.0
+                    line.alloted_fru = 0
+                    line.unit_price = 0.0
+                    line.quantity = 0.0
+                    line.subtotal = 0.0
                 val = round((line.subtotal or 0.0) / 2400.0, 2)
                 line.hours = val
                 line.hrs = val
@@ -4019,9 +4078,26 @@ class FleetRepairServiceLine(models.Model):
                     vals['item_code_id'] = product.id
             if vals.get('product_id') and 'alloted_fru' not in vals:
                 product = self.env['product.product'].browse(vals['product_id'])
-                vals['alloted_fru'] = product.alloted_fru or 0
-            if vals.get('alloted_fru') and vals['alloted_fru'] > 0 and 'unit_price' not in vals:
-                vals['unit_price'] = 200.0
+                sale_price = product.lst_price or 0.0
+                fru = product.alloted_fru or 0
+                if sale_price > 0:
+                    vals['alloted_fru'] = 0
+                    if 'unit_price' not in vals:
+                        vals['unit_price'] = sale_price
+                    if 'quantity' not in vals:
+                        vals['quantity'] = 1.0
+                elif fru > 0:
+                    vals['alloted_fru'] = fru
+                    if 'unit_price' not in vals:
+                        vals['unit_price'] = 200.0
+                    if 'quantity' not in vals:
+                        vals['quantity'] = float(fru)
+                else:
+                    vals['alloted_fru'] = 0
+                    if 'unit_price' not in vals:
+                        vals['unit_price'] = 0.0
+                    if 'quantity' not in vals:
+                        vals['quantity'] = 0.0
             if not vals.get('department_id'):
                 product = self.env['product.product'].browse(vals['product_id']) if vals.get('product_id') else False
                 if product and product.department_id:
@@ -4106,9 +4182,26 @@ class FleetRepairServiceLine(models.Model):
                 vals['item_code_id'] = product.id
         if vals.get('product_id') and 'alloted_fru' not in vals:
             product = self.env['product.product'].browse(vals['product_id'])
-            vals['alloted_fru'] = product.alloted_fru or 0
-        if vals.get('alloted_fru') and vals['alloted_fru'] > 0 and 'unit_price' not in vals:
-            vals['unit_price'] = 200.0
+            sale_price = product.lst_price or 0.0
+            fru = product.alloted_fru or 0
+            if sale_price > 0:
+                vals['alloted_fru'] = 0
+                if 'unit_price' not in vals:
+                    vals['unit_price'] = sale_price
+                if 'quantity' not in vals:
+                    vals['quantity'] = 1.0
+            elif fru > 0:
+                vals['alloted_fru'] = fru
+                if 'unit_price' not in vals:
+                    vals['unit_price'] = 200.0
+                if 'quantity' not in vals:
+                    vals['quantity'] = float(fru)
+            else:
+                vals['alloted_fru'] = 0
+                if 'unit_price' not in vals:
+                    vals['unit_price'] = 0.0
+                if 'quantity' not in vals:
+                    vals['quantity'] = 0.0
         res = super().write(vals)
         if 'department_id' in vals:
             for line in self:

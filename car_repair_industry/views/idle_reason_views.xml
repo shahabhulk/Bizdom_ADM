@@ -1,0 +1,221 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- ======================================================== -->
+    <!-- 1. Employee Idle Reasons Views & Action                  -->
+    <!-- ======================================================== -->
+    <record id="view_employee_idle_reason_tree" model="ir.ui.view">
+        <field name="name">employee.idle.reason.list</field>
+        <field name="model">employee.idle.reason</field>
+        <field name="arch" type="xml">
+            <list string="Employee Idle Reasons" editable="bottom">
+                <field name="sequence" widget="handle"/>
+                <field name="name" string="Reason"/>
+                <field name="code" string="Code" optional="show"/>
+                <field name="description" string="Description" optional="show"/>
+                <field name="active" widget="boolean_toggle" optional="show"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_employee_idle_reason_form" model="ir.ui.view">
+        <field name="name">employee.idle.reason.form</field>
+        <field name="model">employee.idle.reason</field>
+        <field name="arch" type="xml">
+            <form string="Employee Idle Reason">
+                <sheet>
+                    <widget name="web_ribbon" title="Archived" bg_color="text-bg-danger" invisible="active"/>
+                    <div class="oe_title">
+                        <label for="name" string="Reason Name"/>
+                        <h1><field name="name" placeholder="e.g. Training, Meeting, Break / Lunch..."/></h1>
+                    </div>
+                    <group>
+                        <group>
+                            <field name="code"/>
+                            <field name="sequence"/>
+                        </group>
+                        <group>
+                            <field name="active" widget="boolean_toggle"/>
+                        </group>
+                    </group>
+                    <group string="Description / Notes">
+                        <field name="description" nolabel="1" placeholder="Add additional details about this idle reason..."/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_employee_idle_reason_search" model="ir.ui.view">
+        <field name="name">employee.idle.reason.search</field>
+        <field name="model">employee.idle.reason</field>
+        <field name="arch" type="xml">
+            <search string="Search Employee Idle Reasons">
+                <field name="name" string="Reason"/>
+                <field name="code"/>
+                <separator/>
+                <filter string="Archived" name="archived" domain="[('active', '=', False)]"/>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_employee_idle_reason" model="ir.actions.act_window">
+        <field name="name">Employee Idle</field>
+        <field name="res_model">employee.idle.reason</field>
+        <field name="view_mode">list,form</field>
+        <field name="search_view_id" ref="view_employee_idle_reason_search"/>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                Create a new Employee Idle Reason
+            </p>
+            <p>
+                Manage reasons for employee downtime and non-job activities (e.g. Training, Meeting, Break / Lunch, No Job).
+            </p>
+        </field>
+    </record>
+
+    <!-- ======================================================== -->
+    <!-- 2. Job Card Idle Reasons Views & Action                  -->
+    <!-- ======================================================== -->
+    <record id="view_job_card_idle_reason_tree" model="ir.ui.view">
+        <field name="name">job.card.idle.reason.list</field>
+        <field name="model">job.card.idle.reason</field>
+        <field name="arch" type="xml">
+            <list string="Job Card Idle Reasons" editable="bottom">
+                <field name="sequence" widget="handle"/>
+                <field name="name" string="Reason"/>
+                <field name="code" string="Code" optional="show"/>
+                <field name="description" string="Description" optional="show"/>
+                <field name="active" widget="boolean_toggle" optional="show"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_job_card_idle_reason_form" model="ir.ui.view">
+        <field name="name">job.card.idle.reason.form</field>
+        <field name="model">job.card.idle.reason</field>
+        <field name="arch" type="xml">
+            <form string="Job Card Idle Reason">
+                <sheet>
+                    <widget name="web_ribbon" title="Archived" bg_color="text-bg-danger" invisible="active"/>
+                    <div class="oe_title">
+                        <label for="name" string="Reason Name"/>
+                        <h1><field name="name" placeholder="e.g. Waiting for Parts, Customer Approval, Waiting for QC..."/></h1>
+                    </div>
+                    <group>
+                        <group>
+                            <field name="code"/>
+                            <field name="sequence"/>
+                        </group>
+                        <group>
+                            <field name="active" widget="boolean_toggle"/>
+                        </group>
+                    </group>
+                    <group string="Description / Notes">
+                        <field name="description" nolabel="1" placeholder="Add additional details about this idle reason..."/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_job_card_idle_reason_search" model="ir.ui.view">
+        <field name="name">job.card.idle.reason.search</field>
+        <field name="model">job.card.idle.reason</field>
+        <field name="arch" type="xml">
+            <search string="Search Job Card Idle Reasons">
+                <field name="name" string="Reason"/>
+                <field name="code"/>
+                <separator/>
+                <filter string="Archived" name="archived" domain="[('active', '=', False)]"/>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_job_card_idle_reason" model="ir.actions.act_window">
+        <field name="name">Job card Idle</field>
+        <field name="res_model">job.card.idle.reason</field>
+        <field name="view_mode">list,form</field>
+        <field name="search_view_id" ref="view_job_card_idle_reason_search"/>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                Create a new Job Card Idle Reason
+            </p>
+            <p>
+                Manage reasons for job card pauses and downtime (e.g. Waiting for Parts, Waiting for Approval, Waiting for QC).
+            </p>
+        </field>
+    </record>
+
+    <!-- ======================================================== -->
+    <!-- 3. Service Idle Reasons Views & Action                   -->
+    <!-- ======================================================== -->
+    <record id="view_service_idle_reason_tree" model="ir.ui.view">
+        <field name="name">service.idle.reason.list</field>
+        <field name="model">service.idle.reason</field>
+        <field name="arch" type="xml">
+            <list string="Service Idle Reasons" editable="bottom">
+                <field name="sequence" widget="handle"/>
+                <field name="name" string="Reason"/>
+                <field name="code" string="Code" optional="show"/>
+                <field name="description" string="Description" optional="show"/>
+                <field name="active" widget="boolean_toggle" optional="show"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_service_idle_reason_form" model="ir.ui.view">
+        <field name="name">service.idle.reason.form</field>
+        <field name="model">service.idle.reason</field>
+        <field name="arch" type="xml">
+            <form string="Service Idle Reason">
+                <sheet>
+                    <widget name="web_ribbon" title="Archived" bg_color="text-bg-danger" invisible="active"/>
+                    <div class="oe_title">
+                        <label for="name" string="Reason Name"/>
+                        <h1><field name="name" placeholder="e.g. Waiting for Parts, Technical Assistance, Tool Issue..."/></h1>
+                    </div>
+                    <group>
+                        <group>
+                            <field name="code"/>
+                            <field name="sequence"/>
+                        </group>
+                        <group>
+                            <field name="active" widget="boolean_toggle"/>
+                        </group>
+                    </group>
+                    <group string="Description / Notes">
+                        <field name="description" nolabel="1" placeholder="Add additional details about this idle reason..."/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_service_idle_reason_search" model="ir.ui.view">
+        <field name="name">service.idle.reason.search</field>
+        <field name="model">service.idle.reason</field>
+        <field name="arch" type="xml">
+            <search string="Search Service Idle Reasons">
+                <field name="name" string="Reason"/>
+                <field name="code"/>
+                <separator/>
+                <filter string="Archived" name="archived" domain="[('active', '=', False)]"/>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_service_idle_reason" model="ir.actions.act_window">
+        <field name="name">Service Idle</field>
+        <field name="res_model">service.idle.reason</field>
+        <field name="view_mode">list,form</field>
+        <field name="search_view_id" ref="view_service_idle_reason_search"/>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                Create a new Service Idle Reason
+            </p>
+            <p>
+                Manage reasons for individual service line pauses and waiting states.
+            </p>
+        </field>
+    </record>
+</odoo>

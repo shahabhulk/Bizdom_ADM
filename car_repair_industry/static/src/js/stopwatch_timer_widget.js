@@ -586,6 +586,13 @@ export class StopwatchTimerWidget extends Component {
                     { context: this.props.record.context }
                 );
 
+                if (result && typeof result === "object" && result.type === "ir.actions.act_window") {
+                    const actionService = this.actionService || this.env?.services?.action;
+                    if (actionService) {
+                        await actionService.doAction(result);
+                        return;
+                    }
+                }
                 if (!result || (result && typeof result === "object" && result.type === "ir.actions.client" && result.tag === "reload")) {
                     const root = this.props.record.model?.root;
                     if (root) {

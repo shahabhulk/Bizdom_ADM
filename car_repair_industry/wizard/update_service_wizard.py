@@ -3,27 +3,21 @@ from odoo import models, fields, api, _
 
 class UpdateServiceWizard(models.TransientModel):
     _name = 'update.service.wizard'
-    _description = 'Update Service Dialog'
+    _description = 'Stop Service Wizard'
 
     service_line_id = fields.Many2one('fleet.repair.service.line', string='Service Line', required=True)
-    service_name = fields.Char(string='Service', readonly=True)
     status_log_id = fields.Many2one('hr.employee.status.log', string='Job Log')
-
-    action_type = fields.Selection([
-        ('completed', 'Completed'),
-        ('pause', 'Pause Service'),
-    ], string='What happened?', required=True, default='pause')
-
-    pause_reason = fields.Selection([
-        ('waiting_parts', 'Waiting for Parts'),
-        ('waiting_approval', 'Waiting for Customer Approval'),
-        ('waiting_qc', 'Waiting for QC'),
-        ('assistance_required', 'Assistance Required'),
-        ('tools_issue', 'Tool / Equipment Unavailable'),
-        ('other', 'Other'),
-    ], string='Pause Reason', default='waiting_parts')
-
-    notes = fields.Text(string='Notes / Reason Details')
+    service_name = fields.Char(string='Service Name', readonly=True)
+    stop_reason_id = fields.Many2one(
+        'service.idle.reason',
+        string='Stop Reason',
+        required=True,
+    )
+    # Backward compatibility alias
+    pause_reason_id = fields.Many2one(
+        'service.idle.reason',
+        string='Stop Reason',
+    )
 
     @api.model
     def default_get(self, fields_list):
@@ -36,76 +30,70 @@ class UpdateServiceWizard(models.TransientModel):
                 res['service_name'] = line.product_id.name if line.product_id else (line.name or '')
                 if line.status_log_id and not res.get('status_log_id'):
                     res['status_log_id'] = line.status_log_id.id
+        first_reason = self.env['service.idle.reason'].search([('active', '=', True)], order='sequence, id', limit=1)
+        if first_reason:
+            res['stop_reason_id'] = first_reason.id
+            res['pause_reason_id'] = first_reason.id
         return res
 
     def action_confirm(self):
         self.ensure_one()
         line = self.service_line_id
-        log = self.status_log_id or line.status_log_id
+        if not line:
+            return {'type': 'ir.actions.act_window_close'}
+
         now = fields.Datetime.now()
+        reason = self.stop_reason_id or self.pause_reason_id
+        reason_name = reason.name if reason else 'Stop'
 
-        if self.action_type == 'completed':
-            # 1. Stop work timer permanently and mark completed
-            run_sec = 0.0
-            if line.is_timer_running and line.timer_last_start:
-                delta = (now - line.timer_last_start).total_seconds()
-                if line.is_collective and (line.collective_member_count or 1) > 1:
-                    delta = delta / float(line.collective_member_count)
-                run_sec = delta
+        # 1. Stop work timer and set to paused
+        run_sec = 0.0
+        if line.is_timer_running and line.timer_last_start:
+            delta = (now - line.timer_last_start).total_seconds()
+            if line.is_collective and (line.collective_member_count or 1) > 1:
+                delta = delta / float(line.collective_member_count)
+            run_sec = max(0.0, delta)
 
-            # Also stop any running pause timer
-            pause_delta = 0.0
-            if line.is_pause_running and line.pause_timer_start:
-                pause_delta = (now - line.pause_timer_start).total_seconds()
+        line.write({
+            'accumulated_seconds': (line.accumulated_seconds or 0.0) + run_sec,
+            'timer_last_start': False,
+            'is_timer_running': False,
+            'is_timer_paused': True,
+            'is_pause_running': True,
+            'pause_timer_start': now,
+            'is_collective': False,
+            'is_group_selected': False,
+            'line_status': 'paused',
+            'pause_reason': reason_name,
+            'service_idle_reason_id': reason.id if reason else False,
+        })
+        line._compute_time_diff()
+        line._compute_pause_duration()
+        line._compute_pause_reason_display()
+        if hasattr(line, '_compute_stop_reason'):
+            line._compute_stop_reason()
+        line._sync_to_work_lines()
+        line._sync_to_employee_status_log()
 
-            line.write({
-                'is_timer_running': False,
-                'is_timer_paused': False,
-                'is_pause_running': False,
-                'pause_timer_start': False,
-                'pause_accumulated_seconds': (line.pause_accumulated_seconds or 0.0) + pause_delta,
-                'timer_end': now,
-                'timer_last_start': False,
-                'accumulated_seconds': (line.accumulated_seconds or 0.0) + run_sec,
-                'is_collective': False,
-                'is_group_selected': False,
-                'line_status': 'completed',
-            })
-            line._compute_time_diff()
-            line._sync_to_work_lines()
+        if line.repair_id and line.repair_id.state not in ('done', 'cancel'):
+            line.repair_id.invalidate_recordset(['service_line_ids', 'fleet_work_line_ids'])
+            line.repair_id._update_header_status_from_service_lines()
 
-        elif self.action_type == 'pause':
-            # 1. Pause work timer and detach from collective running group
-            run_sec = 0.0
-            if line.is_timer_running and line.timer_last_start:
-                delta = (now - line.timer_last_start).total_seconds()
-                if line.is_collective and (line.collective_member_count or 1) > 1:
-                    delta = delta / float(line.collective_member_count)
-                run_sec = delta
+        # Check remaining active services for the Collective Timer / Job Log
+        log = self.status_log_id or line.status_log_id
+        if not log and line.employee_id and line.repair_id:
+            log = self.env['hr.employee.status.log'].search([
+                ('employee_id', '=', line.employee_id.id),
+                ('job_id', '=', line.repair_id.id),
+            ], order='id desc', limit=1)
 
-            line.write({
-                'is_collective': False,
-                'is_timer_running': False,
-                'is_timer_paused': True,
-                'timer_last_start': False,
-                'accumulated_seconds': (line.accumulated_seconds or 0.0) + run_sec,
-                'is_group_selected': False,
-                'line_status': 'paused',
-                'pause_reason': self.pause_reason,
-                'pause_notes': self.notes or '',
-                'is_pause_running': True,
-                'pause_timer_start': now,
-            })
-            line._compute_time_diff()
-            line._compute_pause_duration()
-            line._compute_pause_reason_display()
-
-        # Check remaining active services for the Collective Timer
         if log:
-            active_lines = log.service_line_ids.filtered(lambda l: l.is_timer_running or l.line_status == 'working')
+            active_lines = log.service_line_ids.filtered(lambda l: l.id != line.id and (l.is_timer_running or l.line_status == 'working'))
             if active_lines:
-                # Update split member count for remaining active services
-                active_lines.write({'collective_member_count': len(active_lines), 'is_collective': True})
+                active_lines.write({
+                    'collective_member_count': len(active_lines),
+                    'is_collective': len(active_lines) > 1,
+                })
                 log.write({
                     'status': 'job',
                     'job_status': 'working',
@@ -117,20 +105,24 @@ class UpdateServiceWizard(models.TransientModel):
                 log._compute_display_status()
                 log._compute_display_name()
             else:
-                # No other active service to work on: pause the Collective Timer
-                pause_delta = 0.0
+                # All active services on this log are now stopped
+                w_delta = 0.0
                 if log.is_timer_running and log.timer_last_start:
-                    pause_delta = (now - log.timer_last_start).total_seconds()
+                    w_delta = max(0.0, (now - log.timer_last_start).total_seconds())
+                new_acc = (log.accumulated_seconds or 0.0) + w_delta
                 log.write({
                     'status': 'paused',
                     'job_status': 'paused',
-                    'pause_reason': self.pause_reason if self.action_type == 'pause' else False,
-                    'pause_notes': self.notes if self.action_type == 'pause' else '',
+                    'is_job_stop_reason': False,
+                    'pause_reason': False,
+                    'pause_reason_id': False,
                     'is_timer_running': False,
                     'timer_last_start': False,
-                    'is_pause_running': True if self.action_type == 'pause' else False,
-                    'pause_timer_start': now if self.action_type == 'pause' else False,
-                    'accumulated_seconds': (log.accumulated_seconds or 0.0) + pause_delta,
+                    'timer_end': now,
+                    'accumulated_seconds': new_acc,
+                    'is_pause_running': True,
+                    'pause_timer_start': now if not log.is_pause_running else (log.pause_timer_start or now),
+                    'is_current_activity': True,
                 })
                 if log.employee_id:
                     other_pending = self.env['fleet.repair.service.line'].search([
@@ -154,8 +146,11 @@ class UpdateServiceWizard(models.TransientModel):
                     else:
                         log.employee_id.sudo().write({
                             'work_status': 'paused',
-                            'current_pause_reason': self.pause_reason if self.action_type == 'pause' else False,
+                            'current_pause_reason': reason_name,
                         })
                 log._compute_collective_timer_info()
+                log._compute_job_status()
+                log._compute_pause_reason_display()
+                log._compute_display_status()
 
         return {'type': 'ir.actions.act_window_close'}

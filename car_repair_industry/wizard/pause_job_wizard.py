@@ -7,15 +7,21 @@ class PauseJobWizard(models.TransientModel):
     _description = 'Pause Job Dialog'
 
     status_log_id = fields.Many2one('hr.employee.status.log', string='Job Log', required=True)
-    pause_reason = fields.Selection([
-        ('waiting_parts', '🟡 Waiting for Parts'),
-        ('waiting_approval', '🔵 Waiting for Customer Approval'),
-        ('waiting_qc', '🟣 Waiting for QC'),
-        ('assistance_required', '🟠 Assistance Required'),
-        ('tools_issue', '🔷 Tool / Equipment Unavailable'),
-        ('other', '⚪ Other'),
-    ], string='Pause Reason', required=True, default='waiting_parts')
+    pause_reason_id = fields.Many2one(
+        'job.card.idle.reason',
+        string='Pause Reason',
+        required=True,
+    )
     notes = fields.Text(string='Notes / Reason Details')
+
+    @api.model
+    def default_get(self, fields_list):
+        res = super().default_get(fields_list)
+        if 'pause_reason_id' in fields_list and not res.get('pause_reason_id'):
+            first_reason = self.env['job.card.idle.reason'].search([('active', '=', True)], order='sequence, id', limit=1)
+            if first_reason:
+                res['pause_reason_id'] = first_reason.id
+        return res
 
     def action_confirm_pause(self):
         self.ensure_one()
@@ -29,9 +35,11 @@ class PauseJobWizard(models.TransientModel):
         if not selected_lines:
             raise UserError(_("Please select at least 1 service using the checkbox to stop."))
 
+        reason_text = self.pause_reason_id.name if self.pause_reason_id else ''
+
         for line in selected_lines:
             if line.is_timer_running:
-                line.action_pause_timer()
+                line.with_context(skip_status_wizard=True).action_pause_timer()
             else:
                 line.write({
                     'line_status': 'paused',
@@ -40,10 +48,19 @@ class PauseJobWizard(models.TransientModel):
                     'is_pause_running': True,
                     'pause_timer_start': now,
                 })
-            line.write({
-                'pause_reason': self.pause_reason,
+            line_vals = {
+                'pause_reason': reason_text,
                 'pause_notes': self.notes or '',
-            })
+                'is_group_selected': False,
+            }
+            if 'pause_reason_id' in line._fields:
+                line_vals['pause_reason_id'] = self.pause_reason_id.id if self.pause_reason_id else False
+            line.write(line_vals)
+            line._compute_time_diff()
+            line._compute_pause_duration()
+            line._compute_pause_reason_display()
+            if hasattr(line, '_compute_stop_reason'):
+                line._compute_stop_reason()
 
         # 2. Check if all running lines are now paused
         remaining_running = log.service_line_ids.filtered(lambda l: l.is_timer_running or l.line_status == 'working')
@@ -54,10 +71,11 @@ class PauseJobWizard(models.TransientModel):
                 w_delta = max(0.0, (now - log.timer_last_start).total_seconds())
             new_acc = (log.accumulated_seconds or 0.0) + w_delta
 
-            log.write({
+            log_vals = {
                 'status': 'paused',
                 'job_status': 'paused',
-                'pause_reason': self.pause_reason,
+                'is_job_stop_reason': True,
+                'pause_reason': reason_text,
                 'pause_notes': self.notes or '',
                 'is_timer_running': False,
                 'timer_last_start': False,
@@ -66,7 +84,11 @@ class PauseJobWizard(models.TransientModel):
                 'is_pause_running': True,
                 'pause_timer_start': now if not log.is_pause_running else (log.pause_timer_start or now),
                 'is_current_activity': True,
-            })
+            }
+            if 'pause_reason_id' in log._fields:
+                log_vals['pause_reason_id'] = self.pause_reason_id.id if self.pause_reason_id else False
+            log.write(log_vals)
+
             if log.employee_id:
                 now = fields.Datetime.now()
                 other_pending = self.env['fleet.repair.service.line'].search([
@@ -91,9 +113,11 @@ class PauseJobWizard(models.TransientModel):
                 else:
                     emp_vals = {
                         'work_status': 'paused',
-                        'current_pause_reason': self.pause_reason,
+                        'current_pause_reason': reason_text,
                         'status_notes': self.notes or '',
                     }
+                    if 'current_pause_reason_id' in log.employee_id._fields:
+                        emp_vals['current_pause_reason_id'] = self.pause_reason_id.id if self.pause_reason_id else False
                     if log.job_id:
                         emp_vals['current_job_id'] = log.job_id.id
                     if log.service_line_id:
@@ -121,6 +145,7 @@ class PauseJobWizard(models.TransientModel):
         log._compute_job_status()
         log._compute_collective_timer_info()
         log._compute_time_metrics()
+        log._compute_pause_reason_display()
         log._compute_display_status()
         log._compute_display_name()
         new_log = log

@@ -15,8 +15,7 @@
                        decoration-danger="display_status == 'Idle' and idle_reason_display in ('—', False, '', 'Idle')"
                        decoration-muted="display_status == 'Idle' and idle_reason_display not in ('—', False, '', 'Idle')"/>
                 <field name="pause_reason_display" string="Pause Reason" widget="badge" 
-                       decoration-success="pause_reason_display in ('🔧 Working', '✅ Completed')"
-                       decoration-warning="pause_reason_display not in ('—', False, '🔧 Working', '✅ Completed')"/>
+                       decoration-warning="pause_reason_display not in ('—', False)"/>
                 <field name="idle_reason_display" string="Idle Reason" optional="show" widget="badge"
                        decoration-danger="idle_reason_display == 'Idle'"
                        decoration-info="idle_reason_display not in ('—', False, 'Idle')"/>
@@ -99,7 +98,7 @@
                                 <field name="item_code" string="Item Code" optional="show"/>
                                 <field name="product_id" string="Service"/>
                                 <field name="department_id" string="Department" optional="show"/>
-                                <field name="employee_id" string="Assigned Technician"/>
+                                <field name="employee_id" string="Assigned Technician" optional="hide"/>
                                 <field name="timer_start" string="Start Date" optional="show"/>
                                 <field name="timer_end" string="End Date" optional="show"/>
                                 <field name="hours" string="Worked Hrs" optional="show" sum="Total"/>
@@ -109,6 +108,7 @@
                                        decoration-success="line_status in ('completed', 'working')"
                                        decoration-danger="line_status == 'paused'"
                                        decoration-muted="line_status == 'assigned'"/>
+                                <field name="stop_reason" string="Stop Reason" optional="show"/>
                             </list>
                         </field>
                     </div>
@@ -119,7 +119,7 @@
                             <field name="employee_id" readonly="1"/>
                             <field name="department_id" invisible="1"/>
                             <field name="status" readonly="1"/>
-                            <field name="pause_reason_display" string="Pause Reason" invisible="not has_paused_services and job_status != 'paused'"/>
+                            <field name="pause_reason_display" string="Pause Reason" invisible="not pause_reason_display"/>
                             <field name="pause_duration" string="Pause Time" widget="pause_live_timer" invisible="not has_paused_services and not is_pause_running and pause_duration == 0 and job_status != 'paused'" readonly="1"/>
                             <field name="worked_hours" widget="stopwatch_live_timer" readonly="1"/>
                             <field name="start_datetime" readonly="1"/>
