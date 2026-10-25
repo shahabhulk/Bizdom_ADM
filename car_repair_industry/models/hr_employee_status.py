@@ -51,6 +51,10 @@ class HrEmployee(models.Model):
         string='Has Assigned Work',
         compute='_compute_active_service_timer_info'
     )
+    has_stopped_job_with_pause_reason = fields.Boolean(
+        string='Has Stopped Job with Pause Reason',
+        compute='_compute_active_service_timer_info'
+    )
     has_active_service_timer = fields.Boolean(
         string='Has Active Service Timer',
         compute='_compute_active_service_timer_info'
@@ -77,14 +81,8 @@ class HrEmployee(models.Model):
         compute='_compute_active_service_timer_info',
         default='green'
     )
-    current_pause_reason = fields.Selection([
-        ('waiting_parts', 'Waiting for Parts'),
-        ('waiting_approval', 'Waiting for Approval'),
-        ('waiting_qc', 'Waiting for QC'),
-        ('assistance_required', 'Assistance Required'),
-        ('tools_issue', 'Tool / Equipment Unavailable'),
-        ('other', 'Other'),
-    ], string='Current Pause Reason', compute='_compute_active_service_timer_info')
+    current_pause_reason = fields.Char(string='Current Pause Reason', compute='_compute_active_service_timer_info')
+    current_pause_reason_id = fields.Many2one('job.card.idle.reason', string='Current Pause Reason', compute='_compute_active_service_timer_info')
     current_car_model = fields.Char(string='Current Car Model', compute='_compute_active_service_timer_info')
     current_pause_time_display = fields.Char(string='Current Pause Time', compute='_compute_active_service_timer_info')
     current_pause_duration = fields.Float(string='Current Pause Duration (Hours)', compute='_compute_active_service_timer_info')
@@ -150,15 +148,20 @@ class HrEmployee(models.Model):
         'work_status',
         'current_pause_reason',
         'service_line_ids.is_timer_running',
+        'service_line_ids.is_timer_paused',
+        'service_line_ids.pause_reason',
         'service_line_ids.accumulated_seconds',
         'service_line_ids.timer_last_start',
         'service_line_ids.assigned_date',
         'service_line_ids.employee_id',
         'service_line_ids.line_status',
         'status_log_ids.pause_reason',
+        'status_log_ids.pause_reason_id',
         'status_log_ids.job_status',
         'status_log_ids.status',
+        'status_log_ids.job_id',
         'status_log_ids.is_timer_running',
+        'status_log_ids.is_timer_paused',
         'status_log_ids.is_pause_running',
         'status_log_ids.pause_timer_start',
         'status_log_ids.pause_accumulated_seconds',
@@ -201,6 +204,20 @@ class HrEmployee(models.Model):
             )
             emp.has_assigned_work = bool(pending_assigned_lines or other_assigned_lines)
 
+            # Check if any job card in hr.employee.status.log is in Stop with a pause reason against the job card
+            has_stopped_reason = False
+            active_status_logs = self.env['hr.employee.status.log'].search([
+                ('employee_id', '=', emp.id),
+                ('job_status', 'not in', ['completed', 'idle']),
+                ('status', 'not in', ['completed', 'idle']),
+            ]) if emp.id else []
+            for log in active_status_logs:
+                if (log.job_status == 'paused' or log.status == 'paused') and log.pause_reason_display:
+                    has_stopped_reason = True
+                    break
+
+            emp.has_stopped_job_with_pause_reason = has_stopped_reason
+
             # Rule: When a job card work against an employee is completed or is in stop,
             # and suppose there are other job card work assigned under him,
             # then in the kanban view card of that employee the status should be idle and not assigned or stop.
@@ -219,6 +236,7 @@ class HrEmployee(models.Model):
                     emp.current_car_model = False
                     emp.current_car_display = False
                     emp.current_pause_reason = False
+                    emp.current_pause_reason_id = False
                     emp.current_pause_icon = False
                     emp.has_active_service_timer = False
                     emp.active_timer_last_start = False
@@ -257,6 +275,7 @@ class HrEmployee(models.Model):
                     emp.current_car_model = False
                     emp.current_car_display = False
                     emp.current_pause_reason = False
+                    emp.current_pause_reason_id = False
                     emp.current_pause_icon = False
                     emp.has_active_service_timer = False
                     emp.active_timer_last_start = False
@@ -287,6 +306,7 @@ class HrEmployee(models.Model):
                 emp.active_service_name = rline.product_id.name if rline.product_id else (rline.name or '')
                 emp.active_timer_fru_status = rline.fru_status or 'green'
                 emp.current_pause_reason = False
+                emp.current_pause_reason_id = False
                 emp.timer_start = rline.timer_start
                 emp.timer_last_start = rline.timer_last_start
                 emp.timer_end = rline.timer_end
@@ -308,6 +328,7 @@ class HrEmployee(models.Model):
                 emp.is_timer_paused = False
                 emp.is_pause_running = False
                 emp.current_pause_reason = False
+                emp.current_pause_reason_id = False
                 emp.current_pause_icon = False
                 emp.pause_timer_start = False
                 emp.pause_accumulated_seconds = 0.0
@@ -353,6 +374,7 @@ class HrEmployee(models.Model):
                 emp.current_car_model = False
                 emp.current_car_display = False
                 emp.current_pause_reason = False
+                emp.current_pause_reason_id = False
                 emp.current_pause_icon = False
                 emp.pause_timer_start = False
                 emp.pause_accumulated_seconds = 0.0
@@ -408,14 +430,20 @@ class HrEmployee(models.Model):
                     ('end_datetime', '=', False),
                 ], order='write_date desc, id desc', limit=1)
                 if latest_log:
-                    if latest_log.pause_reason:
+                    if latest_log.pause_reason_id:
+                        emp.current_pause_reason_id = latest_log.pause_reason_id
+                        emp.current_pause_reason = latest_log.pause_reason or latest_log.pause_reason_id.name
+                    elif latest_log.pause_reason:
                         emp.current_pause_reason = latest_log.pause_reason
+                        emp.current_pause_reason_id = False
                     else:
                         emp.current_pause_reason = False
+                        emp.current_pause_reason_id = False
                     if not emp.current_job_id and latest_log.job_id:
                         emp.current_job_id = latest_log.job_id
                 else:
                     emp.current_pause_reason = False
+                    emp.current_pause_reason_id = False
 
             # Persist to database so web client and search_read always see the latest assignment
             if emp.id:
@@ -1313,14 +1341,14 @@ class HrEmployeeStatusLog(models.Model):
         ('completed', 'Completed'),
         ('idle', 'Idle'),
     ], string='Job Status', compute='_compute_job_status', store=True, readonly=False, default='assigned')
-    pause_reason = fields.Selection([
-        ('waiting_parts', '📦 Waiting for Parts'),
-        ('waiting_approval', '👤 Waiting for Customer Approval'),
-        ('waiting_qc', '🟣 Waiting for QC'),
-        ('assistance_required', '🟠 Assistance Required'),
-        ('tools_issue', '🛠 Tool / Equipment Unavailable'),
-        ('other', '⚪ Other'),
-    ], string='Pause Reason')
+    pause_reason = fields.Char(string='Pause Reason')
+    pause_reason_id = fields.Many2one('job.card.idle.reason', string='Pause Reason')
+    is_job_stop_reason = fields.Boolean(
+        string='Is Stop Against Job Card',
+        default=False,
+        copy=False,
+        help='True if the stop reason was set against the whole job card when all services were stopped.'
+    )
     pause_notes = fields.Text(string='Pause Notes')
     idle_reason = fields.Selection([
         ('no_job', 'No Job'),
@@ -1463,15 +1491,29 @@ class HrEmployeeStatusLog(models.Model):
             rec.pause_duration = pause_sec / 3600.0
             rec.total_elapsed_display = _fmt(total_sec)
 
-    @api.depends('pause_reason', 'job_status', 'is_timer_running', 'status', 'pause_notes', 'idle_reason')
+    @api.depends(
+        'is_job_stop_reason',
+        'pause_reason',
+        'pause_reason_id',
+        'pause_reason_id.name',
+        'job_status',
+        'status',
+        'service_line_ids.line_status',
+        'service_line_ids.is_timer_paused',
+        'service_line_ids.is_timer_running',
+        'service_line_ids.stop_reason',
+        'service_line_ids.service_idle_reason_id',
+        'service_line_ids.service_idle_reason_id.name',
+        'service_line_ids.pause_reason'
+    )
     def _compute_pause_reason_display(self):
         reason_map = {
-            'waiting_parts': '🟡 Waiting for Parts',
-            'waiting_approval': '🔵 Waiting for Customer Approval',
-            'waiting_qc': '🟣 Waiting for QC',
-            'assistance_required': '🟠 Assistance Required',
-            'tools_issue': '🔷 Tool / Equipment Unavailable',
-            'other': '⚪ Other',
+            'waiting_parts': 'Waiting for Parts',
+            'waiting_approval': 'Waiting for Customer Approval',
+            'waiting_qc': 'Waiting for QC',
+            'assistance_required': 'Assistance Required',
+            'tools_issue': 'Tool / Equipment Unavailable',
+            'other': 'Other',
         }
         idle_map = {
             'training': '🎓 Training',
@@ -1479,51 +1521,64 @@ class HrEmployeeStatusLog(models.Model):
             'break_lunch': '☕ Break / Lunch',
         }
         for rec in self:
-            if rec.status == 'idle':
+            # For pure idle records (not associated with a job card)
+            if not rec.job_id and (rec.status == 'idle' or rec.job_status == 'idle'):
                 rec.pause_reason_display = idle_map.get(rec.idle_reason, rec.notes or 'Idle')
-            elif rec.pause_reason and rec.pause_reason in reason_map:
-                rec.pause_reason_display = reason_map[rec.pause_reason]
-            elif rec.pause_reason:
-                pause_dict = dict(self._fields['pause_reason'].selection) if 'pause_reason' in self._fields else {}
-                rec.pause_reason_display = pause_dict.get(rec.pause_reason, rec.pause_reason)
-            elif rec.job_status == 'completed':
-                rec.pause_reason_display = '✅ Completed'
-            elif rec.job_status == 'working' or rec.is_timer_running:
-                paused_slines = rec.service_line_ids.filtered(lambda l: l.is_timer_paused or l.is_pause_running or l.line_status == 'paused')
-                if paused_slines:
-                    sline_reason = next((l.pause_reason for l in paused_slines if l.pause_reason), None)
-                    rec.pause_reason_display = reason_map.get(sline_reason, '🟡 Service Paused')
+                continue
+
+            # For job cards: pause_reason_display should only display when the job is paused / stopped
+            is_paused = (rec.job_status == 'paused' or rec.status == 'paused')
+            active_services = rec.service_line_ids.filtered(lambda l: l.line_status != 'completed')
+            all_services_stopped = bool(active_services and all(l.line_status == 'paused' or l.is_timer_paused for l in active_services))
+
+            if not is_paused or (active_services and not all_services_stopped):
+                rec.pause_reason_display = False
+                continue
+
+            # 1. Check if there is an explicit stop reason against the whole job card
+            has_job_stop_reason = False
+            if rec.is_job_stop_reason or rec.pause_reason_id:
+                has_job_stop_reason = True
+            elif rec.pause_reason and rec.pause_reason not in ('Stop', 'Paused', '—', '🔧 Working', '✅ Completed', '📋 Assigned', 'Other'):
+                has_job_stop_reason = True
+
+            if has_job_stop_reason:
+                if rec.pause_reason_id:
+                    rec.pause_reason_display = rec.pause_reason_id.name
+                elif rec.pause_reason and rec.pause_reason in reason_map:
+                    rec.pause_reason_display = reason_map[rec.pause_reason]
+                elif rec.pause_reason and rec.pause_reason not in ('Stop', 'Paused', '—', '🔧 Working', '✅ Completed', '📋 Assigned'):
+                    rec.pause_reason_display = rec.pause_reason
                 else:
-                    rec.pause_reason_display = '🔧 Working'
-            elif rec.job_status == 'paused' or rec.status == 'paused':
-                # Infer pause reason if it was not explicitly stored
-                notes_lower = ((rec.pause_notes or '') + ' ' + (rec.notes or '')).lower()
-                if 'brake' in notes_lower or 'part' in notes_lower:
-                    rec.pause_reason_display = '🟡 Waiting for Parts'
-                elif 'approv' in notes_lower:
-                    rec.pause_reason_display = '🔵 Waiting for Customer Approval'
-                elif 'qc' in notes_lower:
-                    rec.pause_reason_display = '🟣 Waiting for QC'
-                elif 'assist' in notes_lower:
-                    rec.pause_reason_display = '🟠 Assistance Required'
-                elif 'tool' in notes_lower or 'equip' in notes_lower:
-                    rec.pause_reason_display = '🔷 Tool / Equipment Unavailable'
-                elif rec.status == 'parts_unavailable':
-                    rec.pause_reason_display = '🟡 Waiting for Parts'
-                elif rec.status == 'approval_pending':
-                    rec.pause_reason_display = '🔵 Waiting for Customer Approval'
-                elif rec.status == 'tools_issue':
-                    rec.pause_reason_display = '🔷 Tool / Equipment Unavailable'
-                elif rec.status == 'waiting_car':
-                    rec.pause_reason_display = 'Waiting for Car'
-                elif rec.pause_notes:
-                    rec.pause_reason_display = rec.pause_notes
+                    rec.pause_reason_display = False
+            elif is_paused and all_services_stopped and active_services:
+                # 2. No job card pause reason, but all services are stopped
+                # Check stop reasons across all active services
+                service_reasons = []
+                for sline in active_services:
+                    s_r = (
+                        (sline.service_idle_reason_id.name if sline.service_idle_reason_id else False)
+                        or (sline.pause_reason_id.name if hasattr(sline, 'pause_reason_id') and sline.pause_reason_id else False)
+                        or (reason_map.get(sline.pause_reason, sline.pause_reason) if sline.pause_reason else False)
+                        or (sline.stop_reason if sline.stop_reason and sline.stop_reason not in ('Stop', 'Paused', '—') else False)
+                    )
+                    if s_r:
+                        service_reasons.append(s_r.strip())
+
+                if len(service_reasons) == len(active_services):
+                    unique_reasons = {r.lower(): r for r in service_reasons}
+                    if len(unique_reasons) > 1:
+                        # If services have different stop reasons, pause reason is considered as 'Other'
+                        rec.pause_reason_display = 'Other'
+                    elif len(unique_reasons) == 1:
+                        # If all services have the same stop reason, display that reason
+                        rec.pause_reason_display = list(unique_reasons.values())[0]
+                    else:
+                        rec.pause_reason_display = False
                 else:
-                    rec.pause_reason_display = '⚪ Other'
-            elif rec.job_status == 'assigned':
-                rec.pause_reason_display = '📋 Assigned'
+                    rec.pause_reason_display = False
             else:
-                rec.pause_reason_display = '—'
+                rec.pause_reason_display = False
 
     is_current_activity = fields.Boolean(
         string='Current Activity',
@@ -1553,6 +1608,16 @@ class HrEmployeeStatusLog(models.Model):
                     UPDATE hr_employee_status_log
                     SET end_datetime = COALESCE(write_date, start_datetime, NOW() AT TIME ZONE 'UTC')
                     WHERE is_current_activity = FALSE AND end_datetime IS NULL;
+                END IF;
+                IF EXISTS (
+                    SELECT 1 FROM information_schema.columns 
+                    WHERE table_name = 'hr_employee_status_log' 
+                    AND column_name = 'is_job_stop_reason'
+                ) THEN
+                    UPDATE hr_employee_status_log 
+                    SET is_job_stop_reason = TRUE 
+                    WHERE pause_reason_id IS NOT NULL 
+                      AND (job_status = 'paused' OR status = 'paused');
                 END IF;
             END $$;
         """)
@@ -1921,6 +1986,8 @@ class HrEmployeeStatusLog(models.Model):
             'status': 'job',
             'job_status': 'working',
             'pause_reason': False,
+            'pause_reason_id': False,
+            'is_job_stop_reason': False,
             'is_current_activity': True,
             'is_timer_running': True,
             'timer_start': self.timer_start or earliest_start,
@@ -1976,7 +2043,7 @@ class HrEmployeeStatusLog(models.Model):
         if not selected_running_lines:
             raise UserError(_("Please select at least 1 running service using the checkbox to pause."))
         for line in selected_running_lines:
-            line.action_pause_timer()
+            line.with_context(skip_status_wizard=True).action_pause_timer()
 
         remaining_running = self.service_line_ids.filtered(lambda l: l.is_timer_running)
         if not remaining_running:
@@ -1986,6 +2053,9 @@ class HrEmployeeStatusLog(models.Model):
             self.write({
                 'status': 'paused',
                 'job_status': 'paused',
+                'is_job_stop_reason': False,
+                'pause_reason': False,
+                'pause_reason_id': False,
                 'is_timer_running': False,
                 'timer_last_start': False,
                 'timer_end': now,
@@ -2044,19 +2114,35 @@ class HrEmployeeStatusLog(models.Model):
         if not selected_lines:
             raise UserError(_("Please select at least 1 service using the checkbox to stop."))
 
-        return {
-            'name': _('Stop Job'),
-            'type': 'ir.actions.act_window',
-            'res_model': 'pause.job.wizard',
-            'view_mode': 'form',
-            'view_id': self.env.ref('car_repair_industry.view_pause_job_wizard_form').id,
-            'target': 'new',
-            'context': {
-                'default_status_log_id': self.id,
-                'default_pause_reason': self.pause_reason or 'waiting_parts',
-                'default_notes': self.pause_notes or '',
+        all_active_lines = self.service_line_ids.filtered(lambda l: l.line_status != 'completed')
+        is_all_selected = (len(selected_lines) == len(all_active_lines))
+
+        if is_all_selected:
+            return {
+                'name': _('Stop Job'),
+                'type': 'ir.actions.act_window',
+                'res_model': 'pause.job.wizard',
+                'view_mode': 'form',
+                'view_id': self.env.ref('car_repair_industry.view_pause_job_wizard_form').id,
+                'target': 'new',
+                'context': {
+                    'default_status_log_id': self.id,
+                    'default_notes': self.pause_notes or '',
+                }
             }
-        }
+        else:
+            return {
+                'name': _('Stop Service'),
+                'type': 'ir.actions.act_window',
+                'res_model': 'pause.service.wizard',
+                'view_mode': 'form',
+                'view_id': self.env.ref('car_repair_industry.view_pause_service_wizard_form').id,
+                'target': 'new',
+                'context': {
+                    'default_status_log_id': self.id,
+                    'default_notes': '',
+                }
+            }
 
     def action_complete_job(self):
         self.ensure_one()
@@ -2117,6 +2203,9 @@ class HrEmployeeStatusLog(models.Model):
             self.write({
                 'job_status': 'completed',
                 'status': 'completed',
+                'is_job_stop_reason': False,
+                'pause_reason': False,
+                'pause_reason_id': False,
                 'is_timer_running': False,
                 'is_timer_paused': False,
                 'timer_last_start': False,
@@ -2528,14 +2617,18 @@ class HrEmployeeStatusLog(models.Model):
                     dept = emp.department_id if (emp and emp.department_id) else repair.department_id
                     if not dept:
                         dept = self.env['hr.department'].search([('model_ids.model', '=', 'fleet.repair.service.line')], limit=1) or self.env['hr.department'].search([], limit=1)
+                    prod_sale_price = prod.lst_price or 0.0
+                    prod_fru = prod.alloted_fru or 0
+                    line_fru = 0 if prod_sale_price > 0 else (log.alloted_fru or prod_fru or 0)
+                    line_price = prod_sale_price if prod_sale_price > 0 else (200.0 if line_fru > 0 else 0.0)
                     sline = self.env['fleet.repair.service.line'].with_context(skip_status_log_sync=True).sudo().create({
                         'repair_id': repair.id,
                         'product_id': prod.id,
                         'name': prod.name,
                         'employee_id': emp.id if emp else False,
                         'department_id': dept.id if dept else False,
-                        'unit_price': prod.list_price or 200.0,
-                        'alloted_fru': log.alloted_fru or prod.alloted_fru or 0,
+                        'unit_price': line_price,
+                        'alloted_fru': line_fru,
                     })
                 log.with_context(skip_service_line_sync=True).sudo().write({'service_line_id': sline.id})
 
@@ -2549,10 +2642,13 @@ class HrEmployeeStatusLog(models.Model):
             if log.product_id and (not sline.product_id or sline.product_id.id != log.product_id.id):
                 sline_updates['product_id'] = log.product_id.id
                 sline_updates['name'] = log.product_id.name
-                if not sline.alloted_fru and log.product_id.alloted_fru:
+                prod_sale_price = log.product_id.lst_price or 0.0
+                if prod_sale_price > 0:
+                    sline_updates['alloted_fru'] = 0
+                    sline_updates['unit_price'] = prod_sale_price
+                elif log.product_id.alloted_fru:
                     sline_updates['alloted_fru'] = log.product_id.alloted_fru
-                if log.product_id.list_price:
-                    sline_updates['unit_price'] = log.product_id.list_price
+                    sline_updates['unit_price'] = 200.0
             if log.job_id and sline.repair_id and sline.repair_id.id != log.job_id.id:
                 sline_updates['repair_id'] = log.job_id.id
 
@@ -2633,14 +2729,18 @@ class HrEmployeeStatusLog(models.Model):
                         dept = emp.department_id if (emp and emp.department_id) else (repair.department_id if repair else False)
                         if not dept:
                             dept = self.env['hr.department'].search([('model_ids.model', '=', 'fleet.repair.service.line')], limit=1) or self.env['hr.department'].search([], limit=1)
+                        prod_sale_price = prod.lst_price or 0.0
+                        prod_fru = prod.alloted_fru or 0
+                        line_fru = 0 if prod_sale_price > 0 else (vals.get('alloted_fru') or prod_fru or 0)
+                        line_price = prod_sale_price if prod_sale_price > 0 else (200.0 if line_fru > 0 else 0.0)
                         s_line = self.env['fleet.repair.service.line'].with_context(skip_status_log_sync=True).sudo().create({
                             'repair_id': repair.id,
                             'product_id': prod.id,
                             'name': prod.name,
                             'employee_id': emp.id,
                             'department_id': dept.id if dept else False,
-                            'unit_price': prod.list_price or 200.0,
-                            'alloted_fru': vals.get('alloted_fru') or prod.alloted_fru or 0,
+                            'unit_price': line_price,
+                            'alloted_fru': line_fru,
                         })
                         vals['service_line_id'] = s_line.id
 
@@ -2866,7 +2966,7 @@ class HrEmployeeStatusLog(models.Model):
             })
 
         for ro in running_other:
-            ro.action_pause_timer()
+            ro.with_context(skip_status_wizard=True).action_pause_timer()
 
         now = fields.Datetime.now()
         if not self.timer_start:
@@ -3058,6 +3158,8 @@ class HrEmployeeStatusLog(models.Model):
             vals = {
                 'status': 'assigned',
                 'job_status': 'assigned',
+                'is_job_stop_reason': False,
+                'pause_reason_id': False,
                 'is_timer_running': False,
                 'is_timer_paused': False,
                 'is_collective_timer_running': False,

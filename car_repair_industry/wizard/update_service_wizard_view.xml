@@ -4,34 +4,25 @@
         <field name="name">update.service.wizard.form</field>
         <field name="model">update.service.wizard</field>
         <field name="arch" type="xml">
-            <form string="Update Service">
+            <form string="Stop Service">
                 <sheet>
                     <field name="service_line_id" invisible="1"/>
                     <field name="status_log_id" invisible="1"/>
-                    <div class="alert alert-info d-flex align-items-center mb-3 p-3 rounded">
-                        <i class="fa fa-wrench fa-2x me-3 text-primary"/>
-                        <div>
-                            <div class="text-muted small text-uppercase fw-semibold">Service</div>
-                            <div class="fs-5 fw-bold text-dark"><field name="service_name" readonly="1" class="d-inline"/></div>
-                        </div>
-                    </div>
                     <group>
-                        <field name="action_type" widget="radio" string="What happened?" options="{'horizontal': false}"/>
-                    </group>
-                    <group invisible="action_type != 'pause'">
-                        <field name="pause_reason" widget="radio" string="Pause Reason" options="{'horizontal': false}"/>
-                        <field name="notes" string="Notes / Details" placeholder="Optional details..."/>
+                        <field name="service_name" readonly="1" string="Service Name"/>
+                        <field name="stop_reason_id" string="Stop Reason" required="1" options="{'no_create': True, 'no_create_edit': True, 'no_open': True}"/>
                     </group>
                 </sheet>
                 <footer>
-                    <button name="action_confirm" string="Confirm" type="object" class="btn-primary fw-bold"/>
+                    <button name="action_confirm" string="Stop Service" type="object" class="btn-danger fw-bold"/>
                     <button string="Cancel" class="btn-secondary" special="cancel"/>
                 </footer>
             </form>
         </field>
     </record>
+
     <record id="action_update_service_wizard" model="ir.actions.act_window">
-        <field name="name">Update Service</field>
+        <field name="name">Stop Service</field>
         <field name="res_model">update.service.wizard</field>
         <field name="view_mode">form</field>
         <field name="target">new</field>

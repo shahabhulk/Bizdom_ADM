@@ -52,8 +52,12 @@ access_hr_employee_status_log_user,hr.employee.status.log.user,model_hr_employee
 access_select_service_product_wizard,select.service.product.wizard,model_select_service_product_wizard,base.group_user,1,1,1,1
 access_select_service_product_wizard_line,select.service.product.wizard.line,model_select_service_product_wizard_line,base.group_user,1,1,1,1
 access_pause_job_wizard,pause.job.wizard,model_pause_job_wizard,base.group_user,1,1,1,1
+access_pause_service_wizard,pause.service.wizard,model_pause_service_wizard,base.group_user,1,1,1,1
 access_set_idle_wizard,set.idle.wizard,model_set_idle_wizard,base.group_user,1,1,1,1
 access_reset_employee_timers_wizard,reset.employee.timers.wizard,model_reset_employee_timers_wizard,base.group_user,1,1,1,1
 access_reset_to_assigned_wizard,reset.to.assigned.wizard,model_reset_to_assigned_wizard,base.group_user,1,1,1,1
 access_employee_timeline_history_user,employee.timeline.history.user,model_employee_timeline_history,base.group_user,1,1,1,1
 access_update_service_wizard,update.service.wizard,model_update_service_wizard,base.group_user,1,1,1,1
+access_employee_idle_reason_user,employee.idle.reason.user,model_employee_idle_reason,base.group_user,1,1,1,1
+access_job_card_idle_reason_user,job.card.idle.reason.user,model_job_card_idle_reason,base.group_user,1,1,1,1
+access_service_idle_reason_user,service.idle.reason.user,model_service_idle_reason,base.group_user,1,1,1,1

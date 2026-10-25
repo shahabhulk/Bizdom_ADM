@@ -267,6 +267,7 @@
                                         <field name="pause_reason_display" string="Status" widget="service_status_badge"
                                                optional="show"
                                                invisible="not employee_id"/>
+                                        <field name="stop_reason" string="Stop Reason" optional="show" readonly="1"/>
                                         <button name="action_pause_timer" type="object" icon="fa-pause" title="Stop"
                                                 invisible="not employee_id or not is_timer_running or parent.state in ('done', 'delivery', 'cancel', 'invoiced')"
                                                 class="btn btn-sm btn-link text-danger"/>

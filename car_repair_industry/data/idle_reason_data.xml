@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="0">
+        <!-- Employee Idle Reasons -->
+        <record id="reason_emp_no_job" model="employee.idle.reason">
+            <field name="name">No Job</field>
+            <field name="code">no_job</field>
+            <field name="sequence">10</field>
+            <field name="active" eval="True"/>
+        </record>
+        <record id="reason_emp_training" model="employee.idle.reason">
+            <field name="name">Training</field>
+            <field name="code">training</field>
+            <field name="sequence">20</field>
+            <field name="active" eval="True"/>
+        </record>
+        <record id="reason_emp_meeting" model="employee.idle.reason">
+            <field name="name">Meeting</field>
+            <field name="code">meeting</field>
+            <field name="sequence">30</field>
+            <field name="active" eval="True"/>
+        </record>
+        <record id="reason_emp_break_lunch" model="employee.idle.reason">
+            <field name="name">Break / Lunch</field>
+            <field name="code">break_lunch</field>
+            <field name="sequence">40</field>
+            <field name="active" eval="True"/>
+        </record>
+
+
+    </data>
+</odoo>

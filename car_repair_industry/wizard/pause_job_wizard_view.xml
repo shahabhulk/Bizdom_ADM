@@ -15,7 +15,7 @@
                         </div>
                     </div>
                     <group>
-                        <field name="pause_reason" widget="radio" string="Pause Reason" options="{'horizontal': false}"/>
+                        <field name="pause_reason_id" widget="radio" string="Pause Reason" options="{'horizontal': false}"/>
                     </group>
                     <group>
                         <field name="notes" string="Notes / Reason Details" placeholder="Optional: specify missing parts, customer approval details, or tools needed..."/>
